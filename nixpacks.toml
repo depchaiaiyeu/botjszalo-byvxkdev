@@ -1,5 +1,11 @@
 [build]
 packages = ["ffmpeg", "python3", "make", "g++"]
 
+[phases.build]
+cmds = [
+  "npm config set python /usr/bin/python3",
+  "npm install --omit=dev"
+]
+
 [env]
 PYTHON = "python3"
