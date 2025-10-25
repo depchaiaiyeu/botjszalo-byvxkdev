@@ -11,7 +11,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "postinstall": "mkdir -p /usr/local/bin && cp node_modules/ffmpeg-static/ffmpeg /usr/local/bin/ffmpeg || true"
+    "preinstall": "npm config set python python3"
   },
   "dependencies": {
     "@ffprobe-installer/ffprobe": "^2.1.2",
