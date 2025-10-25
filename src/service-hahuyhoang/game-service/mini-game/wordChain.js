@@ -172,7 +172,7 @@ function startTurnTimer(api, message, threadId, playerId) {
     const currentGame = currentGameData.game;
     if (currentGame.currentPlayer !== playerId) return;
     
-    await sendMessageComplete(api, message, `⏰ Hết thời gian! Người chơi không trả lời trong 60 giây.\n🚫 Người chơi đã thua, Bot thắng!`);
+    await sendMessageComplete(api, message, `🧭 Hết thời gian chờ.\nBạn không trả lời Bot trong 60 giây.\n🚫 Bạn đã thua, Bot thắng!`);
     
     getActiveGames().delete(threadId);
     botDataMap.delete(threadId);
