@@ -1,2 +1,17 @@
 [phases.setup]
-nixPkgs = ["nodejs", "ffmpeg", "python3", "gcc", "gnumake"]
+nixPkgs = [
+  "nodejs-20_x",  # dùng Node 20.x như package yêu cầu
+  "ffmpeg",
+  "python3",
+  "gcc",
+  "gnumake",
+  "pkg-config",
+  "xz",
+  "zlib"
+]
+
+[phases.install]
+cmds = ["npm install --ignore-scripts=false"]
+
+[phases.start]
+cmd = "npm start"
