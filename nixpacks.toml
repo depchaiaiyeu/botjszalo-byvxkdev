@@ -1,2 +1,5 @@
 [build]
-packages = ["ffmpeg", "python3"]
+packages = ["ffmpeg", "python3", "make", "g++"]
+
+[env]
+PYTHON = "python3"
