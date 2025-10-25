@@ -10,8 +10,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "preinstall": "npm config set python python3"
+    "start": "node src/index.js"
   },
   "dependencies": {
     "@ffprobe-installer/ffprobe": "^2.1.2",
