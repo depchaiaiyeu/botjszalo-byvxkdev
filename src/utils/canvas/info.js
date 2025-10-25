@@ -1202,7 +1202,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
     const val = groupInfo.setting ? groupInfo.setting[setting.key] || 0 : 0;
     const isEnabled = setting.inverted ? val === 0 : val === 1;
     ctx.fillStyle = isEnabled ? "#34D399" : "#EF4444";
-    ctx.fillText(isEnabled ? "✓ Bật" : "✗ Tắt", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
+    ctx.fillText(isEnabled ? "✅ Bật" : "❌ Tắt", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
     y += lineH;
   });
 
