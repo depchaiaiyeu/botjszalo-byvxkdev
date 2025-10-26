@@ -123,8 +123,12 @@ export async function handleVuaTiengVietCommand(api, message) {
       currentWord: initWord,
       shuffledWord: shuffled,
       players: new Set([message.data.uidFrom]),
-      timeoutId: null
+      timeoutId: null,
+      botAnswers: new Map(),
+      userAnswers: new Map()
     };
+    
+    game.botAnswers.set(initWord, true);
     
     getActiveGames().set(threadId, {
       type: 'vuaTiengViet',
@@ -170,6 +174,10 @@ export async function handleVuaTiengVietMessage(api, message) {
   const userAnswer = normalizeText(cleanContent);
   const correctAnswer = normalizeText(game.currentWord);
 
+  if (game.userAnswers.has(userAnswer)) {
+    return;
+  }
+
   if (userAnswer !== correctAnswer) {
     if (game.timeoutId) {
       clearTimeout(game.timeoutId);
@@ -178,6 +186,8 @@ export async function handleVuaTiengVietMessage(api, message) {
     activeGames.delete(threadId);
     return;
   }
+
+  game.userAnswers.set(userAnswer, true);
 
   if (game.timeoutId) {
     clearTimeout(game.timeoutId);
@@ -205,6 +215,7 @@ export async function handleVuaTiengVietMessage(api, message) {
 
   game.currentWord = result.nextWord;
   game.shuffledWord = shuffleWord(result.nextWord);
+  game.botAnswers.set(result.nextWord, true);
 
   startTimeout(api, message, threadId, game);
 
