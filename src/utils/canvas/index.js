@@ -6,6 +6,7 @@ export * from "./event-image.js";
 export * from "./game.js";
 export * from "./register-fonts.js";
 export * from "./bot-info.js";
+export * from "./group-info.js";
 
 import fs from "fs";
 import { deleteFile } from "../util.js";
