@@ -63,7 +63,7 @@ function startTimeout(api, message, threadId, game) {
       await sendMessageComplete(api, message, `🚫 Hết thời gian chờ (30s), bạn đã thua!\n\n🌟 Đáp án đúng là: ${game.currentWord}`);
       activeGames.delete(threadId);
     }
-  }, 30000);
+  }, 60000);
 }
 
 export async function handleVuaTiengVietCommand(api, message) {
