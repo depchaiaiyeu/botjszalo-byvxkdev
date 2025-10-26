@@ -174,7 +174,7 @@ function startPlayerTimeout(api, message, threadId, senderId) {
     const targetNumber = gameTargetNumbers.get(threadId);
     
     if (players && players.has(senderId) && targetNumber !== undefined) {
-      await sendMessageComplete(api, message, `🧭 ${message.data.dName} đã hết thời gian! Bạn đã bị loại khỏi trò chơi.`);
+      await sendMessageComplete(api, message, `🧭 ${message.data.dName} đã hết thời gian chờ (60s). Bạn đã bị loại khỏi trò chơi.`);
       
       players.delete(senderId);
       playerTimeouts.delete(timeoutKey);
@@ -183,7 +183,7 @@ function startPlayerTimeout(api, message, threadId, senderId) {
         await handleGameOver(api, message, threadId, targetNumber, true);
       }
     }
-  }, 30000);
+  }, 60000);
 
   playerTimeouts.set(timeoutKey, timeout);
 }
