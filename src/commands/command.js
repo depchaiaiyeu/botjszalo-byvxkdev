@@ -162,6 +162,7 @@ import { handleCheckHostCommand } from "../service-hahuyhoang/servises/check-hos
 import { handleAntiStickerCommand } from "../service-hahuyhoang/anti-service/anti-sticker.js";
 import { handleHH3DCommand } from "../service-hahuyhoang/api-crawl/video/yanhh3d-phim3d.js";
 import { handleKKPhimCommand } from "../service-hahuyhoang/api-crawl/video/kkphim.js";
+import { handleGoldPriceCommand } from "../service-hahuyhoang/tien-ich/gold-price.js";
 
 const lastCommandUsage = {};
 
