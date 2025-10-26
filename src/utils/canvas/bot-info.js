@@ -241,7 +241,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   resourceFields.forEach(f => {
     resourceBoxCalculatedHeight += 50;
     if (f.hasBar) {
-      resourceBoxCalculatedHeight += 30;
+      resourceBoxCalculatedHeight += 40;
     }
   });
   const resBoxHeight = resourceBoxCalculatedHeight;
@@ -358,7 +358,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.fillStyle = "#ffffff";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
     
-    yRes += 40;
+    yRes += 50;
     
     if (f.hasBar) {
       let percent = null;
@@ -374,7 +374,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
 
       if (percent !== null && !isNaN(percent)) {
         const barX = leftColumnX + 40;
-        const barY = yRes;
+        const barY = yRes - 35;
         const barW = leftColumnWidth - 80;
         const barH = 16;
         ctx.fillStyle = "rgba(255,255,255,0.2)";
@@ -389,11 +389,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barW, barH);
 
-        yRes += 30;
+        yRes += 40;
       }
     }
-    
-    yRes += 10;
   });
 
   const netBoxY = resBoxY + resBoxHeight + 30;
