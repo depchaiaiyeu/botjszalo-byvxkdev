@@ -603,6 +603,215 @@ export async function createUserCardGame(playerInfo) {
   });
 }
 
+export async function createGroupInfoImage(groupInfo, owner) {
+  const { lines: nameLines, totalLines: nameTotalLines } = handleNameLong(
+    groupInfo.name
+  );
+  const width = 930;
+  let yTemp = 300;
+
+  if (nameTotalLines > 1) {
+    yTemp += 32 * (nameTotalLines - 1);
+  }
+
+  let bioLinesArray = [];
+
+  if (groupInfo.desc !== "") {
+    const bioLines = [...groupInfo.desc.split("\n")];
+    const lineHeight = 32;
+    yTemp += 20;
+
+    bioLines.forEach((line, index) => {
+      const { lines: bioLines, totalLines: bioTotalLines } = handleNameLong(
+        line,
+        56
+      );
+      bioLines.forEach((bioLine) => {
+        bioLinesArray.push(bioLine);
+      });
+      yTemp += bioTotalLines * lineHeight;
+    });
+  }
+
+  yTemp += 30;
+  const height = yTemp > 300 ? yTemp : 300;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  // Áp dụng nền động và gradient
+  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
+  backgroundGradient.addColorStop(0, "#0A0A0A"); // Đen đậm hơn (gần như đen thuần)
+  backgroundGradient.addColorStop(1, "#121212"); // Đen đậm hơn nhưng có chút sắc xám
+  ctx.fillStyle = backgroundGradient;
+  ctx.fillRect(0, 0, width, height);
+
+  let xAvatar = 160;
+  let widthAvatar = 160;
+  let heightAvatar = 160;
+  let yAvatar = 100; // Đặt yAvatar cố định là 100
+  let yA1 = height / 2 - heightAvatar / 2 - yAvatar; // Tính toán lại yA1
+  let yBottom = 0;
+
+  if (groupInfo && cv.isValidUrl(groupInfo.avt)) {
+    try {
+      const avatar = await loadImage(groupInfo.avt);
+
+      // Vẽ vòng tròn 7 màu cầu vồng
+      const borderWidth = 10;
+      const gradient = ctx.createLinearGradient(
+        xAvatar - widthAvatar / 2 - borderWidth,
+        yAvatar - borderWidth,
+        xAvatar + widthAvatar / 2 + borderWidth,
+        yAvatar + heightAvatar + borderWidth
+      );
+
+      const rainbowColors = [
+        "#FF0000", // Đỏ
+        "#FF7F00", // Cam
+        "#FFFF00", // Vàng
+        "#00FF00", // Lục
+        "#0000FF", // Lam
+        "#4B0082", // Chàm
+        "#9400D3", // Tím
+      ];
+
+      // Xáo trộn mảng màu sắc
+      const shuffledColors = [...rainbowColors].sort(() => Math.random() - 0.5);
+
+      // Thêm các màu vào gradient
+      shuffledColors.forEach((color, index) => {
+        gradient.addColorStop(index / (shuffledColors.length - 1), color);
+      });
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(
+        xAvatar,
+        yAvatar + heightAvatar / 2,
+        widthAvatar / 2 + borderWidth,
+        0,
+        Math.PI * 2,
+        true
+      );
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Vẽ avatar
+      ctx.beginPath();
+      ctx.arc(
+        xAvatar,
+        yAvatar + heightAvatar / 2,
+        widthAvatar / 2,
+        0,
+        Math.PI * 2,
+        true
+      );
+      ctx.clip();
+      ctx.drawImage(
+        avatar,
+        xAvatar - widthAvatar / 2,
+        yAvatar,
+        widthAvatar,
+        heightAvatar
+      );
+      ctx.restore();
+
+      // Vẽ tên group dưới avatar
+      ctx.font = "bold 32px BeVietnamPro";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "center";
+      const nameY = yAvatar + heightAvatar + 48;
+      yBottom = nameY;
+
+      const lineHeight = 28;
+      nameLines.forEach((line, index) => {
+        ctx.font = "bold 24px BeVietnamPro";
+        ctx.fillText(line, xAvatar, nameY + index * lineHeight);
+        yBottom = nameY + index * lineHeight;
+      });
+
+      yBottom += 38;
+    } catch (error) {
+      console.error("Lỗi load avatar:", error);
+    }
+  }
+
+  let y1 = 52;
+
+  const groupType = groupInfo.groupType
+    ? groupInfo.groupType === 2
+      ? "Cộng Đồng"
+      : "Nhóm"
+    : "Nhóm";
+  ctx.textAlign = "center";
+  ctx.font = "bold 48px BeVietnamPro";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText(`Card Group`, width / 2, y1);
+
+  // Sau khi vẽ tên và biểu tượng
+  const nameWidth = ctx.measureText(nameLines[0]).width;
+  const infoStartX = Math.max(
+    xAvatar + widthAvatar / 2 + 60,
+    xAvatar + nameWidth / 2 - 40
+  );
+
+  ctx.textAlign = "left";
+  let y = y1 + 52;
+
+  // Danh sách các trường thông tin cần hiển thị
+  const fields = [
+    { label: `🔢 ID`, value: groupInfo.groupId },
+    { label: `👑 Trưởng Nhóm`, value: owner.name },
+    { label: "👥 Số thành viên", value: groupInfo.memberCount },
+    { label: `🕰️ Ngày tạo`, value: groupInfo.createdTime },
+    { label: "🏷️ Phân Loại", value: groupType },
+  ];
+
+  ctx.font = "bold 28px BeVietnamPro";
+  for (const field of fields) {
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
+    const labelText = field.label + ":";
+    const labelWidth = ctx.measureText(labelText).width;
+    ctx.fillText(labelText, infoStartX, y);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(" " + field.value, infoStartX + labelWidth, y);
+    y += 48;
+  }
+
+  if (groupInfo.desc !== "") {
+    ctx.textAlign = "center";
+    ctx.font = "bold 24px BeVietnamPro";
+
+    // Vẽ đường thẳng màu trắng
+    ctx.beginPath();
+    ctx.moveTo(width * 0.05, yBottom - 20);
+    ctx.lineTo(width * 0.95, yBottom - 20);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    yBottom += 25; // Tăng y để tạo khoảng cách giữa đường thẳng và bio
+    const lineHeight = 32;
+
+    bioLinesArray.forEach((line, index) => {
+      const lineGradient = cv.getRandomGradient(ctx, width);
+      ctx.fillStyle = lineGradient;
+
+      ctx.fillText(line, width / 2, yBottom);
+      yBottom += lineHeight;
+    });
+  }
+
+  const filePath = path.resolve(`./assets/temp/group_info_${Date.now()}.png`);
+  const out = fs.createWriteStream(filePath);
+  const stream = canvas.createPNGStream();
+  stream.pipe(out);
+  return new Promise((resolve, reject) => {
+    out.on("finish", () => resolve(filePath));
+    out.on("error", reject);
+  });
+}
+
 export async function createAdminListImage(highLevelAdmins, groupAdmins, outputPath) {
   const width = 800;
   const headerHeight = 180;
@@ -750,7 +959,7 @@ export async function createWhiteListImage(whiteListUsers, outputPath) {
 
   ctx.font = "bold 32px BeVietnamPro";
   ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-  ctx.fillText("Danh Sách Trắng", width / 2, 130);
+  ctx.fillText("Người Dùng Được Phép", width / 2, 130);
 
   let currentY = headerHeight + padding;
   let itemNumber = 1;
