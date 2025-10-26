@@ -77,9 +77,8 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
     { label: "🏷️ Phân Loại:", value: groupType },
   ];
 
-  const adminFields = [
+  const statusFields = [
     { label: "👮 Số quản trị viên:", value: (groupInfo.adminIds?.length || 0).toString() },
-    { label: "🌐 Global ID:", value: groupInfo.globalId || "N/A" },
     { label: "🔐 Trạng thái:", value: groupInfo.setting ? "Hoạt động" : "Không hoạt động" },
   ];
 
@@ -92,7 +91,7 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
   const tempCtx = tempCanvas.getContext("2d");
 
   let maxLeftWidth = 0;
-  [basicFields, adminFields, descriptionFields].forEach(fields => {
+  [basicFields, statusFields, descriptionFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
       maxLeftWidth = Math.max(maxLeftWidth, textWidth);
@@ -110,8 +109,8 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
 
   const rightColumnWidth = onConfigs.length > 0 || offConfigs.length > 0 
     ? (onConfigs.length > 0 && offConfigs.length > 0 
-        ? Math.max(650, maxConfigWidth * 2 + 180) 
-        : Math.max(450, maxConfigWidth + 120))
+        ? Math.max(700, maxConfigWidth * 2 + 180) 
+        : Math.max(500, maxConfigWidth + 120))
     : 0;
 
   width = rightColumnWidth > 0 ? leftColumnWidth + rightColumnWidth + 120 : leftColumnWidth + 120;
@@ -119,7 +118,7 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
   const headerH = 220;
   const headerY = 30;
   const basicBoxHeight = basicFields.length * 50 + 100;
-  const adminBoxHeight = adminFields.length * 50 + 100;
+  const statusBoxHeight = statusFields.length * 50 + 100;
   const descBoxHeight = descriptionFields.length * 50 + 100;
 
   const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 
@@ -129,11 +128,11 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
       : offConfigs.length;
   const cfgBoxHeight = onConfigs.length > 0 || offConfigs.length > 0
     ? (onConfigs.length > 0 && offConfigs.length > 0 
-        ? maxConfigItems * 40 + 130 
-        : maxConfigItems * 55 + 140)
+        ? maxConfigItems * 45 + 150 
+        : maxConfigItems * 50 + 150)
     : 0;
 
-  const leftColumnHeight = basicBoxHeight + adminBoxHeight + descBoxHeight + 90;
+  const leftColumnHeight = basicBoxHeight + statusBoxHeight + descBoxHeight + 90;
   const rightColumnHeight = cfgBoxHeight > 0 ? cfgBoxHeight + 60 : 0;
   height = Math.max(headerY + headerH + 30 + leftColumnHeight, headerY + headerH + 30 + rightColumnHeight) + 90;
 
@@ -227,24 +226,26 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillText(f.label, leftColumnX + 40, yBasic);
     ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yBasic);
     yBasic += lineHeight;
   });
 
-  const adminBoxY = basicBoxY + basicBoxHeight + 30;
-  drawBox(ctx, leftColumnX, adminBoxY, leftColumnWidth, adminBoxHeight, "Admin Info");
-  let yAdmin = adminBoxY + 100;
-  adminFields.forEach(f => {
+  const statusBoxY = basicBoxY + basicBoxHeight + 30;
+  drawBox(ctx, leftColumnX, statusBoxY, leftColumnWidth, statusBoxHeight, "Status Info");
+  let yStatus = statusBoxY + 100;
+  statusFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillText(f.label, leftColumnX + 40, yAdmin);
+    ctx.fillText(f.label, leftColumnX + 40, yStatus);
     ctx.textAlign = "right";
-    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yAdmin);
-    yAdmin += lineHeight;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yStatus);
+    yStatus += lineHeight;
   });
 
-  const descBoxY = adminBoxY + adminBoxHeight + 30;
+  const descBoxY = statusBoxY + statusBoxHeight + 30;
   drawBox(ctx, leftColumnX, descBoxY, leftColumnWidth, descBoxHeight, "Description");
   let yDesc = descBoxY + 100;
   descriptionFields.forEach(f => {
@@ -260,7 +261,7 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
     yDesc += lineHeight;
   });
 
-  if (rightColumnWidth > 0) {
+  if (rightColumnWidth > 0 && (onConfigs.length > 0 || offConfigs.length > 0)) {
     const rightColumnX = leftColumnX + leftColumnWidth + 30;
     const configY = basicBoxY;
     drawBox(ctx, rightColumnX, configY, rightColumnWidth, cfgBoxHeight, "Group Settings");
@@ -272,34 +273,34 @@ export async function createGroupInfoImage(groupInfo, owner, onConfigs = [], off
       drawVerticalDivider(ctx, dividerX, configY, cfgBoxHeight);
     }
 
-    let yOff = configY + 80;
+    let yOff = configY + 90;
     if (offConfigs.length > 0) {
       ctx.fillStyle = "#FF6B6B";
-      ctx.font = onConfigs.length === 0 ? "bold 30px BeVietnamPro" : "bold 26px BeVietnamPro";
+      ctx.font = onConfigs.length === 0 ? "bold 32px BeVietnamPro" : "bold 28px BeVietnamPro";
       ctx.textAlign = "left";
       ctx.fillText("Đang tắt:", leftColX, yOff);
-      yOff += 40;
+      yOff += 50;
       ctx.font = onConfigs.length === 0 ? "bold 26px BeVietnamPro" : "bold 22px BeVietnamPro";
       offConfigs.forEach(line => {
         ctx.fillStyle = "#ffffff";
         ctx.fillText(`${line}`, leftColX, yOff);
-        yOff += 40;
+        yOff += onConfigs.length === 0 ? 50 : 45;
       });
     }
 
-    let yOn = configY + 80;
+    let yOn = configY + 90;
     if (onConfigs.length > 0) {
       ctx.fillStyle = "#4ECB71";
-      ctx.font = "bold 26px BeVietnamPro";
+      ctx.font = "bold 28px BeVietnamPro";
       ctx.textAlign = "left";
       const titleX = offConfigs.length === 0 ? rightColumnX + rightColumnWidth / 2 : rightColX;
       ctx.fillText("Đang bật:", titleX, yOn);
-      yOn += 40;
+      yOn += 50;
       ctx.font = "bold 22px BeVietnamPro";
       onConfigs.forEach(line => {
         ctx.fillStyle = "#ffffff";
         ctx.fillText(`${line}`, titleX, yOn);
-        yOn += 40;
+        yOn += 45;
       });
     }
   }
