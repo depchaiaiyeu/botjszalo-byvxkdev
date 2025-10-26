@@ -1337,6 +1337,9 @@ export async function handleCommand(
               case "getmessage":
                 await handleGetMessageCommand (api, message);
                 break;
+              case "giavang":
+                await handleGoldPriceCommand (api, message);
+                break;
               case "call":
                 await spamCallInGroup (api, message, aliasCommand);
                 break;
