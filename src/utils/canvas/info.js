@@ -1003,14 +1003,14 @@ export async function createGroupInfoImage(groupInfo, owner) {
   const descLines = Math.max(bioLinesArray.length, 1);
   const descH = titleH + descLines * lineH + padding * 2;
   const settingsList = [
-    { key: 'blockName', label: 'Chặn đổi thông tin nhóm:', inverted: false },
+    { key: 'blockName', label: 'Quyền đổi thông tin nhóm:', inverted: false },
     { key: 'signAdminMsg', label: 'Làm nổi tin nhắn từ admin:', inverted: false },
-    { key: 'addMemberOnly', label: 'Chỉ admin được thêm thành viên:', inverted: false },
-    { key: 'setTopicOnly', label: 'Chỉ quản trị viên đặt chủ đề', inverted: true },
-    { key: 'enableMsgHistory', label: 'Xem lịch sử tin nhắn:', inverted: false },
+    { key: 'addMemberOnly', label: 'Quyền thêm thành viên:', inverted: false },
+    { key: 'setTopicOnly', label: 'Quyền tạo chủ đề', inverted: true },
+    { key: 'enableMsgHistory', label: 'Quyền xem lịch sử tin nhắn:', inverted: false },
     { key: 'lockCreatePost', label: 'Quyền tạo bài viết:', inverted: false },
     { key: 'lockCreatePoll', label: 'Quyền tạo bình chọn:', inverted: false },
-    { key: 'joinAppr', label: 'Duyệt thành viên:', inverted: false },
+    { key: 'joinAppr', label: 'Quyền duyệt thành viên:', inverted: false },
     { key: 'lockSendMsg', label: 'Quyền gửi tin nhắn:', inverted: false },
     { key: 'lockViewMember', label: 'Quyền xem thành viên:', inverted: false },
   ];
@@ -1202,7 +1202,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
     const val = groupInfo.setting ? groupInfo.setting[setting.key] || 0 : 0;
     const isEnabled = setting.inverted ? val === 0 : val === 1;
     //ctx.fillStyle = isEnabled ? "#34D399" : "#EF4444";
-    ctx.fillText(isEnabled ? "👤 Admin" : "👥 Thành viên", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
+    ctx.fillText(isEnabled ? "Chỉ admin" : "Thành viên", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
     y += lineH;
   });
 
