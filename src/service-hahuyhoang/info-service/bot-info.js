@@ -6,7 +6,6 @@ import { join } from "path";
 import { getBotId } from "../../index.js";
 import { getUserInfoData } from "./user-info.js";
 import { createBotInfoImage, clearImagePath } from "../../utils/canvas/index.js";
-import { getNameServer } from "../../database/index.js";
 
 export async function getBotDetails(api, message, groupSettings = {}) {
   const threadId = message.threadId;
@@ -43,7 +42,6 @@ export async function getBotDetails(api, message, groupSettings = {}) {
     ram: `${usedRam} GB / ${totalRam} GB (Free ${freeRam} GB)`,
     cpuModel: os.cpus()[0].model,
     disk: diskUsage,
-    name: getNameServer(),
   };
 
   let imagePath = null;
