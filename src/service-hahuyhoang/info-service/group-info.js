@@ -102,7 +102,7 @@ export async function getDataAllGroup(api) {
   }
 }
 
-function getConfigStatus(threadId, groupSettings) {
+export async function getConfigStatus(threadId, groupSettings) {
   const settings = groupSettings[threadId] || {};
   const onConfigs = [];
   const offConfigs = [];
@@ -122,7 +122,7 @@ function getConfigStatus(threadId, groupSettings) {
   return { onConfigs, offConfigs };
 }
 
-function getSettingEmoji(settingKey) {
+export async function getSettingEmoji(settingKey) {
   const emojiMap = {
     antiSpam: "🔰",
     removeLinks: "🔗",
@@ -150,7 +150,7 @@ function getSettingEmoji(settingKey) {
   return emojiMap[settingKey] || "⚙️";
 }
 
-function getSettingName(settingKey) {
+export async function getSettingName(settingKey) {
   const nameMap = {
     activeBot: "Tương tác với thành viên",
     activeGame: "Xử lý tương tác trò chơi",
