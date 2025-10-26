@@ -1,9 +1,10 @@
 import { sendMessageFromSQL, sendMessageFailed, sendMessageQuery } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import axios from 'axios';
 
 export async function handleGoldPriceCommand(api, message) {
   try {
-    const response = await fetch('https://sjc.com.vn/GoldPrice/Services/PriceService.ashx');
-    const data = await response.json();
+    const response = await axios.get('https://sjc.com.vn/GoldPrice/Services/PriceService.ashx');
+    const data = response.data;
 
     if (!data.success) {
       await sendMessageFailed(api, message, "Không thể lấy dữ liệu giá vàng!");
