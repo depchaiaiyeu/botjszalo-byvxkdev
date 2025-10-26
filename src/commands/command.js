@@ -1056,11 +1056,11 @@ export async function handleCommand(
                 break;
 
               case "group":
-                await groupInfoCommand(api, message, groupSettings);
+                await groupInfoCommand(api, message);
                 break;
 
               case "detail":
-                await getBotDetails(api, message);
+                await getBotDetails(api, message, groupSettings);
                 break;
               case "info":
                 await userInfoCommand(api, message, aliasCommand);
