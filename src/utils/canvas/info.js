@@ -1003,16 +1003,16 @@ export async function createGroupInfoImage(groupInfo, owner) {
   const descLines = Math.max(bioLinesArray.length, 1);
   const descH = titleH + descLines * lineH + padding * 2;
   const settingsList = [
-    { key: 'blockName', label: 'Chặn đổi tên', inverted: false },
-    { key: 'signAdminMsg', label: 'Ký tên quản trị viên', inverted: false },
-    { key: 'addMemberOnly', label: 'Chỉ quản trị viên thêm thành viên', inverted: false },
+    { key: 'blockName', label: 'Chặn đổi thông tin nhóm:', inverted: false },
+    { key: 'signAdminMsg', label: 'Làm nổi tin nhắn từ admin:', inverted: false },
+    { key: 'addMemberOnly', label: 'Chỉ admin được thêm thành viên:', inverted: false },
     { key: 'setTopicOnly', label: 'Chỉ quản trị viên đặt chủ đề', inverted: true },
-    { key: 'enableMsgHistory', label: 'Lịch sử tin nhắn', inverted: false },
-    { key: 'lockCreatePost', label: 'Khóa tạo bài viết', inverted: false },
-    { key: 'lockCreatePoll', label: 'Khóa tạo bình chọn', inverted: false },
-    { key: 'joinAppr', label: 'Phê duyệt tham gia', inverted: false },
-    { key: 'lockSendMsg', label: 'Khóa gửi tin nhắn', inverted: false },
-    { key: 'lockViewMember', label: 'Khóa xem thành viên', inverted: false },
+    { key: 'enableMsgHistory', label: 'Xem lịch sử tin nhắn:', inverted: false },
+    { key: 'lockCreatePost', label: 'Quyền tạo bài viết:', inverted: false },
+    { key: 'lockCreatePoll', label: 'Quyền tạo bình chọn:', inverted: false },
+    { key: 'joinAppr', label: 'Duyệt thành viên:', inverted: false },
+    { key: 'lockSendMsg', label: 'Quyền gửi tin nhắn:', inverted: false },
+    { key: 'lockViewMember', label: 'Quyền xem thành viên:', inverted: false },
   ];
   const settingsLines = settingsList.length;
   const settingsH = titleH + settingsLines * lineH + padding * 2;
@@ -1094,7 +1094,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
   ctx.fillStyle = nameGradient;
   ctx.textAlign = "left";
   const maxNameWidthAdjusted = width - (xAvatar + avatarSize + 20 + padding);
-  const wrappedName = wrapText(ctx, `★ ${groupInfo.name || 'Unnamed Group'}`, maxNameWidthAdjusted);
+  const wrappedName = wrapText(ctx, `${groupInfo.name || 'Unnamed Group'}`, maxNameWidthAdjusted);
   wrappedName.forEach((line, index) => {
     ctx.fillText(line, xAvatar + avatarSize + 20, yAvatar + 50 + (index * 40));
   });
@@ -1119,7 +1119,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
   infoGradient.addColorStop(1, "#FFFF00");
   ctx.fillStyle = infoGradient;
   ctx.textAlign = "center";
-  ctx.fillText("Group Info", leftX + boxW / 2, boxY + 30);
+  ctx.fillText("Thông tin nhóm", leftX + boxW / 2, boxY + 30);
   ctx.restore();
 
   ctx.textAlign = "left";
@@ -1132,7 +1132,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
     `👥 Thành viên: ${groupInfo.memberCount || 0}`,
     `📅 Ngày tạo: ${groupInfo.createdTime || 'N/A'}`,
     `🏷️ Loại: ${groupType}`,
-    `👑 Quản trị: ${adminCount}`,
+    `👑 Quản trị viên: ${adminCount}`,
   ];
   infoFields.forEach((field) => {
     const fieldGradient = ctx.createLinearGradient(0, y, width, y);
@@ -1201,8 +1201,8 @@ export async function createGroupInfoImage(groupInfo, owner) {
     ctx.fillText(setting.label, rightX + 20, y);
     const val = groupInfo.setting ? groupInfo.setting[setting.key] || 0 : 0;
     const isEnabled = setting.inverted ? val === 0 : val === 1;
-    ctx.fillStyle = isEnabled ? "#34D399" : "#EF4444";
-    ctx.fillText(isEnabled ? "✅ Bật" : "❌ Tắt", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
+    //ctx.fillStyle = isEnabled ? "#34D399" : "#EF4444";
+    ctx.fillText(isEnabled ? "👤 Admin" : "👥 Thành viên", rightX + 20 + ctx.measureText(setting.label).width + 10, y);
     y += lineH;
   });
 
