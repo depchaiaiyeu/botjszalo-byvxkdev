@@ -4,7 +4,6 @@ import path from "path";
 import * as cv from "./index.js";
 import os from "os";
 import fsPromises from "fs/promises";
-import { networkInterfaces } from "os";
 import si from "systeminformation";
 import disk from "diskusage";
 
@@ -131,28 +130,13 @@ async function getLoadAverage() {
   }
 }
 
-async function getRunningProcesses() {
+async function getBattery() {
   try {
-    const processes = await si.processes();
-    return processes.all.toString();
-  } catch {
-    if (os.platform() !== "win32") {
-      try {
-        return (await fsPromises.readdir("/proc")).filter(dir => /^\d+$/.test(dir)).length.toString();
-      } catch {
-        return "N/A";
-      }
-    }
-    return "N/A";
-  }
-}
-
-async function getTerminal() {
-  try {
-    if (os.platform() === "win32") {
-      return process.env.ComSpec || "cmd.exe"; 
+    const bat = await si.battery();
+    if (bat.hasBattery) {
+      return `${bat.percent.toFixed(1)}% ${bat.isCharging ? '(Charging)' : '(Discharging)'}`;
     } else {
-      return process.env.SHELL || "Unknown";
+      return "N/A";
     }
   } catch {
     return "N/A";
@@ -164,32 +148,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   let height = 0;
 
   const loadAverage = await getLoadAverage();
-  const runningProcesses = await getRunningProcesses();
-  const kernelVersion = os.release();
-  const hostname = os.hostname();
-  const terminal = await getTerminal();
   const osVersion = await getWindowsVersion();
-  const cpuTemp = botStats.cpuTemp || await getCpuTemp();
-  const diskUsage = botStats.disk || await getDiskUsage();
-  const diskTotal = await getDiskTotal();
-  const networkUsage = await getNetworkUsage();
-  const currentLoad = await si.currentLoad();
-  const cpuUsage = botStats.cpu || currentLoad.currentLoad.toFixed(1) + "%";
-  const uptimeOS = botStats.uptimeOS || formatUptime(os.uptime());
   const totalMemory = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-  const ramUsage = botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-
-  const interfaces = networkInterfaces();
-  let ipv4 = "Unknown";
-  for (const iface of Object.values(interfaces)) {
-    if (!iface) continue;
-    const addr = iface.find(a => a.family === "IPv4" && !a.internal);
-    if (addr) {
-      ipv4 = addr.address;
-      break;
-    }
-  }
+  const diskTotal = await getDiskTotal();
+  const networkUsage = await getNetworkUsage();
+  const battery = await getBattery();
+  const platform = os.platform();
+  const arch = os.arch();
+  const username = os.userInfo().username || "Unknown";
+  const homedir = path.basename(os.homedir());
 
   const systemFields = [
     { label: "🔢 Phiên bản:", value: botStats.version || "Unknown" },
@@ -198,34 +166,34 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     { label: "📀 OS Version:", value: osVersion },
     { label: "🖥️ CPU Model:", value: botStats.cpuModel || os.cpus()[0]?.model || "Unknown" },
     { label: "🔢 CPU Count:", value: os.cpus().length.toString() },
-    { label: "⚡ CPU Usage:", value: cpuUsage },
-    { label: "🔢 Up Time OS:", value: uptimeOS },
+    { label: "⚡ CPU Usage:", value: botStats.cpu || (await si.currentLoad()).currentLoad.toFixed(1) + "%" },
+    { label: "🔢 Up Time OS:", value: botStats.uptimeOS || formatUptime(os.uptime()) },
     { label: "💿 Total Memory:", value: totalMemory },
   ];
 
   const resourceFields = [
-    { label: "🌡️ CPU Temp:", value: cpuTemp },
-    { label: "📈 RAM Usage:", value: ramUsage },
+    { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || await getCpuTemp() },
+    { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB` },
     { label: "💿 Free Memory:", value: freeMemory },
-    { label: "💽 Disk Usage:", value: diskUsage },
+    { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()) },
     { label: "💽 Disk Total:", value: diskTotal },
-    { label: "🌐 Network:", value: botStats.network || networkUsage },
     { label: "📊 Load Average:", value: loadAverage },
   ];
 
-  const networkFields = [
-    { label: "🌐 IP Address:", value: ipv4 },
-    { label: "🔄 Processes:", value: runningProcesses },
-    { label: "🏠 Hostname:", value: hostname },
-    { label: "🛠️ Kernel:", value: kernelVersion },
-    { label: "💻 Terminal:", value: terminal }
+  const miscFields = [
+    { label: "💻 Platform:", value: platform },
+    { label: "🏗️ Architecture:", value: arch },
+    { label: "👤 Username:", value: username },
+    { label: "🏠 Home:", value: homedir },
+    { label: "🔋 Battery:", value: battery },
+    { label: "🌐 Network:", value: botStats.network || networkUsage },
   ];
 
   const tempCanvas = createCanvas(1, 1);
   const tempCtx = tempCanvas.getContext("2d");
 
   let maxLeftWidth = 0;
-  [systemFields, resourceFields, networkFields].forEach(fields => {
+  [systemFields, resourceFields, miscFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
       maxLeftWidth = Math.max(maxLeftWidth, textWidth);
@@ -238,10 +206,10 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const headerH = 220;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 80 + 100;
-  const netBoxHeight = networkFields.length * 50 + 100;
+  const resBoxHeight = resourceFields.length * 50 + 100;
+  const miscBoxHeight = miscFields.length * 50 + 100;
 
-  const leftColumnHeight = sysBoxHeight + resBoxHeight + netBoxHeight + 90;
+  const leftColumnHeight = sysBoxHeight + resBoxHeight + miscBoxHeight + 90;
   height = headerY + headerH + 30 + leftColumnHeight + 90;
 
   const canvas = createCanvas(width, height);
@@ -332,7 +300,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const resBoxY = sysBoxY + sysBoxHeight + 30;
   drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage");
   let yRes = resBoxY + 100;
-  const resLineHeight = 80;
   resourceFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
@@ -340,49 +307,20 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.fillText(f.label, leftColumnX + 40, yRes);
     ctx.textAlign = "right";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
-    let percent = null;
-    if (f.label.includes("CPU") && f.value.includes("%")) {
-      percent = parseFloat(f.value.replace("%", "").trim());
-    } else if (f.label.includes("RAM") && f.value.match(/(\d+(\.\d+)?)/g)) {
-      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
-      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
-    } else if (f.label.includes("Disk") && f.value.match(/(\d+(\.\d+)?)/g)) {
-      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
-      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
-    }
-
-    if (percent !== null && !isNaN(percent)) {
-      const barX = leftColumnX + 40;
-      const barY = yRes + 35;
-      const barW = leftColumnWidth - 80;
-      const barH = 16;
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillRect(barX, barY, barW, barH);
-      const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
-      grad.addColorStop(0, "#4ECB71");
-      grad.addColorStop(1, "#1E90FF");
-      ctx.fillStyle = grad;
-      ctx.fillRect(barX, barY, (percent / 100) * barW, barH);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(barX, barY, barW, barH);
-    }
-
-    yRes += resLineHeight;
+    yRes += lineHeight;
   });
 
-  const netBoxY = resBoxY + resBoxHeight + 30;
-  drawBox(ctx, leftColumnX, netBoxY, leftColumnWidth, netBoxHeight, "Bash Info");
-  let yNet = netBoxY + 100;
-  networkFields.forEach(f => {
+  const miscBoxY = resBoxY + resBoxHeight + 30;
+  drawBox(ctx, leftColumnX, miscBoxY, leftColumnWidth, miscBoxHeight, "Misc Info");
+  let yMisc = miscBoxY + 100;
+  miscFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillText(f.label, leftColumnX + 40, yNet);
+    ctx.fillText(f.label, leftColumnX + 40, yMisc);
     ctx.textAlign = "right";
-    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yNet);
-    yNet += lineHeight;
+    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yMisc);
+    yMisc += lineHeight;
   });
 
   const filePath = path.resolve(`./assets/temp/bot_info_${Date.now()}.png`);
