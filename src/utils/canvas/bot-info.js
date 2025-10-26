@@ -29,15 +29,6 @@ function drawBox(ctx, x, y, w, h, title) {
   ctx.fillText(title, x + w / 2, y + 45);
 }
 
-function drawVerticalDivider(ctx, x, y, h) {
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x, y + 60);
-  ctx.lineTo(x, y + h - 60);
-  ctx.stroke();
-}
-
 function measureTextWidth(ctx, text, font) {
   ctx.font = font;
   return ctx.measureText(text).width;
@@ -156,19 +147,22 @@ async function getRunningProcesses() {
   }
 }
 
-async function getTerminal() {
-  try {
-    if (os.platform() === "win32") {
-      return process.env.ComSpec || "cmd.exe"; 
-    } else {
-      return process.env.SHELL || "Unknown";
-    }
-  } catch {
-    return "N/A";
-  }
+async function getPlatform() {
+  const platformMap = {
+    'win32': 'Windows',
+    'darwin': 'macOS',
+    'linux': 'Linux',
+    'freebsd': 'FreeBSD',
+    'openbsd': 'OpenBSD'
+  };
+  return platformMap[os.platform()] || os.platform();
 }
 
-export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, offConfigs) {
+async function getArchitecture() {
+  return os.arch();
+}
+
+export async function createBotInfoImage(botInfo, uptime, botStats) {
   let width = 1400;
   let height = 0;
 
@@ -176,7 +170,8 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const runningProcesses = await getRunningProcesses();
   const kernelVersion = os.release();
   const hostname = os.hostname();
-  const terminal = await getTerminal();
+  const platform = await getPlatform();
+  const architecture = await getArchitecture();
 
   const interfaces = networkInterfaces();
   let ipv4 = "Unknown";
@@ -217,18 +212,20 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     { label: "📊 Load Average:", value: loadAverage },
   ];
 
-  const networkFields = [
+  const systemInfoFields = [
     { label: "🔄 Processes:", value: runningProcesses },
     { label: "🏠 Hostname:", value: hostname },
     { label: "🛠️ Kernel:", value: kernelVersion },
-    { label: "💻 Terminal:", value: terminal }
+    { label: "💻 Platform:", value: platform },
+    { label: "🏗️ Architecture:", value: architecture },
+    { label: "🌐 IPv4:", value: ipv4 }
   ];
 
   const tempCanvas = createCanvas(1, 1);
   const tempCtx = tempCanvas.getContext("2d");
 
   let maxLeftWidth = 0;
-  [systemFields, resourceFields, networkFields].forEach(fields => {
+  [systemFields, resourceFields, systemInfoFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
       maxLeftWidth = Math.max(maxLeftWidth, textWidth);
@@ -236,29 +233,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   });
 
   const leftColumnWidth = Math.max(500, maxLeftWidth + 120);
+  width = leftColumnWidth + 120;
 
-  let maxConfigWidth = 0;
-  let configItemsForMeasure = onConfigs.length > 0 && offConfigs.length > 0 ? [...onConfigs, ...offConfigs] : onConfigs.length > 0 ? onConfigs : offConfigs;
-  configItemsForMeasure.forEach(line => {
-    const textWidth = measureTextWidth(tempCtx, `${line}: ✅`, "bold 22px BeVietnamPro");
-    maxConfigWidth = Math.max(maxConfigWidth, textWidth);
-  });
-
-  const rightColumnWidth = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(650, maxConfigWidth * 2 + 180) : Math.max(450, maxConfigWidth + 120);
-  width = leftColumnWidth + rightColumnWidth + 120;
-
-  const headerH = 220;
+  const headerH = 180;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 50 + 100;
-  const netBoxHeight = networkFields.length * 50 + 100;
-
-  const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(onConfigs.length, offConfigs.length) : onConfigs.length > 0 ? onConfigs.length : offConfigs.length;
-  const cfgBoxHeight = onConfigs.length > 0 && offConfigs.length > 0 ? maxConfigItems * 40 + 130 : maxConfigItems * 55 + 140;
+  const resBoxHeight = resourceFields.length * 60 + 150;
+  const netBoxHeight = systemInfoFields.length * 50 + 100;
 
   const leftColumnHeight = sysBoxHeight + resBoxHeight + netBoxHeight + 90;
-  const rightColumnHeight = cfgBoxHeight + 60;
-  height = Math.max(headerY + headerH + 30 + leftColumnHeight, headerY + headerH + 30 + rightColumnHeight) + 90;
+  height = headerY + headerH + 30 + leftColumnHeight + 90;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -295,12 +279,21 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   ctx.fillStyle = metallicGradient;
   ctx.fillRect(0, 0, width, height);
 
-  drawBox(ctx, 60, headerY, width - 120, headerH, "Bot Overview");
+  const boxGradient = ctx.createLinearGradient(60, headerY, 60, headerY + headerH);
+  boxGradient.addColorStop(0, "rgba(0, 0, 0, 0.55)");
+  boxGradient.addColorStop(1, "rgba(0, 0, 0, 0.35)");
+  ctx.fillStyle = boxGradient;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(60, headerY, width - 120, headerH, 16);
+  ctx.fill();
+  ctx.stroke();
 
   if (botInfo && cv.isValidUrl(botInfo.avatar)) {
     try {
       const avatar = await loadImage(botInfo.avatar);
-      const size = 140;
+      const size = 120;
       const cx = 150;
       const cy = headerY + headerH / 2;
       const grad = ctx.createLinearGradient(cx - size/2, cy - size/2, cx + size/2, cy + size/2);
@@ -324,10 +317,10 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   ctx.textAlign = "left";
   ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
   ctx.font = "bold 48px BeVietnamPro";
-  ctx.fillText(botInfo.name, 300, headerY + 100);
+  ctx.fillText(botInfo.name, 280, headerY + 80);
   ctx.font = "bold 28px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
-  ctx.fillText("Thời gian hoạt động: " + uptime, 300, headerY + 140);
+  ctx.fillText("Uptime: " + uptime, 280, headerY + 120);
 
   const leftColumnX = 60;
 
@@ -347,7 +340,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
   const resBoxY = sysBoxY + sysBoxHeight + 30;
   drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage");
-  let yRes = resBoxY + 60;
+  let yRes = resBoxY + 100;
   resourceFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
@@ -368,7 +361,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
     if (percent !== null && !isNaN(percent)) {
       const barX = leftColumnX + 40;
-      const barY = yRes + 10;
+      const barY = yRes + 12;
       const barW = leftColumnWidth - 80;
       const barH = 16;
       ctx.fillStyle = "rgba(255,255,255,0.2)";
@@ -383,16 +376,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       ctx.lineWidth = 2;
       ctx.strokeRect(barX, barY, barW, barH);
 
-      yRes += 30;
+      yRes += 35;
     }
 
-    yRes += lineHeight;
+    yRes += 25;
   });
 
   const netBoxY = resBoxY + resBoxHeight + 30;
-  drawBox(ctx, leftColumnX, netBoxY, leftColumnWidth, netBoxHeight, "Network Info");
+  drawBox(ctx, leftColumnX, netBoxY, leftColumnWidth, netBoxHeight, "System Details");
   let yNet = netBoxY + 100;
-  networkFields.forEach(f => {
+  systemInfoFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
     ctx.font = "bold 28px BeVietnamPro";
@@ -401,50 +394,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yNet);
     yNet += lineHeight;
   });
-
-  const rightColumnX = leftColumnX + leftColumnWidth + 30;
-  const configY = sysBoxY;
-  if (onConfigs.length > 0 || offConfigs.length > 0) {
-    drawBox(ctx, rightColumnX, configY, rightColumnWidth, cfgBoxHeight, "Group Configs");
-
-    const leftColX = rightColumnX + 40;
-    const rightColX = rightColumnX + rightColumnWidth / 2 + 40;
-    if (onConfigs.length > 0 && offConfigs.length > 0) {
-      const dividerX = rightColumnX + rightColumnWidth / 2;
-      drawVerticalDivider(ctx, dividerX, configY, cfgBoxHeight);
-    }
-
-    let yOff = configY + 80;
-    if (offConfigs.length > 0) {
-      ctx.fillStyle = "#FF6B6B";
-      ctx.font = onConfigs.length === 0 ? "bold 30px BeVietnamPro" : "bold 26px BeVietnamPro";
-      ctx.textAlign = "left";
-      ctx.fillText("Đang tắt:", leftColX, yOff);
-      yOff += 40;
-      ctx.font = onConfigs.length === 0 ? "bold 26px BeVietnamPro" : "bold 22px BeVietnamPro";
-      offConfigs.forEach(line => {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${line}`, leftColX, yOff);
-        yOff += 40;
-      });
-    }
-
-    let yOn = configY + 80;
-    if (onConfigs.length > 0) {
-      ctx.fillStyle = "#4ECB71";
-      ctx.font = "bold 26px BeVietnamPro";
-      ctx.textAlign = "left";
-      const titleX = offConfigs.length === 0 ? rightColumnX + rightColumnWidth / 2 : rightColX;
-      ctx.fillText("Đang bật:", titleX, yOn);
-      yOn += 40;
-      ctx.font = "bold 22px BeVietnamPro";
-      onConfigs.forEach(line => {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${line}`, titleX, yOn);
-        yOn += 40;
-      });
-    }
-  }
 
   const filePath = path.resolve(`./assets/temp/bot_info_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
