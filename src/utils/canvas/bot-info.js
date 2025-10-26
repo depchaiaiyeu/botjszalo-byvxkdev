@@ -205,18 +205,18 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const resourceFields = [
     { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || "36°C" || (await getCpuTemp()), hasBar: false },
     { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB`, hasBar: true },
-    { label: "💿 Free Memory:", value: freeMemory, hasBar: false },
     { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()), hasBar: true },
-    { label: "💽 Disk Total:", value: diskTotal, hasBar: false },
     { label: "🌐 Network:", value: botStats.network || networkUsage, hasBar: false },
     { label: "📊 Load Average:", value: loadAverage, hasBar: false },
   ];
 
   const systemInfoFields = [
     { label: "🔄 Processes:", value: runningProcesses },
+    { label: "🏠 Hostname:", value: hostname },
     { label: "🛠️ Kernel:", value: kernelVersion },
     { label: "💻 Platform:", value: platform },
-    { label: "🏗️ Architecture:", value: architecture }
+    { label: "🏗️ Architecture:", value: architecture },
+    { label: "🌐 IPv4:", value: ipv4 }
   ];
 
   const tempCanvas = createCanvas(1, 1);
@@ -236,7 +236,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const headerH = 180;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 70 + 150;
+  
+  let resourceBoxCalculatedHeight = 80;
+  resourceFields.forEach(f => {
+    resourceBoxCalculatedHeight += 50;
+    if (f.hasBar) {
+      resourceBoxCalculatedHeight += 30;
+    }
+  });
+  const resBoxHeight = resourceBoxCalculatedHeight;
+  
   const netBoxHeight = systemInfoFields.length * 50 + 100;
 
   const leftColumnHeight = sysBoxHeight + resBoxHeight + netBoxHeight + 90;
@@ -383,6 +392,8 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
         yRes += 30;
       }
     }
+    
+    yRes += 10;
   });
 
   const netBoxY = resBoxY + resBoxHeight + 30;
