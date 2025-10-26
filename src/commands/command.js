@@ -726,6 +726,9 @@ export async function handleCommandPrivate(api, message) {
               case "kkphim":
                 await handleKKPhimCommand (api, message, aliasCommand);
                 return 0;
+              case "giavang":
+                await handleGoldPriceCommand (api, message);
+                return 0;
         }
       } else {
         await sendMessageInsufficientAuthority(api, message, "Tương tác lệnh trong tin nhắn riêng tư đã bị vô hiệu hóa!");
@@ -1337,9 +1340,6 @@ export async function handleCommand(
                 break;
               case "getmessage":
                 await handleGetMessageCommand (api, message);
-                break;
-              case "giavang":
-                await handleGoldPriceCommand (api, message);
                 break;
               case "call":
                 await spamCallInGroup (api, message, aliasCommand);
