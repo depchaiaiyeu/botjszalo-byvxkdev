@@ -1059,7 +1059,7 @@ export async function handleCommand(
                 break;
 
               case "detail":
-                await getBotDetails(api, message, groupSettings);
+                await getBotDetails(api, message);
                 break;
               case "info":
                 await userInfoCommand(api, message, aliasCommand);
