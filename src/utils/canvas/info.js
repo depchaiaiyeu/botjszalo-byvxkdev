@@ -946,3 +946,311 @@ export async function createTopChatImage(rankData, title, api, threadId) {
     out.on("error", reject);
   });
 }
+
+export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, offConfigs) {
+  const isPrivateMessage = onConfigs.length === 0 && offConfigs.length === 0;
+  const isOnConfigsEmpty = onConfigs.length === 0;
+  const width = isPrivateMessage ? 900 : isOnConfigsEmpty ? 1450 : 1700;
+  const maxConfigs = isOnConfigsEmpty ? offConfigs.length : Math.max(onConfigs.length, offConfigs.length);
+  const configsBoxH = 100 + maxConfigs * 24;
+
+  // Calculate content height
+  const headerHeight = 170; // Avatar (y=80, size=100) + text (110, 140, 170)
+  const systemInfoBoxH = 180; // System Info box height
+  const resourceUsageBoxH = 200; // Resource Usage box height
+  const ramDiskBoxH = 260; // RAM & Disk Usage box height
+  const pieChartExtraH = 100; // Extra space for pie chart labels (radius 60 + 25 + 45 + 65)
+  const verticalSpacing = 30; // Space between boxes (220-170=50, 420-400=20, 640-620=20, adjusted to 30 for consistency)
+
+  // Total content height
+  let contentHeight = headerHeight + systemInfoBoxH + resourceUsageBoxH + ramDiskBoxH + pieChartExtraH;
+  if (!isPrivateMessage) {
+    contentHeight = Math.max(contentHeight, headerHeight + configsBoxH);
+  }
+  contentHeight += 2 * verticalSpacing; // Spaces between boxes
+
+  // Desired padding for top and bottom (e.g., 40px each)
+  const padding = 40;
+  const height = contentHeight + 2 * padding;
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  // Draw background
+  try {
+    const bg = botInfo?.avatar ? await loadImage(botInfo.avatar) : null;
+    if (bg) {
+      const scale = Math.max(width / bg.width, height / bg.height);
+      ctx.filter = "blur(6px)";
+      ctx.drawImage(bg, (width - bg.width * scale) / 2, (height - bg.height * scale) / 2, bg.width * scale, bg.height * scale);
+      ctx.filter = "none";
+    }
+  } catch (error) {
+    console.error("Lỗi load background:", error);
+  }
+  ctx.fillStyle = "rgba(0,0,0,0.75)";
+  ctx.fillRect(0, 0, width, height);
+
+  // Calculate starting Y position to center content
+  const startY = padding;
+
+  // Draw header (avatar and text)
+  if (botInfo?.avatar) {
+    try {
+      const avatar = await loadImage(botInfo.avatar);
+      const size = 100;
+      const x = 80, y = startY + 30; // Adjusted for padding
+
+      const borderWidth = 6;
+      const gradient = ctx.createLinearGradient(
+        x,
+        y,
+        x + size + borderWidth,
+        y + size + borderWidth
+      );
+      const rainbowColors = [
+        "#FF0000",
+        "#FF7F00",
+        "#FFFF00",
+        "#00FF00",
+        "#0000FF",
+        "#4B0082",
+        "#9400D3",
+      ];
+      rainbowColors.forEach((color, index) => {
+        gradient.addColorStop(index / (rainbowColors.length - 1), color);
+      });
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size / 2 + borderWidth / 2, 0, Math.PI * 2, true);
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = borderWidth;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+      ctx.clip();
+      ctx.drawImage(avatar, x, y, size, size);
+      ctx.restore();
+    } catch (error) {
+      console.error("Lỗi load avatar:", error);
+    }
+  }
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(botInfo.name || "Vũ Xuân Kiên", 200, startY + 60);
+  ctx.font = "20px sans-serif";
+  ctx.fillStyle = "#AAAAAA";
+  ctx.fillText(`Uptime: ${uptime}`, 200, startY + 90);
+
+  function drawBox(title, items, x, y, w, h) {
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    roundRect(ctx, x, y, w, h, 12, true, false);
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, y, w, h, 12, false, true);
+
+    ctx.fillStyle = cv.getRandomGradient(ctx, w);
+    ctx.font = "bold 24px BeVietnamPro";
+    ctx.textAlign = "center";
+    let titleText = title;
+    const maxTitleWidth = w - 40;
+    if (ctx.measureText(titleText).width > maxTitleWidth) {
+      while (ctx.measureText(titleText + "...").width > maxTitleWidth && titleText.length > 0) {
+        titleText = titleText.slice(0, -1);
+      }
+      titleText += "...";
+    }
+    ctx.fillText(titleText, x + w / 2, y + 30);
+
+    ctx.textAlign = "left";
+    ctx.font = "bold 20px BeVietnamPro";
+    let yy = y + 50;
+    const maxTextWidth = w - 40;
+    items.forEach(item => {
+      ctx.fillStyle = cv.getRandomGradient(ctx, w);
+      let labelText = item.label + ":";
+      if (ctx.measureText(labelText).width > maxTextWidth / 2) {
+        while (ctx.measureText(labelText + "...").width > maxTextWidth / 2 && labelText.length > 0) {
+          labelText = labelText.slice(0, -1);
+        }
+        labelText += "...";
+      }
+      const labelWidth = ctx.measureText(labelText).width;
+      ctx.fillText(labelText, x + 20, yy);
+      ctx.fillStyle = "#FFFFFF";
+      let valueText = item.value.toString();
+      if (ctx.measureText(labelText + " " + valueText).width > maxTextWidth) {
+        while (ctx.measureText(labelText + " " + valueText + "...").width > maxTextWidth && valueText.length > 0) {
+          valueText = valueText.slice(0, -1);
+        }
+        valueText += "...";
+      }
+      ctx.fillText(" " + valueText, x + 20 + labelWidth, yy);
+      yy += 30;
+    });
+  }
+
+  const leftBoxWidth = isPrivateMessage ? 820 : isOnConfigsEmpty ? 890 : 740;
+  drawBox("System Info", [
+    { label: "🔢 Phiên bản", value: botStats.version },
+    { label: "💾 Bộ nhớ bot", value: botStats.memoryUsage },
+    { label: "💻 Hệ điều hành", value: botStats.os },
+    { label: "⚙️ CPU Model", value: botStats.cpuModel },
+    { label: "📊 CPU Usage", value: botStats.cpu }
+  ], 40, startY + headerHeight, leftBoxWidth, systemInfoBoxH);
+
+  drawBox("Resource Usage", [
+    { label: "🌡️ CPU Temp", value: botStats.cpuTemp || "36.0°C" },
+    { label: "📈 RAM Usage", value: botStats.ram },
+    { label: "💽 Disk Usage", value: botStats.disk },
+    { label: "🌍 Network", value: botStats.networkSpeed || "N/A" },
+    { label: "📶 Nhà mạng", value: botStats.isp || "FPT Telecom" }
+  ], 40, startY + headerHeight + systemInfoBoxH + verticalSpacing, leftBoxWidth, resourceUsageBoxH);
+
+  function drawPieChart(x, y, radius, percent, label) {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#4ECB71";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(
+      x,
+      y,
+      radius,
+      -Math.PI / 2,
+      -Math.PI / 2 + (percent / 100) * Math.PI * 2
+    );
+    ctx.fillStyle = "#FF6B6B";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 20px BeVietnamPro";
+    ctx.textAlign = "center";
+    ctx.fillText(`${percent.toFixed(1)}%`, x, y + 5);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "18px BeVietnamPro";
+    ctx.fillText(label, x, y + radius + 25);
+
+    ctx.fillStyle = "#FF6B6B";
+    ctx.font = "14px BeVietnamPro";
+    ctx.fillText("■ Đã dùng", x, y + radius + 45);
+
+    ctx.fillStyle = "#4ECB71";
+    ctx.fillText("■ Còn trống", x, y + radius + 65);
+  }
+
+  const ramDiskBoxY = startY + headerHeight + systemInfoBoxH + resourceUsageBoxH + 2 * verticalSpacing;
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  roundRect(ctx, 40, ramDiskBoxY, leftBoxWidth, ramDiskBoxH, 12, true, false);
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, 40, ramDiskBoxY, leftBoxWidth, ramDiskBoxH, 12, false, true);
+
+  ctx.fillStyle = cv.getRandomGradient(ctx, leftBoxWidth);
+  ctx.font = "bold 24px BeVietnamPro";
+  ctx.textAlign = "center";
+  ctx.fillText("RAM & Disk Usage", 40 + leftBoxWidth / 2, ramDiskBoxY + 30);
+
+// Tính phần trăm RAM và Disk từ định dạng "4.9/6.9gb"
+const calculatePercent = (str) => {
+  if (!str || !str.includes('/')) return 0; // Kiểm tra chuỗi hợp lệ
+  const cleanStr = str.replace("gb", "").trim(); // Xóa 'gb'
+  const [used, total] = cleanStr.split("/").map(num => parseFloat(num)); // Tách và chuyển thành số
+  return total > 0 ? (used / total) * 100 : 0; // Tính phần trăm
+};
+
+const ramPercent = calculatePercent(botStats.ram); // Tính % cho RAM
+const diskPercent = calculatePercent(botStats.disk); // Tính % cho Disk
+
+// Vẽ biểu đồ tròn với giá trị phần trăm chính xác
+drawPieChart(40 + leftBoxWidth / 3, ramDiskBoxY + 120, 60, ramPercent, "RAM");
+drawPieChart(40 + (leftBoxWidth / 3) * 2, ramDiskBoxY + 120, 60, diskPercent, "Disk");
+
+  if (!isPrivateMessage) {
+    const boxW = isOnConfigsEmpty ? 400 : 800;
+    const boxX = 40 + leftBoxWidth + 80;
+    const boxY = startY + headerHeight;
+    const boxH = configsBoxH;
+
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    roundRect(ctx, boxX, boxY, boxW, boxH, 12, true, false);
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, boxX, boxY, boxW, boxH, 12, false, true);
+
+    ctx.fillStyle = cv.getRandomGradient(ctx, boxW);
+    ctx.font = "bold 24px BeVietnamPro";
+    ctx.textAlign = "center";
+    let groupConfigsTitle = "Group Configs";
+    const maxTitleWidth = boxW - 40;
+    if (ctx.measureText(groupConfigsTitle).width > maxTitleWidth) {
+      while (ctx.measureText(groupConfigsTitle + "...").width > maxTitleWidth && groupConfigsTitle.length > 0) {
+        groupConfigsTitle = groupConfigsTitle.slice(0, -1);
+      }
+      groupConfigsTitle += "...";
+    }
+    ctx.fillText(groupConfigsTitle, boxX + boxW / 2, boxY + 30);
+
+    ctx.textAlign = "left";
+    ctx.font = "18px sans-serif";
+    const maxConfigWidth = (isOnConfigsEmpty ? boxW : boxW * 0.45) - 40;
+
+    let oy = boxY + 70;
+    ctx.fillStyle = "#FF6B6B";
+    ctx.fillText("❌ Đang tắt:", boxX + 40, oy);
+    oy += 30;
+    offConfigs.forEach(line => {
+      ctx.fillStyle = "#FFFFFF";
+      let configText = "• " + line;
+      if (ctx.measureText(configText).width > maxConfigWidth) {
+        while (ctx.measureText(configText + "...").width > maxConfigWidth && configText.length > 0) {
+          configText = configText.slice(0, -1);
+        }
+        configText += "...";
+      }
+      ctx.fillText(configText, boxX + 40, oy);
+      oy += 24;
+    });
+
+    if (!isOnConfigsEmpty) {
+      let py = boxY + 70;
+      ctx.fillStyle = "#4ECB71";
+      ctx.fillText("✅ Đang bật:", boxX + boxW * 0.55 + 20, py);
+      py += 30;
+      onConfigs.forEach(line => {
+        ctx.fillStyle = "#FFFFFF";
+        let configText = "• " + line;
+        if (ctx.measureText(configText).width > maxConfigWidth) {
+          while (ctx.measureText(configText + "...").width > maxConfigWidth && configText.length > 0) {
+            configText = configText.slice(0, -1);
+          }
+          configText += "...";
+        }
+        ctx.fillText(configText, boxX + boxW * 0.55 + 20, py);
+        py += 24;
+      });
+    }
+  }
+
+  const filePath = path.resolve(`./assets/temp/bot_info_${Date.now()}.png`);
+  const out = fs.createWriteStream(filePath);
+  const stream = canvas.createPNGStream();
+  stream.pipe(out);
+  return new Promise((resolve, reject) => {
+    out.on("finish", () => resolve(filePath));
+    out.on("error", reject);
+  });
+}
