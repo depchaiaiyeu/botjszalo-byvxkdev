@@ -1044,6 +1044,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   ctx.font = "20px sans-serif";
   ctx.fillStyle = "#AAAAAA";
   ctx.fillText(`Uptime: ${uptime}`, 200, startY + 90);
+  ctx.fillText(`Tên đại của Bot: ${botStats}`, 200, startY + 120);
 
   function drawBox(title, items, x, y, w, h) {
     ctx.fillStyle = "rgba(255,255,255,0.05)";
