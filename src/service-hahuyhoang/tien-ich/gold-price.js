@@ -59,8 +59,10 @@ export async function handleGoldPriceCommand(api, message) {
       }
     });
 
-    if (goldData.length === 0) {
-      await sendMessageFailed(api, message, "Không tìm thấy dữ liệu giá vàng SJC!");
+    const totalItems = allGoldData.sjc.length + allGoldData.doji.length + allGoldData.pnj.length + allGoldData.btmc.length;
+    
+    if (totalItems === 0) {
+      await sendMessageFailed(api, message, "Không tìm thấy dữ liệu giá vàng!");
       return;
     }
 
@@ -72,21 +74,68 @@ export async function handleGoldPriceCommand(api, message) {
       return new Intl.NumberFormat('vi-VN').format(value) + ' VND';
     };
 
-    let resultMessage = `💰 GIÁ VÀNG SJC - Cập nhật mới nhất\n`;
-    resultMessage += `📡 Nguồn: Báo Mới\n\n`;
+    let resultMessage = `💰 GIÁ VÀNG HÔM NAY - Cập nhật mới nhất\n`;
+    resultMessage += `📡 Nguồn: Báo Mới\n`;
+    resultMessage += `📊 Tổng số loại: ${totalItems}\n`;
+    resultMessage += '═'.repeat(50) + '\n\n';
 
-    for (const item of goldData.slice(0, 6)) {
-      const spread = item.sell - item.buy;
-      const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
-      
-      resultMessage += `🏢 ${item.name}:\n`;
-      resultMessage += `   💵 Mua vào: ${formatCurrency(item.buy)}\n`;
-      resultMessage += `   💰 Bán ra: ${formatCurrency(item.sell)}\n`;
-      resultMessage += `   📊 Chênh lệch: ${formatShort(spread)} (${spreadPercent}%)\n`;
-      resultMessage += '\n';
+    if (allGoldData.sjc.length > 0) {
+      resultMessage += `🏆 VÀNG SJC (${allGoldData.sjc.length} loại)\n`;
+      resultMessage += '─'.repeat(50) + '\n';
+      for (const item of allGoldData.sjc) {
+        const spread = item.sell - item.buy;
+        const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
+        
+        resultMessage += `🏢 ${item.name}\n`;
+        resultMessage += `   💵 Mua: ${formatCurrency(item.buy)}\n`;
+        resultMessage += `   💰 Bán: ${formatCurrency(item.sell)}\n`;
+        resultMessage += `   📊 Chênh lệch: ${formatShort(spread)} (${spreadPercent}%)\n\n`;
+      }
     }
 
-    resultMessage += '─'.repeat(50);
+    if (allGoldData.doji.length > 0) {
+      resultMessage += `\n🏆 VÀNG DOJI (${allGoldData.doji.length} loại)\n`;
+      resultMessage += '─'.repeat(50) + '\n';
+      for (const item of allGoldData.doji.slice(0, 3)) {
+        const spread = item.sell - item.buy;
+        const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
+        
+        resultMessage += `🏢 ${item.name}\n`;
+        resultMessage += `   💵 Mua: ${formatCurrency(item.buy)}\n`;
+        resultMessage += `   💰 Bán: ${formatCurrency(item.sell)}\n`;
+        resultMessage += `   📊 Chênh lệch: ${formatShort(spread)} (${spreadPercent}%)\n\n`;
+      }
+    }
+
+    if (allGoldData.pnj.length > 0) {
+      resultMessage += `\n🏆 VÀNG PNJ (${allGoldData.pnj.length} loại)\n`;
+      resultMessage += '─'.repeat(50) + '\n';
+      for (const item of allGoldData.pnj.slice(0, 3)) {
+        const spread = item.sell - item.buy;
+        const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
+        
+        resultMessage += `🏢 ${item.name}\n`;
+        resultMessage += `   💵 Mua: ${formatCurrency(item.buy)}\n`;
+        resultMessage += `   💰 Bán: ${formatCurrency(item.sell)}\n`;
+        resultMessage += `   📊 Chênh lệch: ${formatShort(spread)} (${spreadPercent}%)\n\n`;
+      }
+    }
+
+    if (allGoldData.btmc.length > 0) {
+      resultMessage += `\n🏆 VÀNG BẢO TÍN MINH CHÂU (${allGoldData.btmc.length} loại)\n`;
+      resultMessage += '─'.repeat(50) + '\n';
+      for (const item of allGoldData.btmc.slice(0, 3)) {
+        const spread = item.sell - item.buy;
+        const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
+        
+        resultMessage += `🏢 ${item.name}\n`;
+        resultMessage += `   💵 Mua: ${formatCurrency(item.buy)}\n`;
+        resultMessage += `   💰 Bán: ${formatCurrency(item.sell)}\n`;
+        resultMessage += `   📊 Chênh lệch: ${formatShort(spread)} (${spreadPercent}%)\n\n`;
+      }
+    }
+
+    resultMessage += '═'.repeat(50);
     await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
   } catch (error) {
     console.error("Error in handleGoldPriceCommand:", error);
