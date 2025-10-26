@@ -3,13 +3,14 @@ import { createGroupInfoImage, clearImagePath } from "../../utils/canvas/index.j
 import { sendMessageWarning } from "../chat-zalo/chat-style/chat-style.js";
 import { getUserInfoData } from "./user-info.js";
 
-export async function groupInfoCommand(api, message) {
+export async function groupInfoCommand(api, message, groupSettings = {}) {
   const threadId = message.threadId;
 
   try {
     const groupInfo = await getGroupInfoData(api, threadId);
     const owner = await getUserInfoData(api, groupInfo.creatorId);
-    const imagePath = await createGroupInfoImage(groupInfo, owner);
+    const { onConfigs, offConfigs } = getConfigStatus(threadId, groupSettings);
+    const imagePath = await createGroupInfoImage(groupInfo, owner, onConfigs, offConfigs);
     await api.sendMessage({ msg: "", attachments: [imagePath], quote: message }, threadId, MessageType.GroupMessage);
     clearImagePath(imagePath);
   } catch (error) {
@@ -99,4 +100,79 @@ export async function getDataAllGroup(api) {
     console.error("Lỗi khi lấy thông tin tất cả các nhóm:", error);
     throw error;
   }
+}
+
+function getConfigStatus(threadId, groupSettings) {
+  const settings = groupSettings[threadId] || {};
+  const onConfigs = [];
+  const offConfigs = [];
+
+  Object.entries(settings)
+    .filter(([key, value]) => typeof value === "boolean")
+    .forEach(([key, value]) => {
+      const status = value ? "✅" : "❌";
+      const configLine = `${getSettingEmoji(key)} ${getSettingName(key)}: ${status}`;
+      if (value) {
+        onConfigs.push(configLine);
+      } else {
+        offConfigs.push(configLine);
+      }
+    });
+
+  return { onConfigs, offConfigs };
+}
+
+function getSettingEmoji(settingKey) {
+  const emojiMap = {
+    antiSpam: "🔰",
+    removeLinks: "🔗",
+    filterBadWords: "🚫",
+    filterBot: "🐳",
+    welcomeGroup: "👋",
+    byeGroup: "👋",
+    enableKickImage: "🚀",
+    enableBlockImage: "⛔️",
+    learnEnabled: "💡",
+    replyEnabled: "💬",
+    activeBot: "🤖",
+    activeGame: "🎮",
+    memberApprove: "👥",
+    antiNude: "🚫",
+    antiUndo: "🚫",
+    sendTask: "🔔",
+    antiMedia: "🎬",
+    antiSticker: "⛔️",
+    autoReply: "🤖",
+    removeLinkKeywords: "🚫",
+    autoDownload: "📥",
+    blockForward: "🚫",
+  };
+  return emojiMap[settingKey] || "⚙️";
+}
+
+function getSettingName(settingKey) {
+  const nameMap = {
+    activeBot: "Tương tác với thành viên",
+    activeGame: "Xử lý tương tác trò chơi",
+    antiSpam: "Chống rác spam",
+    removeLinks: "Chặn liên kết",
+    filterBadWords: "Xoá tin nhắn thô tục",
+    filterBot: "Chặn những bot khác ở group",
+    welcomeGroup: "Chào thành viên mới",
+    byeGroup: "Báo thành viên rời nhóm",
+    learnEnabled: "Học máy",
+    replyEnabled: "Trả lời tin nhắn nhóm",
+    onlyText: "Chỉ được nhắn tin văn bản",
+    memberApprove: "Phê duyệt thành viên mới",
+    antiNude: "Chống ảnh nhạy cảm",
+    antiUndo: "Chống thu hồi tin nhắn",
+    sendTask: "Gửi nội dung tự động",
+    antiMedia: "Xóa media gửi vào nhóm",
+    antiSticker: "Xoá tất cả Sticker",
+    removeLinkKeywords: "Chặn link được chỉ định",
+    autoReply: "Xử lý tự động trả lời tin nhắn",
+    autoDownload: "Tự động tải media từ link",
+    blockForward: "Chống tin nhắn chuyển tiếp",
+  };
+  return nameMap[settingKey] || settingKey;
 }
