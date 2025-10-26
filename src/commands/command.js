@@ -1055,7 +1055,7 @@ export async function handleCommand(
                 break;
 
               case "group":
-                await groupInfoCommand(api, message);
+                await groupInfoCommand(api, message, groupSettings);
                 break;
 
               case "detail":
