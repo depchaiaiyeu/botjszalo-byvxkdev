@@ -206,7 +206,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const headerH = 220;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 50 + 100;
+  const resBoxHeight = resourceFields.length * 50 + 140;
   const miscBoxHeight = miscFields.length * 50 + 100;
 
   const leftColumnHeight = sysBoxHeight + resBoxHeight + miscBoxHeight + 90;
@@ -307,6 +307,41 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.fillText(f.label, leftColumnX + 40, yRes);
     ctx.textAlign = "right";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
+    
+    if (f.label === "📈 RAM Usage:" || f.label === "💽 Disk Usage:") {
+      let percent = null;
+      
+      if (f.label === "📈 RAM Usage:" && f.value.match(/(\d+(\.\d+)?)/g)) {
+        const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+        if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+      } else if (f.label === "💽 Disk Usage:" && f.value.match(/(\d+(\.\d+)?)/g)) {
+        const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+        if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+      }
+
+      if (percent !== null && !isNaN(percent)) {
+        const barX = leftColumnX + 40;
+        const barY = yRes + 10;
+        const barW = leftColumnWidth - 80;
+        const barH = 16;
+        
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.fillRect(barX, barY, barW, barH);
+        
+        const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+        grad.addColorStop(0, "#4ECB71");
+        grad.addColorStop(1, "#1E90FF");
+        ctx.fillStyle = grad;
+        ctx.fillRect(barX, barY, (percent / 100) * barW, barH);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barW, barH);
+
+        yRes += 30;
+      }
+    }
+    
     yRes += lineHeight;
   });
 
