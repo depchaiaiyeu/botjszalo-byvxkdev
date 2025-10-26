@@ -7,7 +7,7 @@ const gameTargetNumbers = new Map();
 const gamePlayers = new Map();
 const gameSettings = new Map();
 const playerTimeouts = new Map();
-const processingMessages = new Set();
+const processedGuesses = new Map();
 
 export async function handleGuessNumberCommand(api, message) {
   const threadId = message.threadId;
@@ -37,7 +37,7 @@ export async function handleGuessNumberCommand(api, message) {
           cleanupGame(threadId);
           await sendMessageComplete(api, message, "🚫 Trò chơi đoán số đã được hủy bỏ do không còn người chơi.");
         } else {
-          await sendMessageComplete(api, message, "👋 Bạn đã rời khỏi trò chơi đoán số.");
+          await sendMessageComplete(api, message, "🚫 Bạn đã rời khỏi trò chơi đoán số.");
         }
       } else {
         await sendMessageWarning(api, message, "🚫 Bạn chưa tham gia trò chơi đoán số nào trong nhóm này.");
@@ -55,17 +55,17 @@ export async function handleGuessNumberCommand(api, message) {
       if (!isNaN(customRange) && customRange >= 2) {
         range = customRange;
       } else {
-        await sendMessageWarning(api, message, "⚠️ Số lớn nhất phải là một số nguyên lớn hơn hoặc bằng 2. Sử dụng phạm vi mặc định 1-20.");
+        await sendMessageWarning(api, message, "🚫 Số lớn nhất phải là một số nguyên lớn hơn hoặc bằng 2. Sử dụng phạm vi mặc định 1-20.");
       }
     }
 
     if (await checkHasActiveGame(api, message, threadId)) {
       const players = gamePlayers.get(threadId);
       if (players && players.has(senderId)) {
-        await sendMessageWarning(api, message, "⚠️ Bạn đã tham gia trò chơi đoán số rồi.");
+        await sendMessageWarning(api, message, "🚫 Bạn đã tham gia trò chơi đoán số rồi.");
       } else {
         if (players) {
-          players.set(senderId, { attempts: 0 });
+          players.set(senderId, { attempts: 0, lastGuess: null });
           startPlayerTimeout(api, message, threadId, senderId);
           await sendMessageComplete(api, message, "✅ Bạn đã tham gia trò chơi đoán số.");
         }
@@ -78,12 +78,12 @@ export async function handleGuessNumberCommand(api, message) {
 
     activeGames.set(threadId, { type: 'guessNumber' });
     gameTargetNumbers.set(threadId, targetNumber);
-    gamePlayers.set(threadId, new Map([[senderId, { attempts: 0 }]]));
+    gamePlayers.set(threadId, new Map([[senderId, { attempts: 0, lastGuess: null }]]));
     gameSettings.set(threadId, { range, maxAttemptsPerPlayer });
 
     startPlayerTimeout(api, message, threadId, senderId);
 
-    await sendMessageComplete(api, message, `🎮 Trò chơi đoán số bắt đầu! Hãy đoán một số từ 1 đến ${range}. Bạn có tối đa ${maxAttemptsPerPlayer} lượt đoán sai. Thời gian mỗi lượt: 30 giây.`);
+    await sendMessageComplete(api, message, `🎮 Trò chơi đoán số bắt đầu! Hãy đoán một số từ 1 đến ${range}. Bạn có tối đa ${maxAttemptsPerPlayer} lượt đoán sai.\nThời gian mỗi lượt: 30 giây.`);
     return;
   }
 }
@@ -91,80 +91,74 @@ export async function handleGuessNumberCommand(api, message) {
 export async function handleGuessNumberGame(api, message) {
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
-  const messageId = message.data.msgId;
   const activeGames = getActiveGames();
 
   if (!activeGames.has(threadId) || activeGames.get(threadId).type !== 'guessNumber') return;
 
-  const lockKey = `${threadId}-${senderId}-${messageId}`;
-  if (processingMessages.has(lockKey)) {
+  const targetNumber = gameTargetNumbers.get(threadId);
+  const players = gamePlayers.get(threadId);
+  const settings = gameSettings.get(threadId);
+
+  if (!players || !settings || targetNumber === undefined) return;
+
+  if (!players.has(senderId)) return;
+
+  const guessedNumber = parseInt(message.data.content);
+
+  if (isNaN(guessedNumber) || guessedNumber < 1 || guessedNumber > settings.range) return;
+
+  const playerData = players.get(senderId);
+  
+  const guessKey = `${threadId}-${senderId}-${guessedNumber}`;
+  const now = Date.now();
+  
+  if (processedGuesses.has(guessKey)) {
+    const lastTime = processedGuesses.get(guessKey);
+    if (now - lastTime < 2000) {
+      return;
+    }
+  }
+  
+  processedGuesses.set(guessKey, now);
+  
+  setTimeout(() => {
+    processedGuesses.delete(guessKey);
+  }, 3000);
+
+  const timeoutKey = `${threadId}-${senderId}`;
+  if (playerTimeouts.has(timeoutKey)) {
+    clearTimeout(playerTimeouts.get(timeoutKey));
+    playerTimeouts.delete(timeoutKey);
+  }
+
+  const currentAttempts = playerData.attempts;
+
+  if (guessedNumber === targetNumber) {
+    await handleCorrectGuess(api, message, threadId, targetNumber, senderId, currentAttempts);
     return;
   }
-  processingMessages.add(lockKey);
 
-  try {
-    const targetNumber = gameTargetNumbers.get(threadId);
-    const players = gamePlayers.get(threadId);
-    const settings = gameSettings.get(threadId);
+  playerData.attempts = currentAttempts + 1;
+  playerData.lastGuess = guessedNumber;
+  
+  const newAttempts = playerData.attempts;
+  const remainingAttempts = settings.maxAttemptsPerPlayer - newAttempts;
 
-    if (!players || !settings || targetNumber === undefined) {
-      processingMessages.delete(lockKey);
-      return;
+  if (newAttempts >= settings.maxAttemptsPerPlayer) {
+    await handlePlayerEliminated(api, message, threadId, targetNumber, senderId);
+    
+    const remainingPlayers = gamePlayers.get(threadId);
+    if (remainingPlayers && remainingPlayers.size === 0) {
+      await handleGameOver(api, message, threadId, targetNumber, true);
     }
-
-    if (!players.has(senderId)) {
-      processingMessages.delete(lockKey);
-      return;
-    }
-
-    const guessedNumber = parseInt(message.data.content);
-
-    if (isNaN(guessedNumber) || guessedNumber < 1 || guessedNumber > settings.range) {
-      processingMessages.delete(lockKey);
-      return;
-    }
-
-    const timeoutKey = `${threadId}-${senderId}`;
-    if (playerTimeouts.has(timeoutKey)) {
-      clearTimeout(playerTimeouts.get(timeoutKey));
-      playerTimeouts.delete(timeoutKey);
-    }
-
-    const playerData = players.get(senderId);
-    const currentAttempts = playerData.attempts;
-
-    if (guessedNumber === targetNumber) {
-      await handleCorrectGuess(api, message, threadId, targetNumber, senderId, currentAttempts);
-      processingMessages.delete(lockKey);
-      return;
-    }
-
-    playerData.attempts = currentAttempts + 1;
-    const newAttempts = playerData.attempts;
-
-    if (newAttempts >= settings.maxAttemptsPerPlayer) {
-      await handlePlayerEliminated(api, message, threadId, targetNumber, senderId);
-      
-      const remainingPlayers = gamePlayers.get(threadId);
-      if (remainingPlayers && remainingPlayers.size === 0) {
-        await handleGameOver(api, message, threadId, targetNumber, true);
-      }
+  } else {
+    if (guessedNumber < targetNumber) {
+      await sendMessageWarning(api, message, `🚫 Số bạn đoán nhỏ hơn. Hãy thử lại! (Bạn còn ${remainingAttempts} lượt sai)`);
     } else {
-      const remainingAttempts = settings.maxAttemptsPerPlayer - newAttempts;
-      
-      if (guessedNumber < targetNumber) {
-        await sendMessageWarning(api, message, `Số bạn đoán nhỏ hơn. Hãy thử lại! (Bạn còn ${remainingAttempts} lượt sai)`);
-      } else {
-        await sendMessageWarning(api, message, `Số bạn đoán lớn hơn. Hãy thử lại! (Bạn còn ${remainingAttempts} lượt sai)`);
-      }
-
-      startPlayerTimeout(api, message, threadId, senderId);
+      await sendMessageWarning(api, message, `🚫 Số bạn đoán lớn hơn. Hãy thử lại! (Bạn còn ${remainingAttempts} lượt sai)`);
     }
 
-    processingMessages.delete(lockKey);
-  } catch (error) {
-    console.error("Error in handleGuessNumberGame:", error);
-    processingMessages.delete(lockKey);
+    startPlayerTimeout(api, message, threadId, senderId);
   }
 }
 
@@ -180,7 +174,7 @@ function startPlayerTimeout(api, message, threadId, senderId) {
     const targetNumber = gameTargetNumbers.get(threadId);
     
     if (players && players.has(senderId) && targetNumber !== undefined) {
-      await sendMessageComplete(api, message, `🧭 ${message.data.dName} đã hết thời gian (30s). Bạn đã bị loại khỏi trò chơi.`);
+      await sendMessageComplete(api, message, `🧭 ${message.data.dName} đã hết thời gian! Bạn đã bị loại khỏi trò chơi.`);
       
       players.delete(senderId);
       playerTimeouts.delete(timeoutKey);
@@ -206,7 +200,7 @@ async function handlePlayerEliminated(api, message, threadId, targetNumber, send
     playerTimeouts.delete(timeoutKey);
   }
 
-  await sendMessageComplete(api, message, `🚫 ${message.data.dName} đã thua! Bạn đã hết lượt đoán. Số cần đoán là ${targetNumber}.`);
+  await sendMessageComplete(api, message, `🚫 ${message.data.dName} đã thua! Bạn đã hết lượt đoán sai. Số cần đoán là ${targetNumber}.`);
   
   const players = gamePlayers.get(threadId);
   if (players) {
