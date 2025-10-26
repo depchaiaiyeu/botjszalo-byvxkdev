@@ -130,19 +130,6 @@ async function getLoadAverage() {
   }
 }
 
-async function getBattery() {
-  try {
-    const bat = await si.battery();
-    if (bat.hasBattery) {
-      return `${bat.percent.toFixed(1)}% ${bat.isCharging ? '(Charging)' : '(Discharging)'}`;
-    } else {
-      return "N/A";
-    }
-  } catch {
-    return "N/A";
-  }
-}
-
 export async function createBotInfoImage(botInfo, uptime, botStats) {
   let width = 1400;
   let height = 0;
@@ -153,11 +140,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   const diskTotal = await getDiskTotal();
   const networkUsage = await getNetworkUsage();
-  const battery = await getBattery();
   const platform = os.platform();
   const arch = os.arch();
   const username = os.userInfo().username || "Unknown";
-  const homedir = path.basename(os.homedir());
 
   const systemFields = [
     { label: "🔢 Phiên bản:", value: botStats.version || "Unknown" },
@@ -184,8 +169,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     { label: "💻 Platform:", value: platform },
     { label: "🏗️ Architecture:", value: arch },
     { label: "👤 Username:", value: username },
-    { label: "🏠 Home:", value: homedir },
-    { label: "🔋 Battery:", value: battery },
     { label: "🌐 Network:", value: botStats.network || networkUsage },
   ];
 
