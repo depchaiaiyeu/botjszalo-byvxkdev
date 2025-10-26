@@ -2283,6 +2283,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "giavang",
+      "description": "Xem thông tin giá vàng Việt Nam",
+      "syntax": "{p}giavang",
+      "permission": "all",
+      "countdown": 30,
+      "icon": "💲",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
