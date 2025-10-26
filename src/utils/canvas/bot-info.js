@@ -203,22 +203,20 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   ];
 
   const resourceFields = [
-    { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || "36°C" || (await getCpuTemp()) },
-    { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB` },
-    { label: "💿 Free Memory:", value: freeMemory },
-    { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()) },
-    { label: "💽 Disk Total:", value: diskTotal },
-    { label: "🌐 Network:", value: botStats.network || networkUsage },
-    { label: "📊 Load Average:", value: loadAverage },
+    { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || "36°C" || (await getCpuTemp()), hasBar: false },
+    { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB`, hasBar: true },
+    { label: "💿 Free Memory:", value: freeMemory, hasBar: false },
+    { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()), hasBar: true },
+    { label: "💽 Disk Total:", value: diskTotal, hasBar: false },
+    { label: "🌐 Network:", value: botStats.network || networkUsage, hasBar: false },
+    { label: "📊 Load Average:", value: loadAverage, hasBar: false },
   ];
 
   const systemInfoFields = [
     { label: "🔄 Processes:", value: runningProcesses },
-    { label: "🏠 Hostname:", value: hostname },
     { label: "🛠️ Kernel:", value: kernelVersion },
     { label: "💻 Platform:", value: platform },
-    { label: "🏗️ Architecture:", value: architecture },
-    { label: "🌐 IPv4:", value: ipv4 }
+    { label: "🏗️ Architecture:", value: architecture }
   ];
 
   const tempCanvas = createCanvas(1, 1);
@@ -238,7 +236,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const headerH = 180;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 60 + 150;
+  const resBoxHeight = resourceFields.length * 70 + 150;
   const netBoxHeight = systemInfoFields.length * 50 + 100;
 
   const leftColumnHeight = sysBoxHeight + resBoxHeight + netBoxHeight + 90;
@@ -334,6 +332,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillText(f.label, leftColumnX + 40, ySys);
     ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, ySys);
     ySys += lineHeight;
   });
@@ -347,39 +346,43 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
     ctx.fillText(f.label, leftColumnX + 40, yRes);
     ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
-    let percent = null;
-    if (f.label.includes("CPU") && f.value.includes("%")) {
-      percent = parseFloat(f.value.replace("%", "").trim());
-    } else if (f.label.includes("RAM") && f.value.match(/(\d+(\.\d+)?)/g)) {
-      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
-      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
-    } else if (f.label.includes("Disk") && f.value.match(/(\d+(\.\d+)?)/g)) {
-      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
-      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+    
+    yRes += 40;
+    
+    if (f.hasBar) {
+      let percent = null;
+      if (f.label.includes("CPU") && f.value.includes("%")) {
+        percent = parseFloat(f.value.replace("%", "").trim());
+      } else if (f.label.includes("RAM") && f.value.match(/(\d+(\.\d+)?)/g)) {
+        const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+        if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+      } else if (f.label.includes("Disk") && f.value.match(/(\d+(\.\d+)?)/g)) {
+        const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+        if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+      }
+
+      if (percent !== null && !isNaN(percent)) {
+        const barX = leftColumnX + 40;
+        const barY = yRes;
+        const barW = leftColumnWidth - 80;
+        const barH = 16;
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.fillRect(barX, barY, barW, barH);
+        const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+        grad.addColorStop(0, "#4ECB71");
+        grad.addColorStop(1, "#1E90FF");
+        ctx.fillStyle = grad;
+        ctx.fillRect(barX, barY, (percent / 100) * barW, barH);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barW, barH);
+
+        yRes += 30;
+      }
     }
-
-    if (percent !== null && !isNaN(percent)) {
-      const barX = leftColumnX + 40;
-      const barY = yRes + 12;
-      const barW = leftColumnWidth - 80;
-      const barH = 16;
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillRect(barX, barY, barW, barH);
-      const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
-      grad.addColorStop(0, "#4ECB71");
-      grad.addColorStop(1, "#1E90FF");
-      ctx.fillStyle = grad;
-      ctx.fillRect(barX, barY, (percent / 100) * barW, barH);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(barX, barY, barW, barH);
-
-      yRes += 35;
-    }
-
-    yRes += 25;
   });
 
   const netBoxY = resBoxY + resBoxHeight + 30;
@@ -391,6 +394,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillText(f.label, leftColumnX + 40, yNet);
     ctx.textAlign = "right";
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yNet);
     yNet += lineHeight;
   });
