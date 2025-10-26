@@ -2286,7 +2286,7 @@
     },
     {
       "name": "giavang",
-      "description": "Xem thông tin giá vàng Việt Nam",
+      "description": "Xem thông tin giá vàng tại Việt Nam",
       "syntax": "{p}giavang",
       "permission": "all",
       "countdown": 30,
