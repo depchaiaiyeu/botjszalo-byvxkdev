@@ -1,10 +1,6 @@
 import { sendMessageFromSQL, sendMessageFailed } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { parseString } from 'xml2js';
-import { promisify } from 'util';
-
-const parseXML = promisify(parseString);
 
 async function fetchFromSJCXML() {
   const response = await axios.get('https://sjc.com.vn/xml/tygiavang.xml', {
@@ -15,19 +11,19 @@ async function fetchFromSJCXML() {
     timeout: 10000
   });
 
-  const xmlData = await parseXML(response.data);
-  const items = xmlData.Root.ratelist[0].item;
-  
+  const $ = cheerio.load(response.data, { xmlMode: true });
   const goldData = [];
-  for (const item of items) {
-    if (item.$.type.toLowerCase().includes('sjc')) {
+  
+  $('item').each((i, item) => {
+    const type = $(item).attr('type');
+    if (type && type.toLowerCase().includes('sjc')) {
       goldData.push({
-        name: item.$.type,
-        buy: parseFloat(item.$.buy) * 1000,
-        sell: parseFloat(item.$.sell) * 1000
+        name: type,
+        buy: parseFloat($(item).attr('buy')) * 1000,
+        sell: parseFloat($(item).attr('sell')) * 1000
       });
     }
-  }
+  });
   
   return goldData;
 }
@@ -135,11 +131,41 @@ async function fetchFromDOJI() {
   return goldData;
 }
 
+async function fetchFromPNJ() {
+  const response = await axios.get('https://www.pnj.com.vn/blog/gia-vang/', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'text/html'
+    },
+    timeout: 10000
+  });
+
+  const $ = cheerio.load(response.data);
+  const goldData = [];
+  
+  $('.goldPrice table tbody tr').each((i, row) => {
+    const name = $(row).find('td:nth-child(1)').text().trim();
+    const buy = $(row).find('td:nth-child(2)').text().trim();
+    const sell = $(row).find('td:nth-child(3)').text().trim();
+    
+    if (name && name.toLowerCase().includes('sjc') && buy && sell) {
+      goldData.push({
+        name: name,
+        buy: parseFloat(buy.replace(/\./g, '').replace(/,/g, '')),
+        sell: parseFloat(sell.replace(/\./g, '').replace(/,/g, ''))
+      });
+    }
+  });
+
+  return goldData;
+}
+
 export async function handleGoldPriceCommand(api, message) {
   const sources = [
     { name: 'SJC XML', func: fetchFromSJCXML },
     { name: 'TyGia.com', func: fetchFromTyGia },
     { name: 'DOJI API', func: fetchFromDOJI },
+    { name: 'PNJ', func: fetchFromPNJ },
     { name: 'CafeF', func: fetchFromCafeF }
   ];
 
