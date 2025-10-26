@@ -1006,7 +1006,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
     { key: 'blockName', label: 'Quyền đổi thông tin nhóm:', inverted: false },
     { key: 'signAdminMsg', label: 'Làm nổi tin nhắn từ admin:', inverted: false },
     { key: 'addMemberOnly', label: 'Quyền thêm thành viên:', inverted: false },
-    { key: 'setTopicOnly', label: 'Quyền tạo chủ đề', inverted: true },
+    { key: 'setTopicOnly', label: 'Quyền tạo chủ đề:', inverted: true },
     { key: 'enableMsgHistory', label: 'Quyền xem lịch sử tin nhắn:', inverted: false },
     { key: 'lockCreatePost', label: 'Quyền tạo bài viết:', inverted: false },
     { key: 'lockCreatePoll', label: 'Quyền tạo bình chọn:', inverted: false },
