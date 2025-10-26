@@ -1,16 +1,27 @@
 import { sendMessageFromSQL, sendMessageFailed } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import axios from 'axios';
-import * as cheerio from 'cheerio'; 
+import * as cheerio from 'cheerio';
 
 export async function handleGoldPriceCommand(api, message) {
   try {
-    const response = await axios.get('https://sjc.com.vn/bieu-do-gia-vang');
+    const response = await axios.get('https://cafef.vn/du-lieu/gia-vang-hom-nay/trong-nuoc.chn', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      },
+      timeout: 10000,
+    });
+
     const html = response.data;
     const $ = cheerio.load(html);
 
-    const table = $('#gold-price-table');
+    const table = $('.tblListGoldPrice');
     if (table.length === 0) {
-      await sendMessageFailed(api, message, "Không tìm thấy bảng giá vàng trên trang SJC!");
+      await sendMessageFailed(api, message, "Không tìm thấy bảng giá vàng trên CafeF!");
       return;
     }
 
@@ -21,27 +32,30 @@ export async function handleGoldPriceCommand(api, message) {
     }
 
     const formatCurrency = (value) => {
-      // Giá từ trang là "78,500" (nghìn đồng/lượng), convert sang full VND
-      const numValue = parseFloat(value.replace(/,/g, ''));
-      return new Intl.NumberFormat('vi-VN').format(numValue * 1000) + ' VND/lượng';
+      const numValue = parseFloat(value.replace(/\./g, '').replace(/,/g, ''));
+      return new Intl.NumberFormat('vi-VN').format(numValue) + ' VND/lượng';
     };
 
-    let resultMessage = `💰 GIÁ VÀNG SJC - Cập nhật mới nhất từ SJC\n\n`;
+    let resultMessage = `💰 GIÁ VÀNG SJC - Cập nhật mới nhất\n\n`;
 
-    rows.each((index, row) => {
+    rows.filter((index, row) => $(row).find('td:nth-child(1)').text().trim().toLowerCase().includes('sjc')).slice(0, 5).each((index, row) => {
       const $row = $(row);
-      const stt = $row.find('td:nth-child(1)').text().trim();
-      const branchName = $row.find('td:nth-child(2)').text().trim();
-      const buyPrice = $row.find('td:nth-child(3)').text().trim();
-      const sellPrice = $row.find('td:nth-child(4)').text().trim();
+      const typeName = $row.find('td:nth-child(1)').text().trim();
+      const buyPrice = $row.find('td:nth-child(2)').text().trim();
+      const sellPrice = $row.find('td:nth-child(3)').text().trim();
 
-      if (branchName && buyPrice && sellPrice) {
-        resultMessage += `🏢 ${branchName}:\n`;
+      if (typeName && buyPrice && sellPrice) {
+        resultMessage += `🏢 ${typeName}:\n`;
         resultMessage += `   💵 Mua vào: ${formatCurrency(buyPrice)}\n`;
         resultMessage += `   💰 Bán ra: ${formatCurrency(sellPrice)}\n`;
         resultMessage += '\n';
       }
     });
+
+    if (resultMessage === `💰 GIÁ VÀNG SJC - Cập nhật mới nhất\n\n`) {
+      await sendMessageFailed(api, message, "Không extract được dữ liệu SJC!");
+      return;
+    }
 
     resultMessage += '─'.repeat(50);
 
