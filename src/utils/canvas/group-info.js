@@ -182,7 +182,7 @@ export async function createGroupInfoImage(groupInfo, owner) {
   const leftColumnX = 60;
 
   const infoBoxY = headerY + headerH + 30;
-  drawBox(ctx, leftColumnX, infoBoxY, leftColumnWidth, infoBoxHeight, "Thông Tin Cơ Bản");
+  drawBox(ctx, leftColumnX, infoBoxY, leftColumnWidth, infoBoxHeight, "Tổng Quát");
   let yInfo = infoBoxY + 100;
   const lineHeight = 50;
   infoFields.forEach(f => {
