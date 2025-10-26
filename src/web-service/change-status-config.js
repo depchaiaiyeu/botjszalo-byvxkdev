@@ -1,6 +1,6 @@
 import { initGroupSettings } from "../commands/command.js";
 import { sendMessageState } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
-import { getSettingName } from "../service-hahuyhoang/info-service/group-info.js";
+import { getSettingName } from "../service-hahuyhoang/info-service/bot-info.js";
 import { readGroupSettings, writeGroupSettings } from "../utils/io-json.js";
 
 export const changeStatusConfig = async ({ api, groupId, groupName, command, isActive }) => {
