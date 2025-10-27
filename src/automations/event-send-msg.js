@@ -17,6 +17,7 @@ import { antiForward } from "../service-hahuyhoang/anti-service/anti-forward.js"
 import { handleWordChainMessage } from "../service-hahuyhoang/game-service/mini-game/wordChain.js";
 import { handleGuessNumberGame } from "../service-hahuyhoang/game-service/mini-game/guessNumber.js";
 import { handleVuaTiengVietMessage } from "../service-hahuyhoang/game-service/mini-game/vuaTiengViet.js";
+import { handleFishingMessage } from "../service-hahuyhoang/game-service/mini-game/fishing.js";
 
 import { Reactions } from "../api-zalo/index.js";
 import { handleOnChatUser, handleOnReplyFromUser } from "../service-hahuyhoang/service.js";
@@ -229,7 +230,8 @@ export async function messagesUser(api, message) {
         antiForward(api, message, isAdminBox, groupSettings, botIsAdminBox, isSelf),
         handleWordChainMessage(api, message),
         handleGuessNumberGame(api, message),
-        handleVuaTiengVietMessage(api, message)
+        handleVuaTiengVietMessage(api, message),
+        handleFishingMessage(api, message)
       ]);
       break;
     }
