@@ -120,7 +120,7 @@ export async function handleFishingCommand(api, message) {
       `📌 LỆNH CƠ BẢN:\n` +
       `→ ${prefix}cauca join: Tham gia trò chơi\n` +
       `→ ${prefix}cauca leave: Rời khỏi trò chơi\n\n` +
-      `📌 LỆNH ĐỂ CHƠI (Cần ${prefix}cauca join để sử dụng):\n` +
+      `📌 LỆNH ĐỂ CHƠI (Cần tham gia trò chơi trước khi sử dụng):\n` +
       `→ daily: Điểm danh nhận lượt câu\n` +
       `→ goto [địa điểm]: Di chuyển đến địa điểm câu\n` +
       `→ cau [số lần]: Câu cá (mặc định 1 lần)\n` +
@@ -130,11 +130,12 @@ export async function handleFishingCommand(api, message) {
       `→ shop: Xem cửa hàng\n` +
       `→ buy [index] [số lượng]: Mua đồ\n` +
       `→ info: Xem thông tin cá nhân\n` +
-      `→ buff [số tiền] [@mentions]: Buff xu cho chính mình hoặc người nhận\n` +
+      `→ rank: Xem bảng xếp hạng\n` +
       `→ help: Xem trợ giúp chi tiết\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌍 ĐỊA ĐIỂM: Bến cảng Thượng Hải, Hồ Tây,\nVịnh Hạ Long, Sông Mê Kông, Biển Nha Trang\n` +
       `━━━━━━━━━━━━━━━━━━━━`,
+      false,
       86400000
     );
     return;
@@ -190,7 +191,7 @@ export async function handleFishingCommand(api, message) {
       activeGames.delete(threadId);
     }
     
-    await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu!");
+    await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu cho lần sau!");
     return;
   }
 }
@@ -219,7 +220,7 @@ export async function handleFishingMessage(api, message) {
   const args = contentStr.split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info", "help", "buff"];
+  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info", "help", "buff", "rank"];
   if (!validCommands.includes(command)) return;
 
   const commandKey = `${threadId}_${senderId}`;
@@ -244,14 +245,55 @@ export async function handleFishingMessage(api, message) {
       `🔹 sell all - Bán tất cả\n` +
       `🔹 shop - Xem cửa hàng\n` +
       `🔹 buy [index] [số lượng] - Mua đồ\n` +
-      `🔹 buff [số tiền] [@mentions] - Buff xu cho chính mình hoặc người nhận(OA)\n` +       
-      `🔹 info - Thông tin cá nhân\n\n` +
+      `🔹 info [@mentions] - Xem thông tin người chơi\n` +
+      `🔹 rank - Bảng xếp hạng\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💡 MẸO:\n` +
-      `• Mua trang bị tăng tỉ lệ cá hiếm\n` +
+      `• Mua trang bị để tăng tỉ lệ nổ cá hiếm\n` +
       `• Câu cá để nhận thêm lượt câu miễn phí\n` +
-      `• Câu được cá hiếm sẽ tặng nhiều lượt câu hơn\n` +
+      `• Nổ cá hiếm sẽ được tặng nhiều lượt câu hơn\n` +
       `━━━━━━━━━━━━━━━━━━━━`,
+      false,
+      86400000
+    );
+    return;
+  }
+
+  if (command === "rank") {
+    const allPlayers = [];
+    
+    for (const [key, data] of playerDataMap.entries()) {
+      if (key.startsWith(`${threadId}_`)) {
+        const userId = key.split('_')[1];
+        allPlayers.push({
+          userId: userId,
+          money: data.money,
+          totalFished: data.totalFished,
+          fishingTurns: data.fishingTurns,
+          rareBonus: data.rareBonus
+        });
+      }
+    }
+
+    allPlayers.sort((a, b) => b.money - a.money);
+
+    if (allPlayers.length === 0) {
+      await sendMessageWarning(api, message, "Chưa có người chơi nào trong bảng xếp hạng!");
+      return;
+    }
+
+    const top10 = allPlayers.slice(0, 10);
+    const rankList = top10.map((player, idx) => {
+      const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}.`;
+      return `${medal} ID: ${player.userId.slice(-4)}\n   💰 ${player.money.toLocaleString()} xu | 🐟 ${player.totalFished} cá | 🎣 ${player.fishingTurns} lượt | ✨ +${player.rareBonus}%`;
+    }).join("\n\n");
+
+    await sendMessageComplete(api, message,
+      `🏆 BẢNG XẾP HẠNG CẦN THỦ\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `${rankList}\n` +
+      `━━━━━━━━━━━━━━━━━━━━`,
+      false,
       86400000
     );
     return;
@@ -273,7 +315,7 @@ export async function handleFishingMessage(api, message) {
     if (!mentions || mentions.length === 0) {
       playerData.money += amountArg;
       await sendMessageComplete(api, message,
-        `💲 BUFF THÀNH CÔNG!\n\n` +
+        `✨ BUFF THÀNH CÔNG!\n\n` +
         `💰 Đã cộng: +${amountArg.toLocaleString()} xu\n` +
         `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
       );
@@ -284,13 +326,19 @@ export async function handleFishingMessage(api, message) {
     for (const mention of mentions) {
       const targetId = mention.uid;
       const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
+      
+      if (!gameData.game.players.has(targetId)) {
+        buffResults.push(`${targetName}: Chưa tham gia trò chơi`);
+        continue;
+      }
+
       const targetData = getPlayerData(threadId, targetId);
       targetData.money += amountArg;
       buffResults.push(`${targetName}: +${amountArg.toLocaleString()} xu`);
     }
 
     await sendMessageComplete(api, message,
-      `💲 BUFF THÀNH CÔNG!\n\n` +
+      `✨ BUFF THÀNH CÔNG!\n\n` +
       `${buffResults.join("\n")}`
     );
     return;
@@ -305,7 +353,7 @@ export async function handleFishingMessage(api, message) {
       const timeLeft = oneDayMs - (now - lastDaily);
       const hoursLeft = Math.floor(timeLeft / (60 * 60 * 1000));
       const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-      await sendMessageWarning(api, message, `⏰ Bạn đã điểm danh hôm nay rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`);
+      await sendMessageWarning(api, message, `⏰ Bạn đã điểm danh rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`);
       return;
     }
 
@@ -338,6 +386,7 @@ export async function handleFishingMessage(api, message) {
         `${locationList}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `Dùng: goto [tên địa điểm]`,
+        false,
         86400000
       );
       return;
@@ -379,7 +428,7 @@ export async function handleFishingMessage(api, message) {
 
     const delayTime = Math.floor(Math.random() * 3000) + 2000;
     
-    await sendMessageComplete(api, message, `🎣 Đang thả câu...`, delayTime);
+    await sendMessageComplete(api, message, `🎣 Đang thả câu...`, true, delayTime);
     
     await delay(delayTime);
 
@@ -445,6 +494,7 @@ export async function handleFishingMessage(api, message) {
       `${inventoryList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Dùng: sell [index] [số lượng] để bán`,
+      false,
       86400000
     );
     return;
@@ -489,12 +539,12 @@ export async function handleFishingMessage(api, message) {
 
     const inventoryArray = Object.entries(playerData.inventory).filter(([_, count]) => count > 0);
     if (index < 1 || index > inventoryArray.length) {
-      await sendMessageWarning(api, message, "Index không hợp lệ! Dùng 'product' để xem danh sách.");
+      await sendMessageWarning(api, message, "Index sản phẩm không hợp lệ! Dùng 'product' để xem danh sách.");
       return;
     }
 
     const [fishName, currentCount] = inventoryArray[index - 1];
-    if (amount > currentCount) {
+    if (amount> currentCount) {
       await sendMessageWarning(api, message, `Bạn chỉ có ${currentCount} ${fishName}!`);
       return;
     }
@@ -526,6 +576,7 @@ export async function handleFishingMessage(api, message) {
       `${shopList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Dùng: buy [index] [số lượng]`,
+      false,
       86400000
     );
     return;
@@ -577,21 +628,52 @@ export async function handleFishingMessage(api, message) {
   }
 
   if (command === "info") {
-    const inventoryValue = Object.entries(playerData.inventory)
+    const mentions = message.data.mentions;
+    
+    if (!mentions || mentions.length === 0) {
+      const inventoryValue = Object.entries(playerData.inventory)
+        .reduce((sum, [fish, count]) => sum + (FISH_DATA[fish].price * count), 0);
+
+      await sendMessageComplete(api, message,
+        `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
+        `🎣 Lượt câu: ${playerData.fishingTurns}\n` +
+        `📍 Vị trí: ${playerData.location || "Chưa chọn"}\n` +
+        `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%\n` +
+        `🐟 Tổng cá đã câu: ${playerData.totalFished}\n` +
+        `🎒 Giá trị túi đồ: ${inventoryValue.toLocaleString()} xu\n` +
+        `━━━━━━━━━━━━━━━━━━━━`,
+        false,
+        86400000
+      );
+      return;
+    }
+
+    const targetId = mentions[0].uid;
+    
+    if (!gameData.game.players.has(targetId)) {
+      await sendMessageWarning(api, message, "Người này chưa tham gia trò chơi!");
+      return;
+    }
+
+    const targetData = getPlayerData(threadId, targetId);
+    const inventoryValue = Object.entries(targetData.inventory)
       .reduce((sum, [fish, count]) => sum + (FISH_DATA[fish].price * count), 0);
 
     await sendMessageComplete(api, message,
       `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
-      `🎣 Lượt câu: ${playerData.fishingTurns}\n` +
-      `📍 Vị trí: ${playerData.location || "Chưa chọn"}\n` +
-      `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%\n` +
-      `🐟 Tổng cá đã câu: ${playerData.totalFished}\n` +
+      `💰 Tiền: ${targetData.money.toLocaleString()} xu\n` +
+      `🎣 Lượt câu: ${targetData.fishingTurns}\n` +
+      `📍 Vị trí: ${targetData.location || "Chưa chọn"}\n` +
+      `✨ Tỉ lệ cá hiếm: +${targetData.rareBonus}%\n` +
+      `🐟 Tổng cá đã câu: ${targetData.totalFished}\n` +
       `🎒 Giá trị túi đồ: ${inventoryValue.toLocaleString()} xu\n` +
       `━━━━━━━━━━━━━━━━━━━━`,
+      false,
       86400000
     );
     return;
   }
-}
+} 
