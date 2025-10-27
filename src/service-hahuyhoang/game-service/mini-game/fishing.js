@@ -1,17 +1,18 @@
 import axios from "axios";
 import { getGlobalPrefix } from "../../service.js";
 import { getActiveGames, checkHasActiveGame } from "./index.js";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
+import { sendMessageComplete, sendMessageWarning, sendMessageQuery } from "../../chat-zalo/chat-style/chat-style.js";
+import { admins } from "../../../index.js";
 
 const playerDataMap = new Map();
 const lastCommandMap = new Map();
 
 const FISHING_LOCATIONS = [
-  { name: "bến cảng thượng hải", normalized: "bencangthượnghải", emoji: "🏙️", description: "Bến cảng hiện đại", fish: ["Cá Mè", "Cá Chép", "Cá Rô", "Cá Thu", "Cá Ngừ"] },
-  { name: "hồ tây", normalized: "hồtay", emoji: "🌊", description: "Hồ nước ngọt yên bình", fish: ["Cá Chép", "Cá Rô", "Cá Trắm", "Cá Mè", "Cá Trê"] },
-  { name: "vịnh hạ long", normalized: "vịnhhạlong", emoji: "⛰️", description: "Di sản thiên nhiên", fish: ["Cá Mú", "Cá Hồng", "Cá Chim", "Cá Ngừ", "Cá Thu"] },
-  { name: "sông mê kông", normalized: "songmêkông", emoji: "🌾", description: "Dòng sông huyền thoại", fish: ["Cá Trê", "Cá Lăng", "Cá Hú", "Cá Trắm", "Cá Rô"] },
-  { name: "biển nha trang", normalized: "biểnnhatrang", emoji: "🏖️", description: "Bãi biển đẹp nhất", fish: ["Cá Thu", "Cá Ngừ", "Cá Hồng", "Cá Chim", "Cá Bạc Má"] }
+  { name: "bến cảng thượng hải", normalized: "bencangthượnghải", emoji: "🏙️", description: "Bến cảng hiện đại", fish: ["Cá Mè", "Cá Chép", "Cá Rô", "Cá Thu", "Cá Ngừ", "Cá Hồng", "Cá Bạc Má", "Cá Chim"] },
+  { name: "hồ tây", normalized: "hồtay", emoji: "🌊", description: "Hồ nước ngọt yên bình", fish: ["Cá Chép", "Cá Rô", "Cá Trắm", "Cá Mè", "Cá Trê", "Cá Hú"] },
+  { name: "vịnh hạ long", normalized: "vịnhhạlong", emoji: "⛰️", description: "Di sản thiên nhiên", fish: ["Cá Mú", "Cá Hồng", "Cá Chim", "Cá Ngừ", "Cá Thu", "Cá Bạc Má"] },
+  { name: "sông mê kông", normalized: "songmêkông", emoji: "🌾", description: "Dòng sông huyền thoại", fish: ["Cá Trê", "Cá Lăng", "Cá Hú", "Cá Trắm", "Cá Rô", "Cá Mú"] },
+  { name: "biển nha trang", normalized: "biểnnhatrang", emoji: "🏖️", description: "Bãi biển đẹp nhất", fish: ["Cá Thu", "Cá Ngừ", "Cá Hồng", "Cá Chim", "Cá Bạc Má", "Cá Mú"] }
 ];
 
 const FISH_DATA = {
@@ -62,7 +63,7 @@ function getPlayerData(threadId, userId) {
   if (!playerDataMap.has(key)) {
     playerDataMap.set(key, {
       money: 1000,
-      fishingTurns: 10,
+      fishingTurns: Math.floor(Math.random() * 51) + 50,
       inventory: {},
       location: null,
       equipment: { rod: null, bait: null, float: null },
@@ -119,7 +120,7 @@ export async function handleFishingCommand(api, message) {
       `→ ${prefix}cauca join: Tham gia trò chơi\n` +
       `→ ${prefix}cauca leave: Rời khỏi trò chơi\n\n` +
       `📌 LỆNH CHƠI (Cần ${prefix}cauca join để sử dụng):\n` +
-      `→ daily: Điểm danh nhận 10 lượt câu\n` +
+      `→ daily: Điểm danh nhận lượt câu\n` +
       `→ goto [địa điểm]: Di chuyển đến địa điểm câu\n` +
       `→ cau [số lần]: Câu cá (mặc định 1 lần)\n` +
       `→ product: Xem túi đồ\n` +
@@ -127,10 +128,12 @@ export async function handleFishingCommand(api, message) {
       `→ sell all: Bán tất cả\n` +
       `→ shop: Xem cửa hàng\n` +
       `→ buy [index] [số lượng]: Mua đồ\n` +
-      `→ info: Xem thông tin cá nhân\n\n` +
+      `→ info: Xem thông tin cá nhân\n` +
+      `→ help: Xem trợ giúp chi tiết\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌍 ĐỊA ĐIỂM: Bến cảng Thượng Hải, Hồ Tây,\nVịnh Hạ Long, Sông Mê Kông, Biển Nha Trang\n` +
-      `━━━━━━━━━━━━━━━━━━━━`
+      `━━━━━━━━━━━━━━━━━━━━`,
+      86400000
     );
     return;
   }
@@ -154,12 +157,12 @@ export async function handleFishingCommand(api, message) {
 
     const gameData = activeGames.get(threadId);
     gameData.game.players.add(senderId);
-    getPlayerData(threadId, senderId);
+    const playerData = getPlayerData(threadId, senderId);
 
     await sendMessageComplete(api, message,
       `🎉 Chào mừng bạn đến với thế giới câu cá!\n\n` +
-      `💰 Tiền khởi đầu: 1,000 xu\n` +
-      `🎣 Lượt câu: 10\n\n` +
+      `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
+      `🎣 Lượt câu: ${playerData.fishingTurns}\n\n` +
       `Hãy dùng lệnh "daily" để điểm danh hàng ngày!\n` +
       `Dùng "goto [địa điểm]" để bắt đầu câu cá!`
     );
@@ -180,13 +183,12 @@ export async function handleFishingCommand(api, message) {
     }
 
     gameData.game.players.delete(senderId);
-    playerDataMap.delete(`${threadId}_${senderId}`);
     
     if (gameData.game.players.size === 0) {
       activeGames.delete(threadId);
     }
     
-    await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi câu cá. Hẹn gặp lại!");
+    await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu!");
     return;
   }
 }
@@ -196,8 +198,6 @@ export async function handleFishingMessage(api, message) {
   const content = message.data.content || "";
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
-
-  if (message.data.mentions && message.data.mentions.length > 0) return;
 
   const activeGames = getActiveGames();
   if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
@@ -217,7 +217,7 @@ export async function handleFishingMessage(api, message) {
   const args = contentStr.split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info"];
+  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info", "help", "buff"];
   if (!validCommands.includes(command)) return;
 
   const commandKey = `${threadId}_${senderId}`;
@@ -228,6 +228,70 @@ export async function handleFishingMessage(api, message) {
   lastCommandMap.set(commandKey, now);
 
   const playerData = getPlayerData(threadId, senderId);
+
+  if (command === "help") {
+    await sendMessageComplete(api, message,
+      `🎣 TRỢ GIÚP GAME CÂU CÁ\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📋 CÁC LỆNH:\n\n` +
+      `🔹 daily - Điểm danh nhận lượt câu\n` +
+      `🔹 goto [địa điểm] - Di chuyển\n` +
+      `🔹 cau [số lần] - Câu cá\n` +
+      `🔹 product - Xem túi đồ\n` +
+      `🔹 sell [index] [số lượng] - Bán cá\n` +
+      `🔹 sell all - Bán tất cả\n` +
+      `🔹 shop - Xem cửa hàng\n` +
+      `🔹 buy [index] [số lượng] - Mua đồ\n` +
+      `🔹 info - Thông tin cá nhân\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 MẸO:\n` +
+      `• Mua trang bị tăng tỉ lệ cá hiếm\n` +
+      `• Bến cảng Thượng Hải có nhiều cá hiếm nhất\n` +
+      `• Điểm danh mỗi ngày để nhận lượt câu\n` +
+      `━━━━━━━━━━━━━━━━━━━━`,
+      86400000
+    );
+    return;
+  }
+
+  if (command === "buff") {
+    if (!admins.includes(senderId)) {
+      return;
+    }
+
+    const mentions = message.data.mentions;
+    const amountArg = parseInt(args[1]);
+
+    if (!amountArg || amountArg < 1) {
+      await sendMessageWarning(api, message, "Cú pháp: buff [số tiền] hoặc buff [số tiền] @mentions");
+      return;
+    }
+
+    if (!mentions || mentions.length === 0) {
+      playerData.money += amountArg;
+      await sendMessageComplete(api, message,
+        `✨ BUFF THÀNH CÔNG!\n\n` +
+        `💰 Đã cộng: +${amountArg.toLocaleString()} xu\n` +
+        `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
+      );
+      return;
+    }
+
+    let buffResults = [];
+    for (const mention of mentions) {
+      const targetId = mention.uid;
+      const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
+      const targetData = getPlayerData(threadId, targetId);
+      targetData.money += amountArg;
+      buffResults.push(`${targetName}: +${amountArg.toLocaleString()} xu`);
+    }
+
+    await sendMessageComplete(api, message,
+      `✨ BUFF THÀNH CÔNG!\n\n` +
+      `${buffResults.join("\n")}`
+    );
+    return;
+  }
 
   if (command === "daily") {
     const now = Date.now();
@@ -243,13 +307,14 @@ export async function handleFishingMessage(api, message) {
     }
 
     playerData.lastDaily = now;
-    playerData.fishingTurns += 10;
+    const turnsReward = Math.floor(Math.random() * 51) + 50;
+    playerData.fishingTurns += turnsReward;
     playerData.money += 100;
 
     await sendMessageComplete(api, message,
       `✅ ĐIỂM DANH THÀNH CÔNG!\n\n` +
       `🎁 Phần thưởng:\n` +
-      `+ 10 lượt câu cá\n` +
+      `+ ${turnsReward} lượt câu cá\n` +
       `+ 100 xu\n\n` +
       `🎣 Tổng lượt câu: ${playerData.fishingTurns}\n` +
       `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
@@ -269,7 +334,8 @@ export async function handleFishingMessage(api, message) {
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `${locationList}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `Dùng: goto [tên địa điểm]`
+        `Dùng: goto [tên địa điểm]`,
+        86400000
       );
       return;
     }
@@ -303,8 +369,11 @@ export async function handleFishingMessage(api, message) {
       return;
     }
 
+    const costPerTurn = Math.floor(Math.random() * 11) + 10;
+    const totalCost = costPerTurn * times;
+
     if (playerData.fishingTurns < times) {
-      await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu!`);
+      await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu! Mua thêm lượt với ${costPerTurn} xu/lượt`);
       return;
     }
 
@@ -370,7 +439,8 @@ export async function handleFishingMessage(api, message) {
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${inventoryList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Dùng: sell [index] [số lượng] để bán`
+      `Dùng: sell [index] [số lượng] để bán`,
+      86400000
     );
     return;
   }
@@ -447,7 +517,8 @@ export async function handleFishingMessage(api, message) {
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${shopList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Dùng: buy [index] [số lượng]`
+      `Dùng: buy [index] [số lượng]`,
+      86400000
     );
     return;
   }
@@ -499,7 +570,8 @@ export async function handleFishingMessage(api, message) {
       `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%\n` +
       `🐟 Tổng cá đã câu: ${playerData.totalFished}\n` +
       `🎒 Giá trị túi đồ: ${inventoryValue.toLocaleString()} xu\n` +
-      `━━━━━━━━━━━━━━━━━━━━`
+      `━━━━━━━━━━━━━━━━━━━━`,
+      86400000
     );
     return;
   }
