@@ -1401,10 +1401,6 @@ export async function handleCommand(
               await handleRegisterPlayer(api, message, groupSettings);
               break;
 
-            // case "logout":
-            //   await handleLogoutPlayer(api, message, groupSettings);
-            //   break;
-
             case "nap":
               await handleNapCommand(api, message, groupSettings);
               break;
@@ -1440,10 +1436,10 @@ export async function handleCommand(
             case "vuatiengviet":
               await startGame(api, message, groupSettings, "vuaTiengViet", commandParts.slice(1), isAdminBox);
               break;
-         //     case "noitu":
-          //   await handleNoitu(api, message, command, true);
-         //   break;
-
+            case "cauca":
+              await startGame(api, message, groupSettings, "cauca", commandParts.slice(1), isAdminBox);
+              break;
+              
             case "baucua":
               await handleBauCua(api, message, groupSettings);
               break;
