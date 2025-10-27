@@ -120,7 +120,7 @@ export async function handleFishingCommand(api, message) {
       `📌 LỆNH CƠ BẢN:\n` +
       `→ ${prefix}cauca join: Tham gia trò chơi\n` +
       `→ ${prefix}cauca leave: Rời khỏi trò chơi\n\n` +
-      `📌 LỆNH CHƠI (Cần ${prefix}cauca join để sử dụng):\n` +
+      `📌 LỆNH ĐỂ CHƠI (Cần ${prefix}cauca join để sử dụng):\n` +
       `→ daily: Điểm danh nhận lượt câu\n` +
       `→ goto [địa điểm]: Di chuyển đến địa điểm câu\n` +
       `→ cau [số lần]: Câu cá (mặc định 1 lần)\n` +
