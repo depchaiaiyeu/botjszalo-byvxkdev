@@ -90,13 +90,10 @@ export async function handleFishingCommand(api, message) {
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
 
-  if (message.data.mentions && message.data.mentions.length > 0) return;
-  if (/[^\p{L}\p{N}\s]/u.test(content.charAt(0))) return;
-
   const args = content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  if (command !== "cauca") return;
+  if (command !== `${prefix}cauca`) return;
 
   const subCommand = args[1]?.toLowerCase();
 
@@ -105,9 +102,9 @@ export async function handleFishingCommand(api, message) {
       `🎣 HƯỚNG DẪN GAME CÂU CÁ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📌 LỆNH CƠ BẢN:\n` +
-      `→ cauca join: Tham gia trò chơi\n` +
-      `→ cauca leave: Rời khỏi trò chơi\n\n` +
-      `📌 LỆNH CHƠI (không cần cauca):\n` +
+      `→ ${prefix}cauca join: Tham gia trò chơi\n` +
+      `→ ${prefix}cauca leave: Rời khỏi trò chơi\n\n` +
+      `📌 LỆNH CHƠI (không cần ${prefix}cauca):\n` +
       `→ daily: Điểm danh nhận 10 lượt câu\n` +
       `→ goto [địa điểm]: Di chuyển đến địa điểm câu\n` +
       `→ cau [số lần]: Câu cá (mặc định 1 lần)\n` +
@@ -128,7 +125,7 @@ export async function handleFishingCommand(api, message) {
     const activeGames = getActiveGames();
     if (activeGames.has(threadId)) {
       const gameData = activeGames.get(threadId);
-      if (gameData.type === "fishing" && gameData.game.players.has(senderId)) {
+      if (gameData.type === "cauca" && gameData.game.players.has(senderId)) {
         await sendMessageWarning(api, message, "Bạn đã tham gia trò chơi câu cá rồi!");
         return;
       }
@@ -136,7 +133,7 @@ export async function handleFishingCommand(api, message) {
 
     if (!activeGames.has(threadId)) {
       activeGames.set(threadId, {
-        type: "fishing",
+        type: "cauca",
         game: { players: new Set() }
       });
     }
@@ -157,7 +154,7 @@ export async function handleFishingCommand(api, message) {
 
   if (subCommand === "leave") {
     const activeGames = getActiveGames();
-    if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "fishing") {
+    if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
       await sendMessageWarning(api, message, "Không có trò chơi câu cá nào đang diễn ra!");
       return;
     }
@@ -187,7 +184,6 @@ export async function handleFishingMessage(api, message) {
   const prefix = getGlobalPrefix();
 
   if (message.data.mentions && message.data.mentions.length > 0) return;
-  if (/[^\p{L}\p{N}\s]/u.test(content.charAt(0))) return;
   if (content.startsWith(prefix)) return;
 
   const args = content.trim().split(/\s+/);
@@ -197,7 +193,7 @@ export async function handleFishingMessage(api, message) {
   if (!validCommands.includes(command)) return;
 
   const activeGames = getActiveGames();
-  if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "fishing") {
+  if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
     return;
   }
 
