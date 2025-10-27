@@ -3,7 +3,7 @@ import { createCanvas, loadImage } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
+import { sendMessageComplete, sendMessageWarning, sendMessageFromSQLImage } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
 
@@ -136,33 +136,31 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     const game = activeCaroGames.get(threadId);
     if (!game) return;
     
-    const imageBuffer = await createCaroBoard(game.board, game.size);
+    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_timeout.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
     if (isPlayerTurn) {
-      await api.sendMessage(
+      await sendMessageFromSQLImage(
+        api,
+        message,
         {
-          msg: `⏰ Hết giờ!\n\n` +
-               `${game.playerName} không đánh trong 60 giây.\n\n` +
-               `🎉 Bot thắng!\n\n` +
-               `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-          attachments: [imagePath]
+          success: false,
+          message: `⏰ Hết giờ!\n\n${game.playerName} không đánh trong 60 giây.\n\n🎉 Bot thắng!`
         },
-        threadId,
-        message.type
+        true,
+        imagePath
       );
     } else {
-      await api.sendMessage(
+      await sendMessageFromSQLImage(
+        api,
+        message,
         {
-          msg: `⏰ Hết giờ!\n\n` +
-               `Bot không phản hồi trong 60 giây.\n\n` +
-               `🎉 ${game.playerName} thắng!\n\n` +
-               `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-          attachments: [imagePath]
+          success: true,
+          message: `⏰ Hết giờ!\n\nBot không phản hồi trong 60 giây.\n\n🎉 ${game.playerName} thắng!`
         },
-        threadId,
-        message.type
+        true,
+        imagePath
       );
     }
     
@@ -177,11 +175,12 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
   turnTimers.set(threadId, timer);
 }
 
-async function createCaroBoard(board, size = 16) {
+async function createCaroBoard(board, size = 16, moveCount = 0) {
   const cellSize = 50;
   const padding = 40;
+  const footerHeight = 40;
   const width = size * cellSize + padding * 2;
-  const height = size * cellSize + padding * 2;
+  const height = size * cellSize + padding * 2 + footerHeight;
   
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -189,11 +188,11 @@ async function createCaroBoard(board, size = 16) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   
-  ctx.fillStyle = "#f0d9b5";
+  ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, width, height);
   
-  ctx.strokeStyle = "#8b7355";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#CCCCCC";
+  ctx.lineWidth = 1;
   
   for (let i = 0; i <= size; i++) {
     ctx.beginPath();
@@ -207,8 +206,8 @@ async function createCaroBoard(board, size = 16) {
     ctx.stroke();
   }
   
-  ctx.fillStyle = "#5d4e37";
-  ctx.font = "bold 11px Arial";
+  ctx.fillStyle = "#000000";
+  ctx.font = "11px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   
@@ -251,6 +250,13 @@ async function createCaroBoard(board, size = 16) {
     }
   }
   
+  ctx.fillStyle = "#000000";
+  ctx.font = "bold 16px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const footerY = padding + size * cellSize + footerHeight / 2;
+  ctx.fillText(`Lượt đi: ${moveCount}/256`, width / 2, footerY);
+  
   return canvas.toBuffer("image/png");
 }
 
@@ -285,9 +291,9 @@ QUAN TRỌNG: CHỈ TRẢ VỀ SỐ, KHÔNG GIẢI THÍCH.`;
       model: "gemini-2.0-flash-exp",
       systemInstruction: systemPrompt,
       generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        topK: 40,
+        temperature: 0.3,
+        topP: 0.9,
+        topK: 20,
         maxOutputTokens: 50,
       }
     });
@@ -420,10 +426,11 @@ export async function handleCaroCommand(api, message) {
     mode,
     playerId: message.data.uidFrom,
     playerName: message.data.dName,
-    size
+    size,
+    moveCount: 0
   });
   
-  const imageBuffer = await createCaroBoard(board, size);
+  const imageBuffer = await createCaroBoard(board, size, 0);
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
@@ -432,19 +439,15 @@ export async function handleCaroCommand(api, message) {
     ? `👤 Đến lượt: ${message.data.dName}\n\n👉 Nhập số ô (1-256) để đánh.\n⏰ Bạn có 60 giây!` 
     : "🤖 Bot đi trước...";
   
-  await api.sendMessage(
+  await sendMessageFromSQLImage(
+    api,
+    message,
     {
-      msg: `🎮 Trò chơi Caro bắt đầu!\n\n` +
-           `🎯 Chế độ: ${modeText}\n` +
-           `🔴 Bạn: ${playerMark}\n` +
-           `🔵 Bot: ${playerMark === "X" ? "O" : "X"}\n\n` +
-           `${turnMsg}\n\n` +
-           `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-      attachments: [imagePath],
-      ttl: 60000
+      success: true,
+      message: `🎮 Trò chơi Caro bắt đầu!\n\n🎯 Chế độ: ${modeText}\n🔴 Bạn: ${playerMark}\n🔵 Bot: ${playerMark === "X" ? "O" : "X"}\n\n${turnMsg}`
     },
-    threadId,
-    message.type
+    false,
+    imagePath
   );
   
   try {
@@ -473,19 +476,19 @@ async function handleBotTurn(api, message) {
   if (!activeCaroGames.has(threadId)) return;
   
   if (pos === -1) {
-    const imageBuffer = await createCaroBoard(game.board, game.size);
+    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    await api.sendMessage(
+    await sendMessageFromSQLImage(
+      api,
+      message,
       {
-        msg: `🎮 Hòa! Không còn nước đi.\n\n` +
-             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-        attachments: [imagePath],
-        ttl: 60000
+        success: false,
+        message: `🎮 Hòa! Không còn nước đi.`
       },
-      threadId,
-      message.type
+      false,
+      imagePath
     );
     
     try {
@@ -498,39 +501,37 @@ async function handleBotTurn(api, message) {
   
   game.board[pos] = game.botMark;
   game.currentTurn = game.playerMark;
+  game.moveCount++;
   
   const winner = checkWin(game.board, game.size);
   
-  const imageBuffer = await createCaroBoard(game.board, game.size);
+  const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount);
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
   if (winner) {
-    await api.sendMessage(
+    await sendMessageFromSQLImage(
+      api,
+      message,
       {
-        msg: `🎉 Bot thắng!\n\n` +
-             `🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}\n\n` +
-             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-        attachments: [imagePath],
-        ttl: 60000
+        success: false,
+        message: `🎉 Bot thắng!\n\n🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}`
       },
-      threadId,
-      message.type
+      true,
+      imagePath
     );
     activeCaroGames.delete(threadId);
     clearTurnTimer(threadId);
   } else {
-    await api.sendMessage(
+    await sendMessageFromSQLImage(
+      api,
+      message,
       {
-        msg: `🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}\n\n` +
-             `👤 Đến lượt: ${game.playerName}\n` +
-             `⏰ Bạn có 60 giây!\n\n` +
-             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-        attachments: [imagePath],
-        ttl: 60000
+        success: true,
+        message: `🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}\n\n👤 Đến lượt: ${game.playerName}\n⏰ Bạn có 60 giây!`
       },
-      threadId,
-      message.type
+      false,
+      imagePath
     );
     startTurnTimer(api, message, threadId, true);
   }
@@ -572,24 +573,24 @@ export async function handleCaroMessage(api, message) {
   
   game.board[pos] = game.playerMark;
   game.currentTurn = game.botMark;
+  game.moveCount++;
   
   const winner = checkWin(game.board, game.size);
   
-  const imageBuffer = await createCaroBoard(game.board, game.size);
+  const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount);
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
   if (winner) {
-    await api.sendMessage(
+    await sendMessageFromSQLImage(
+      api,
+      message,
       {
-        msg: `🎉 ${game.playerName} thắng!\n\n` +
-             `👤 Bạn đánh ${game.playerMark}, ô: ${pos + 1}\n\n` +
-             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-        attachments: [imagePath],
-        ttl: 60000
+        success: true,
+        message: `🎉 ${game.playerName} thắng!\n\n👤 Bạn đánh ${game.playerMark}, ô: ${pos + 1}`
       },
-      threadId,
-      message.type
+      true,
+      imagePath
     );
     activeCaroGames.delete(threadId);
     clearTurnTimer(threadId);
@@ -599,16 +600,15 @@ export async function handleCaroMessage(api, message) {
     return;
   }
   
-  await api.sendMessage(
+  await sendMessageFromSQLImage(
+    api,
+    message,
     {
-      msg: `👤 ${game.playerName} đánh ${game.playerMark}, ô: ${pos + 1}\n\n` +
-           `⏳ Bot đang suy nghĩ...\n\n` +
-           `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
-      attachments: [imagePath],
-      ttl: 60000
+      success: true,
+      message: `👤 ${game.playerName} đánh ${game.playerMark}, ô: ${pos + 1}\n\n🧭 Bot đang suy nghĩ...`
     },
-    threadId,
-    message.type
+    false,
+    imagePath
   );
   
   try {
