@@ -16,19 +16,19 @@ const FISHING_LOCATIONS = [
 ];
 
 const FISH_DATA = {
-  "Cá Mè": { rarity: "common", price: 50, emoji: "🐟" },
-  "Cá Chép": { rarity: "common", price: 60, emoji: "🐟" },
-  "Cá Rô": { rarity: "common", price: 55, emoji: "🐟" },
-  "Cá Trê": { rarity: "common", price: 70, emoji: "🐟" },
-  "Cá Trắm": { rarity: "uncommon", price: 120, emoji: "🐠" },
-  "Cá Thu": { rarity: "uncommon", price: 150, emoji: "🐠" },
-  "Cá Lăng": { rarity: "uncommon", price: 180, emoji: "🐠" },
-  "Cá Hú": { rarity: "rare", price: 300, emoji: "🐡" },
-  "Cá Mú": { rarity: "rare", price: 350, emoji: "🐡" },
-  "Cá Hồng": { rarity: "rare", price: 400, emoji: "🐡" },
-  "Cá Ngừ": { rarity: "epic", price: 800, emoji: "🦈" },
-  "Cá Chim": { rarity: "epic", price: 900, emoji: "🦈" },
-  "Cá Bạc Má": { rarity: "legendary", price: 2000, emoji: "🐋" }
+  "Cá Mè": { rarity: "common", price: 50, emoji: "🐟", turnBonus: 10 },
+  "Cá Chép": { rarity: "common", price: 60, emoji: "🐟", turnBonus: 10 },
+  "Cá Rô": { rarity: "common", price: 55, emoji: "🐟", turnBonus: 10 },
+  "Cá Trê": { rarity: "common", price: 70, emoji: "🐟", turnBonus: 10 },
+  "Cá Trắm": { rarity: "uncommon", price: 120, emoji: "🐠", turnBonus: 20 },
+  "Cá Thu": { rarity: "uncommon", price: 150, emoji: "🐠", turnBonus: 20 },
+  "Cá Lăng": { rarity: "uncommon", price: 180, emoji: "🐠", turnBonus: 20 },
+  "Cá Hú": { rarity: "rare", price: 300, emoji: "🐡", turnBonus: 50 },
+  "Cá Mú": { rarity: "rare", price: 350, emoji: "🐡", turnBonus: 50 },
+  "Cá Hồng": { rarity: "rare", price: 400, emoji: "🐡", turnBonus: 50 },
+  "Cá Ngừ": { rarity: "epic", price: 800, emoji: "🦈", turnBonus: 100 },
+  "Cá Chim": { rarity: "epic", price: 900, emoji: "🦈", turnBonus: 100 },
+  "Cá Bạc Má": { rarity: "legendary", price: 2000, emoji: "🐋", turnBonus: 200 }
 };
 
 const SHOP_ITEMS = [
@@ -46,7 +46,8 @@ const SHOP_ITEMS = [
   { id: 12, name: "Thuyền đánh cá", price: 15000, type: "boat", bonus: 30, emoji: "⛵" },
   { id: 13, name: "Máy dò cá", price: 10000, type: "sonar", bonus: 22, emoji: "📡" },
   { id: 14, name: "Áo phao cứu sinh", price: 2500, type: "vest", bonus: 8, emoji: "🦺" },
-  { id: 15, name: "Kính lặn", price: 1800, type: "goggles", bonus: 7, emoji: "🥽" }
+  { id: 15, name: "Kính lặn", price: 1800, type: "goggles", bonus: 7, emoji: "🥽" },
+  { id: 16, name: "Lượt câu (x10)", price: 10, type: "turns", bonus: 0, emoji: "🎫" }
 ];
 
 function normalizeText(text) {
@@ -129,6 +130,7 @@ export async function handleFishingCommand(api, message) {
       `→ shop: Xem cửa hàng\n` +
       `→ buy [index] [số lượng]: Mua đồ\n` +
       `→ info: Xem thông tin cá nhân\n` +
+      `→ buff [số tiền] [@mentions]: Buff xu cho chính mình hoặc người nhận\n` +
       `→ help: Xem trợ giúp chi tiết\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌍 ĐỊA ĐIỂM: Bến cảng Thượng Hải, Hồ Tây,\nVịnh Hạ Long, Sông Mê Kông, Biển Nha Trang\n` +
@@ -242,12 +244,13 @@ export async function handleFishingMessage(api, message) {
       `🔹 sell all - Bán tất cả\n` +
       `🔹 shop - Xem cửa hàng\n` +
       `🔹 buy [index] [số lượng] - Mua đồ\n` +
+      `🔹 buff [số tiền] [@mentions] - Buff xu cho chính mình hoặc người nhận(OA)\n` +       
       `🔹 info - Thông tin cá nhân\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💡 MẸO:\n` +
       `• Mua trang bị tăng tỉ lệ cá hiếm\n` +
-      `• Bến cảng Thượng Hải có nhiều cá hiếm nhất\n` +
-      `• Điểm danh mỗi ngày để nhận lượt câu\n` +
+      `• Câu cá để nhận thêm lượt câu miễn phí\n` +
+      `• Câu được cá hiếm sẽ tặng nhiều lượt câu hơn\n` +
       `━━━━━━━━━━━━━━━━━━━━`,
       86400000
     );
@@ -270,7 +273,7 @@ export async function handleFishingMessage(api, message) {
     if (!mentions || mentions.length === 0) {
       playerData.money += amountArg;
       await sendMessageComplete(api, message,
-        `✨ BUFF THÀNH CÔNG!\n\n` +
+        `💲 BUFF THÀNH CÔNG!\n\n` +
         `💰 Đã cộng: +${amountArg.toLocaleString()} xu\n` +
         `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
       );
@@ -287,7 +290,7 @@ export async function handleFishingMessage(api, message) {
     }
 
     await sendMessageComplete(api, message,
-      `✨ BUFF THÀNH CÔNG!\n\n` +
+      `💲 BUFF THÀNH CÔNG!\n\n` +
       `${buffResults.join("\n")}`
     );
     return;
@@ -302,7 +305,7 @@ export async function handleFishingMessage(api, message) {
       const timeLeft = oneDayMs - (now - lastDaily);
       const hoursLeft = Math.floor(timeLeft / (60 * 60 * 1000));
       const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-      await sendMessageWarning(api, message, `⏰ Bạn đã điểm danh rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`);
+      await sendMessageWarning(api, message, `⏰ Bạn đã điểm danh hôm nay rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`);
       return;
     }
 
@@ -369,11 +372,8 @@ export async function handleFishingMessage(api, message) {
       return;
     }
 
-    const costPerTurn = Math.floor(Math.random() * 11) + 10;
-    const totalCost = costPerTurn * times;
-
     if (playerData.fishingTurns < times) {
-      await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu! Mua thêm lượt với ${costPerTurn} xu/lượt`);
+      await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu! Mua thêm trong shop (10 xu/10 lượt)`);
       return;
     }
 
@@ -388,6 +388,7 @@ export async function handleFishingMessage(api, message) {
     
     let results = [];
     let totalValue = 0;
+    let totalTurnsGained = 0;
 
     for (let i = 0; i < times; i++) {
       const rarity = calculateRarity(100, playerData.rareBonus);
@@ -400,9 +401,12 @@ export async function handleFishingMessage(api, message) {
       playerData.inventory[fishName]++;
       playerData.totalFished++;
       totalValue += fishInfo.price;
+      totalTurnsGained += fishInfo.turnBonus;
       
       results.push(`${fishInfo.emoji} ${fishName}`);
     }
+
+    playerData.fishingTurns += totalTurnsGained;
 
     const resultText = times <= 10 
       ? results.join(", ")
@@ -417,6 +421,7 @@ export async function handleFishingMessage(api, message) {
       `${resultText}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `💎 Tổng giá trị: ${totalValue.toLocaleString()} xu\n` +
+      `🎫 Lượt câu nhận được: +${totalTurnsGained}\n` +
       `🎣 Lượt còn lại: ${playerData.fishingTurns}`
     );
     return;
@@ -508,9 +513,12 @@ export async function handleFishingMessage(api, message) {
   }
 
   if (command === "shop") {
-    const shopList = SHOP_ITEMS.map(item => 
-      `${item.id}. ${item.emoji} ${item.name}\n   💰 Giá: ${item.price.toLocaleString()} xu | +${item.bonus}% tỉ lệ cá hiếm`
-    ).join("\n\n");
+    const shopList = SHOP_ITEMS.map(item => {
+      if (item.type === "turns") {
+        return `${item.id}. ${item.emoji} ${item.name}\n   💰 Giá: ${item.price.toLocaleString()} xu`;
+      }
+      return `${item.id}. ${item.emoji} ${item.name}\n   💰 Giá: ${item.price.toLocaleString()} xu | +${item.bonus}% tỉ lệ cá hiếm`;
+    }).join("\n\n");
 
     await sendMessageComplete(api, message,
       `🏪 CỬA HÀNG CÂU CÁ\n\n` +
@@ -545,15 +553,26 @@ export async function handleFishingMessage(api, message) {
     }
 
     playerData.money -= totalCost;
-    playerData.rareBonus += item.bonus * amount;
 
-    await sendMessageComplete(api, message,
-      `✅ MUA THÀNH CÔNG!\n\n` +
-      `${item.emoji} ${item.name} x${amount}\n` +
-      `💵 Chi phí: -${totalCost.toLocaleString()} xu\n` +
-      `💰 Số dư: ${playerData.money.toLocaleString()} xu\n` +
-      `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%`
-    );
+    if (item.type === "turns") {
+      playerData.fishingTurns += 10 * amount;
+      await sendMessageComplete(api, message,
+        `✅ MUA THÀNH CÔNG!\n\n` +
+        `${item.emoji} ${item.name} x${amount}\n` +
+        `💵 Chi phí: -${totalCost.toLocaleString()} xu\n` +
+        `💰 Số dư: ${playerData.money.toLocaleString()} xu\n` +
+        `🎣 Lượt câu: ${playerData.fishingTurns}`
+      );
+    } else {
+      playerData.rareBonus += item.bonus * amount;
+      await sendMessageComplete(api, message,
+        `✅ MUA THÀNH CÔNG!\n\n` +
+        `${item.emoji} ${item.name} x${amount}\n` +
+        `💵 Chi phí: -${totalCost.toLocaleString()} xu\n` +
+        `💰 Số dư: ${playerData.money.toLocaleString()} xu\n` +
+        `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%`
+      );
+    }
     return;
   }
 
