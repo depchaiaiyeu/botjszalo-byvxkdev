@@ -3,9 +3,9 @@ import { createCanvas, loadImage } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendMessageComplete, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
-import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
-import { removeMention } from "../../utils/format-util.js";
+import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
+import { getGlobalPrefix } from "../../service.js";
+import { removeMention } from "../../../utils/format-util.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
