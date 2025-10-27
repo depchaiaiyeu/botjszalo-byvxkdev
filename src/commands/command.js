@@ -1436,8 +1436,13 @@ export async function handleCommand(
             case "vuatiengviet":
               await startGame(api, message, groupSettings, "vuaTiengViet", commandParts.slice(1), isAdminBox);
               break;
+              
             case "cauca":
               await startGame(api, message, groupSettings, "cauca", commandParts.slice(1), isAdminBox);
+              break;
+                            
+            case "caro":
+              await startGame(api, message, groupSettings, "caro", commandParts.slice(1), isAdminBox);
               break;
               
             case "baucua":
