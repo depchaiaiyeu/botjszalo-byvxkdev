@@ -3,9 +3,9 @@ import { createCanvas, loadImage } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
-import { getGlobalPrefix } from "../../service.js";
-import { removeMention } from "../../../utils/format-util.js";
+import { sendMessageComplete, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
+import { removeMention } from "../../utils/format-util.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,77 +13,187 @@ const __dirname = path.dirname(__filename);
 const genAI = new GoogleGenerativeAI("AIzaSyANli4dZGQGSF2UEjG9V-X0u8z56Zm8Qmc");
 
 const activeCaroGames = new Map();
+const turnTimers = new Map();
 
 const BASE_HEADER = `
 QUY TẮC XUẤT RA BẮT BUỘC:
 - Chỉ trả về MỘT số nguyên duy nhất ứng với ô cần đánh (1..256).
 - KHÔNG in giải thích, KHÔNG dấu chấm, KHÔNG ghi kèm ký tự nào khác.
+- CHỈ TRẢ VỀ SỐ DUY NHẤT.
 
 MÔ HÌNH BÀN CỜ & CHỈ SỐ:
 - Bàn cờ kích thước 16x16 (256 ô). Ô được đánh số 1..256 theo hàng:
   • Hàng 1: 1..16
   • Hàng 2: 17..32
-  • ...
+  • Hàng 16: 241..256
 - Ký hiệu: X và O; '.' thể hiện ô trống.
 - Bạn đánh với ký hiệu 'myMark'.
 - Điều kiện thắng: có chuỗi liên tiếp 5 quân theo hàng, cột hoặc chéo.
 
 RÀNG BUỘC HỢP LỆ:
 - TUYỆT ĐỐI không chọn ô đã bị chiếm (khác '.').
-- Nếu không tìm thấy nước "rất tốt", vẫn phải trả về MỘT ô trống hợp lệ (1..256).
+- Phải kiểm tra kỹ trạng thái bàn cờ trước khi chọn.
 - Không bao giờ trả về 0, số âm, hoặc số > 256.
+- Không chọn ô đã có X hoặc O.
 
-THỨ TỰ ƯU TIÊN:
-1) Nếu ta có nước thắng ngay => CHỌN NGAY.
-2) Nếu đối thủ có nước thắng ngay => CHẶN NGAY.
-3) Tạo đòn kép (double-threat) => ƯU TIÊN.
-4) Tạo chuỗi 4 quân liên tiếp với đầu mở.
-5) Tạo chuỗi 3 quân liên tiếp với 2 đầu mở.
-6) Chặn các đe dọa của đối thủ.
-7) Mở rộng vị trí gần trung tâm và các quân đã có.
+CHIẾN THUẬT THÔNG MINH:
+1) KIỂM TRA THẮNG NGAY: Nếu có nước tạo 5 quân liên tiếp => CHỌN NGAY
+2) CHẶN ĐỐI THỦ THẮNG: Nếu đối thủ sắp có 5 quân liên tiếp => CHẶN NGAY
+3) TẠO 4 QUÂN LIÊN TIẾP: Tạo chuỗi 4 quân với 2 đầu mở (đòn chắc chắn thắng)
+4) CHẶN 4 QUÂN ĐỐI THỦ: Nếu đối thủ có 4 quân liên tiếp => CHẶN GẤP
+5) TẠO 3 QUÂN MỞ: Tạo chuỗi 3 quân với 2 đầu mở
+6) CHẶN 3 QUÂN MỞ ĐỐI THỦ: Chặn các chuỗi 3 quân nguy hiểm
+7) NỐI DÀI CHUỖI: Mở rộng các chuỗi hiện có theo hướng có lợi
+8) KIỂM SOÁT TRUNG TÂM: Ưu tiên các ô gần trung tâm bàn cờ (ô 120-136)
+9) TẠO GIAO ĐIỂM: Đặt quân tại vị trí giao nhau của nhiều hướng tiềm năng
+
+PHÂN TÍCH CHI TIẾT:
+- Quét toàn bộ bàn cờ theo 4 hướng: ngang, dọc, chéo chính, chéo phụ
+- Đếm số quân liên tiếp của cả 2 bên trong mỗi chuỗi
+- Đánh giá số đầu mở (0, 1, hoặc 2 đầu) của mỗi chuỗi
+- Ưu tiên các nước tạo nhiều đe dọa đồng thời
+
+VỊ TRÍ CHIẾN LƯỢC:
+- Trung tâm (ô 120, 121, 136, 137): Giá trị cao nhất
+- Vòng trong (khoảng cách 2-3 từ trung tâm): Giá trị cao
+- Gần các quân đã có (bán kính 2-3 ô): Tạo liên kết
+- Tránh góc và biên nếu không có lý do chiến thuật
 `;
 
 const EASY_MODE = `${BASE_HEADER}
-ĐIỀU CHỈNH CHO DỄ:
-- Ưu tiên an toàn, tránh lỗi.
-- Khi không rõ ràng: chọn gần trung tâm.
+
+CHẾ ĐỘ EASY:
+- Ưu tiên phòng thủ và an toàn
+- Tập trung chặn các nước thắng trực tiếp của đối thủ
+- Tạo các chuỗi 2-3 quân đơn giản
+- Chọn các ô gần trung tâm khi không có đe dọa rõ ràng
+- Không cần tính toán quá sâu, chỉ xét 1-2 nước tiếp theo
 `;
 
 const HARD_MODE = `${BASE_HEADER}
-ĐIỀU CHỈNH CHO KHÓ:
-- Ưu tiên tạo/duy trì đòn kép; phá đòn kép của đối thủ ngay khi có thể.
-- Ưu tiên chuỗi mở 3/4 trên trục/chéo trung tâm.
-- Không đi góc/biên nếu không gia tăng đe doạ hoặc ngăn đe doạ.
+
+CHẾ ĐỘ HARD:
+- Cân bằng giữa tấn công và phòng thủ
+- Ưu tiên tạo chuỗi 3-4 quân với nhiều đầu mở
+- Phát hiện và phá các đòn kép của đối thủ
+- Tạo nhiều hướng tấn công đồng thời
+- Kiểm soát các vị trí then chốt trên bàn cờ
+- Tính toán trước 2-3 nước tiếp theo
+- Không chỉ phản ứng mà chủ động tạo thế
 `;
 
-const CHALLENGE_MODE = `${BASE_HEADER}
-ĐIỀU CHỈNH CHO THÁCH ĐẤU (ưu tiên ép thắng):
-- Nếu có chuỗi ép buộc => CHỌN.
-- Tạo double-threat > mọi lựa chọn khác.
-- Ưu tiên nối dài chuỗi theo hướng gia tăng số đầu mở.
-- Phòng thủ: chọn ô làm GIẢM TỐI ĐA số win-in-one của đối thủ ở lượt kế.
+const SUPER_MODE = `${BASE_HEADER}
+
+CHẾ ĐỘ SUPER (CHUYÊN GIA):
+- Tư duy tấn công mạnh mẽ, ép buộc đối thủ phải phòng thủ
+- LUÔN ƯU TIÊN TẠO ĐÒN KÉP: Một nước tạo ra ≥2 đe dọa thắng
+- Phát hiện sớm chuỗi ép buộc (VCF/VCT): tạo các đòn 4 liên tiếp buộc đối thủ phải chặn
+- Khi đối thủ có đòn kép tiềm năng => VÔ HIỆU HÓA NGAY
+- Kiểm soát tuyệt đối trung tâm và các trục chính
+- Tạo nhiều chuỗi 3 quân mở đồng thời để ép đối thủ
+- Phân tích sâu 4-5 nước, tính toán tất cả biến thể nguy hiểm
+- Nếu có chuỗi ép buộc dẫn đến thắng => THỰC HIỆN NGAY
+- Không để đối thủ có cơ hội tạo thế, luôn duy trì áp lực
+- Ưu tiên cực cao cho các nước tạo ĐA ĐE DỌA (multiple threats)
+- Khi phòng thủ: chọn ô vừa chặn vừa tạo đe dọa ngược lại
+
+CÔNG THỨC ĐÁNH GIÁ ƯU TIÊN (SUPER):
+1. Thắng ngay: +1000000
+2. Chặn đối thủ thắng ngay: +100000
+3. Tạo đòn kép (2+ đường thắng): +50000
+4. Tạo 4 quân 2 đầu mở: +10000
+5. Chặn 4 quân đối thủ: +8000
+6. Tạo 3 quân 2 đầu mở: +3000
+7. Tạo chuỗi ép buộc VCF: +5000
+8. Chặn đòn kép đối thủ: +4000
+9. Nối dài chuỗi có lợi: +1000
+10. Kiểm soát trung tâm: +500
+
+TUYỆT ĐỐI GHI NHỚ:
+- CHỈ TRẢ VỀ MỘT SỐ DUY NHẤT (1-256)
+- KHÔNG GIẢI THÍCH, KHÔNG KÈM TEXT
+- SỐ ĐÓ PHẢI LÀ Ô TRỐNG (dấu '.' trong board)
 `;
 
 const PROMPTS = {
-  dễ: EASY_MODE,
-  khó: HARD_MODE,
-  "thách đấu": CHALLENGE_MODE
+  easy: EASY_MODE,
+  hard: HARD_MODE,
+  super: SUPER_MODE
 };
 
+function clearTurnTimer(threadId) {
+  const timer = turnTimers.get(threadId);
+  if (timer) {
+    clearTimeout(timer);
+    turnTimers.delete(threadId);
+  }
+}
+
+function startTurnTimer(api, message, threadId, isPlayerTurn) {
+  clearTurnTimer(threadId);
+  
+  const timer = setTimeout(async () => {
+    const game = activeCaroGames.get(threadId);
+    if (!game) return;
+    
+    const imageBuffer = await createCaroBoard(game.board, game.size);
+    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_timeout.png`);
+    await fs.writeFile(imagePath, imageBuffer);
+    
+    if (isPlayerTurn) {
+      await api.sendMessage(
+        {
+          msg: `⏰ Hết giờ!\n\n` +
+               `${game.playerName} không đánh trong 60 giây.\n\n` +
+               `🎉 Bot thắng!\n\n` +
+               `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+          attachments: [imagePath]
+        },
+        threadId,
+        message.type
+      );
+    } else {
+      await api.sendMessage(
+        {
+          msg: `⏰ Hết giờ!\n\n` +
+               `Bot không phản hồi trong 60 giây.\n\n` +
+               `🎉 ${game.playerName} thắng!\n\n` +
+               `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+          attachments: [imagePath]
+        },
+        threadId,
+        message.type
+      );
+    }
+    
+    try {
+      await fs.unlink(imagePath);
+    } catch (error) {}
+    
+    activeCaroGames.delete(threadId);
+    clearTurnTimer(threadId);
+  }, 60000);
+  
+  turnTimers.set(threadId, timer);
+}
+
 async function createCaroBoard(board, size = 16) {
-  const cellSize = 40;
-  const padding = 30;
+  const cellSize = 50;
+  const padding = 40;
   const width = size * cellSize + padding * 2;
   const height = size * cellSize + padding * 2;
   
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  
   ctx.fillStyle = "#f0d9b5";
   ctx.fillRect(0, 0, width, height);
   
-  ctx.strokeStyle = "#000000";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#8b7355";
+  ctx.lineWidth = 1.5;
   
   for (let i = 0; i <= size; i++) {
     ctx.beginPath();
@@ -97,8 +207,8 @@ async function createCaroBoard(board, size = 16) {
     ctx.stroke();
   }
   
-  ctx.fillStyle = "#666666";
-  ctx.font = "10px Arial";
+  ctx.fillStyle = "#5d4e37";
+  ctx.font = "bold 11px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   
@@ -107,7 +217,10 @@ async function createCaroBoard(board, size = 16) {
       const num = row * size + col + 1;
       const x = padding + col * cellSize + cellSize / 2;
       const y = padding + row * cellSize + cellSize / 2;
-      ctx.fillText(num.toString(), x, y);
+      
+      if (board[row * size + col] === ".") {
+        ctx.fillText(num.toString(), x, y);
+      }
     }
   }
   
@@ -118,16 +231,22 @@ async function createCaroBoard(board, size = 16) {
       const x = padding + col * cellSize + cellSize / 2;
       const y = padding + row * cellSize + cellSize / 2;
       
-      ctx.font = "bold 28px Arial";
+      ctx.font = "bold 36px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       
       if (board[i] === "X") {
-        ctx.fillStyle = "#ff0000";
+        ctx.fillStyle = "#dc143c";
+        ctx.shadowColor = "rgba(220, 20, 60, 0.5)";
+        ctx.shadowBlur = 8;
         ctx.fillText("X", x, y);
+        ctx.shadowBlur = 0;
       } else if (board[i] === "O") {
-        ctx.fillStyle = "#0000ff";
+        ctx.fillStyle = "#1e90ff";
+        ctx.shadowColor = "rgba(30, 144, 255, 0.5)";
+        ctx.shadowBlur = 8;
         ctx.fillText("O", x, y);
+        ctx.shadowBlur = 0;
       }
     }
   }
@@ -155,23 +274,31 @@ need = ${need}
 myMark = ${botMark}
 Board ('.' là trống):
 ${boardStr.join("\n")}
-Yêu cầu: chỉ trả về MỘT số hợp lệ (1..256) là ô TRỐNG tốt nhất cho '${botMark}'.`;
+
+NHIỆM VỤ: Phân tích kỹ bàn cờ và trả về MỘT SỐ DUY NHẤT (1..256) là ô TRỐNG tốt nhất cho '${botMark}'.
+QUAN TRỌNG: CHỈ TRẢ VỀ SỐ, KHÔNG GIẢI THÍCH.`;
   
-  const systemPrompt = PROMPTS[mode] || PROMPTS["khó"];
+  const systemPrompt = PROMPTS[mode] || PROMPTS["hard"];
   
   try {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.0-flash-exp",
-      systemInstruction: systemPrompt
+      systemInstruction: systemPrompt,
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 50,
+      }
     });
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text = response.text().trim();
     
-    const match = text.match(/\d+/);
+    const match = text.match(/\b(\d+)\b/);
     if (match) {
-      const pos = parseInt(match[0], 10) - 1;
+      const pos = parseInt(match[1], 10) - 1;
       if (pos >= 0 && pos < 256 && board[pos] === ".") {
         return pos;
       }
@@ -180,8 +307,19 @@ Yêu cầu: chỉ trả về MỘT số hợp lệ (1..256) là ô TRỐNG tốt
     console.error("Lỗi khi gọi AI:", error);
   }
   
+  const emptySpots = [];
   for (let i = 0; i < board.length; i++) {
-    if (board[i] === ".") return i;
+    if (board[i] === ".") emptySpots.push(i);
+  }
+  
+  if (emptySpots.length > 0) {
+    const center = 128;
+    emptySpots.sort((a, b) => {
+      const distA = Math.abs(a - center);
+      const distB = Math.abs(b - center);
+      return distA - distB;
+    });
+    return emptySpots[0];
   }
   
   return -1;
@@ -230,11 +368,16 @@ export async function handleCaroCommand(api, message) {
   if (args.length < 3) {
     await sendMessageComplete(api, message, 
       `🎮 Hướng dẫn chơi Caro:\n\n` +
-      `📌 ${prefix}caro [dễ/khó/thách đấu] [x/o]\n` +
+      `📌 ${prefix}caro [easy/hard/super] [x/o]\n` +
       `   - Chọn độ khó và quân cờ của bạn\n` +
       `   - X luôn đi trước\n` +
       `   - Nhập số ô (1-256) để đánh\n` +
-      `   - 5 quân liên tiếp thắng!\n\n` +
+      `   - 5 quân liên tiếp thắng!\n` +
+      `   - ⏰ Mỗi lượt có 60 giây\n\n` +
+      `🎯 Độ khó:\n` +
+      `   • easy: Dễ dàng\n` +
+      `   • hard: Khó khăn\n` +
+      `   • super: Chuyên gia\n\n` +
       `📌 ${prefix}caro leave - Rời khỏi trò chơi`
     );
     return;
@@ -242,6 +385,7 @@ export async function handleCaroCommand(api, message) {
   
   if (args[1].toLowerCase() === "leave") {
     if (activeCaroGames.has(threadId)) {
+      clearTurnTimer(threadId);
       activeCaroGames.delete(threadId);
       await sendMessageComplete(api, message, "🚫 Trò chơi Caro đã kết thúc.");
     } else {
@@ -253,8 +397,8 @@ export async function handleCaroCommand(api, message) {
   const mode = args[1].toLowerCase();
   const playerMark = args[2].toUpperCase();
   
-  if (!["dễ", "khó", "thách đấu"].includes(mode)) {
-    await sendMessageWarning(api, message, "Chế độ không hợp lệ! Chọn: dễ, khó, hoặc thách đấu");
+  if (!["easy", "hard", "super"].includes(mode)) {
+    await sendMessageWarning(api, message, "Chế độ không hợp lệ! Chọn: easy, hard, hoặc super");
     return;
   }
   
@@ -262,6 +406,8 @@ export async function handleCaroCommand(api, message) {
     await sendMessageWarning(api, message, "Quân cờ không hợp lệ! Chọn X hoặc O");
     return;
   }
+  
+  clearTurnTimer(threadId);
   
   const board = Array(256).fill(".");
   const size = 16;
@@ -273,6 +419,7 @@ export async function handleCaroCommand(api, message) {
     currentTurn: "X",
     mode,
     playerId: message.data.uidFrom,
+    playerName: message.data.dName,
     size
   });
   
@@ -280,18 +427,21 @@ export async function handleCaroCommand(api, message) {
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
+  const modeText = mode === "easy" ? "Dễ" : mode === "hard" ? "Khó" : "Chuyên gia";
   const turnMsg = playerMark === "X" 
-    ? "Bạn đi trước! Nhập số ô (1-256) để đánh." 
-    : "Bot đi trước...";
+    ? `👤 Đến lượt: ${message.data.dName}\n\n👉 Nhập số ô (1-256) để đánh.\n⏰ Bạn có 60 giây!` 
+    : "🤖 Bot đi trước...";
   
   await api.sendMessage(
     {
       msg: `🎮 Trò chơi Caro bắt đầu!\n\n` +
-           `🎯 Chế độ: ${mode}\n` +
+           `🎯 Chế độ: ${modeText}\n` +
            `🔴 Bạn: ${playerMark}\n` +
            `🔵 Bot: ${playerMark === "X" ? "O" : "X"}\n\n` +
-           `${turnMsg}`,
-      attachments: [imagePath]
+           `${turnMsg}\n\n` +
+           `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+      attachments: [imagePath],
+      ttl: 60000
     },
     threadId,
     message.type
@@ -302,7 +452,9 @@ export async function handleCaroCommand(api, message) {
   } catch (error) {}
   
   if (playerMark === "O") {
-    await handleBotTurn(api, message);
+    setTimeout(() => handleBotTurn(api, message), 1000);
+  } else {
+    startTurnTimer(api, message, threadId, true);
   }
 }
 
@@ -312,10 +464,34 @@ async function handleBotTurn(api, message) {
   
   if (!game) return;
   
+  startTurnTimer(api, message, threadId, false);
+  
   const pos = await getAIMove(game.board, game.playerMark, game.mode);
   
+  clearTurnTimer(threadId);
+  
+  if (!activeCaroGames.has(threadId)) return;
+  
   if (pos === -1) {
-    await sendMessageComplete(api, message, "🎮 Hòa! Không còn nước đi.");
+    const imageBuffer = await createCaroBoard(game.board, game.size);
+    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
+    await fs.writeFile(imagePath, imageBuffer);
+    
+    await api.sendMessage(
+      {
+        msg: `🎮 Hòa! Không còn nước đi.\n\n` +
+             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+        attachments: [imagePath],
+        ttl: 60000
+      },
+      threadId,
+      message.type
+    );
+    
+    try {
+      await fs.unlink(imagePath);
+    } catch (error) {}
+    
     activeCaroGames.delete(threadId);
     return;
   }
@@ -332,22 +508,31 @@ async function handleBotTurn(api, message) {
   if (winner) {
     await api.sendMessage(
       {
-        msg: `🎉 Bot thắng!\n\n🔵 Bot đánh ô ${pos + 1}`,
-        attachments: [imagePath]
+        msg: `🎉 Bot thắng!\n\n` +
+             `🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}\n\n` +
+             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+        attachments: [imagePath],
+        ttl: 60000
       },
       threadId,
       message.type
     );
     activeCaroGames.delete(threadId);
+    clearTurnTimer(threadId);
   } else {
     await api.sendMessage(
       {
-        msg: `🤖 Bot đánh ô ${pos + 1}\n\n👉 Đến lượt bạn!`,
-        attachments: [imagePath]
+        msg: `🤖 Bot đánh ${game.botMark}, ô: ${pos + 1}\n\n` +
+             `👤 Đến lượt: ${game.playerName}\n` +
+             `⏰ Bạn có 60 giây!\n\n` +
+             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+        attachments: [imagePath],
+        ttl: 60000
       },
       threadId,
       message.type
     );
+    startTurnTimer(api, message, threadId, true);
   }
   
   try {
@@ -364,14 +549,24 @@ export async function handleCaroMessage(api, message) {
   if (game.currentTurn !== game.playerMark) return;
   
   const content = message.data.content || "";
-  const match = content.match(/^\d+$/);
   
-  if (!match) return;
+  if (message.data.mentions && message.data.mentions.length > 0) return;
   
-  const pos = parseInt(content, 10) - 1;
+  if (!/^\d+$/.test(content.trim())) return;
   
-  if (pos < 0 || pos >= 256 || game.board[pos] !== ".") {
-    await sendMessageWarning(api, message, "Ô không hợp lệ! Chọn ô trống (1-256).");
+  clearTurnTimer(threadId);
+  
+  const pos = parseInt(content.trim(), 10) - 1;
+  
+  if (pos < 0 || pos >= 256) {
+    await sendMessageWarning(api, message, "Số ô không hợp lệ! Chọn từ 1-256.");
+    startTurnTimer(api, message, threadId, true);
+    return;
+  }
+  
+  if (game.board[pos] !== ".") {
+    await sendMessageWarning(api, message, "Ô này đã có quân! Chọn ô trống.");
+    startTurnTimer(api, message, threadId, true);
     return;
   }
   
@@ -387,13 +582,17 @@ export async function handleCaroMessage(api, message) {
   if (winner) {
     await api.sendMessage(
       {
-        msg: `🎉 Bạn thắng!\n\n🔴 Bạn đánh ô ${pos + 1}`,
-        attachments: [imagePath]
+        msg: `🎉 ${game.playerName} thắng!\n\n` +
+             `👤 Bạn đánh ${game.playerMark}, ô: ${pos + 1}\n\n` +
+             `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+        attachments: [imagePath],
+        ttl: 60000
       },
       threadId,
       message.type
     );
     activeCaroGames.delete(threadId);
+    clearTurnTimer(threadId);
     try {
       await fs.unlink(imagePath);
     } catch (error) {}
@@ -402,8 +601,11 @@ export async function handleCaroMessage(api, message) {
   
   await api.sendMessage(
     {
-      msg: `🔴 Bạn đánh ô ${pos + 1}\n\n⏳ Bot đang suy nghĩ...`,
-      attachments: [imagePath]
+      msg: `👤 ${game.playerName} đánh ${game.playerMark}, ô: ${pos + 1}\n\n` +
+           `⏳ Bot đang suy nghĩ...\n\n` +
+           `👉 Bot không phải là thuốc, không có tác dụng thay thế thuốc chữa bệnh.`,
+      attachments: [imagePath],
+      ttl: 60000
     },
     threadId,
     message.type
@@ -413,5 +615,5 @@ export async function handleCaroMessage(api, message) {
     await fs.unlink(imagePath);
   } catch (error) {}
   
-  await handleBotTurn(api, message);
+  setTimeout(() => handleBotTurn(api, message), 1500);
 }
