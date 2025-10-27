@@ -16,18 +16,18 @@ export function getActiveGames() {
 export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
   if (isCallGame) return;
   const threadId = message.threadId;
-  const activeGame = groupSettings[threadId].activeGame;
-  if (activeGame === false) return;
+  const gameEnabled = groupSettings[threadId].activeGame;
+  if (gameEnabled === false) return;
   
   let content = message.data.content;
   const senderId = message.data.uidFrom;
   
   if (typeof content === "string") {
     content = content.trim();
-    const activeGame = activeGames.get(threadId);
+    const currentGame = activeGames.get(threadId);
     
-    if (activeGame) {
-      switch (activeGame.type) {
+    if (currentGame) {
+      switch (currentGame.type) {
         case "guessNumber":
           await handleGuessNumberGame(api, message, threadId, senderId);
           break;
@@ -41,10 +41,7 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
           await handleFishingMessage(api, message);
           break;
         case "caro":
-          const lowerContent = content.toLowerCase();
-          if (lowerContent !== 'lose') {
-            await handleCaroMessage(api, message);
-          }
+          await handleCaroMessage(api, message);
           break;
       }
     }
@@ -55,9 +52,9 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
   const senderId = message.data.uidFrom;
   const threadId = message.threadId;
   const prefix = getGlobalPrefix();
-  const activeGame = groupSettings[threadId].activeGame;
+  const gameEnabled = groupSettings[threadId].activeGame;
   
-  if (activeGame === false) {
+  if (gameEnabled === false) {
     if (isAdmin(senderId, threadId)) {
       const text =
         `Trò chơi hiện tại Không được bật trong nhóm này.\n\n` +
