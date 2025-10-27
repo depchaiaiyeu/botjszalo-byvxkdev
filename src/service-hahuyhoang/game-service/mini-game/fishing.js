@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getGlobalPrefix } from "../../service.js";
 import { getActiveGames, checkHasActiveGame } from "./index.js";
-import { sendMessageComplete, sendMessageWarning, sendMessageQuery } from "../../chat-zalo/chat-style/chat-style.js";
+import { sendMessageFromSQL } from "../../chat-zalo/chat-style/chat-style.js";
 import { admins } from "../../../index.js";
 
 const playerDataMap = new Map();
@@ -114,8 +114,8 @@ export async function handleFishingCommand(api, message) {
   const subCommand = args[1]?.toLowerCase();
 
   if (!subCommand) {
-    await sendMessageComplete(api, message, 
-      `🎣 HƯỚNG DẪN GAME CÂU CÁ\n\n` +
+    await sendMessageFromSQL(api, message, 
+      { message: `🎣 HƯỚNG DẪN GAME CÂU CÁ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📌 LỆNH CƠ BẢN:\n` +
       `→ ${prefix}cauca join: Tham gia trò chơi\n` +
@@ -134,9 +134,7 @@ export async function handleFishingCommand(api, message) {
       `→ help: Xem trợ giúp chi tiết\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌍 ĐỊA ĐIỂM: Bến cảng Thượng Hải, Hồ Tây,\nVịnh Hạ Long, Sông Mê Kông, Biển Nha Trang\n` +
-      `━━━━━━━━━━━━━━━━━━━━`,
-      false,
-      86400000
+      `━━━━━━━━━━━━━━━━━━━━`, success: true }, false, 86400000
     );
     return;
   }
@@ -146,7 +144,7 @@ export async function handleFishingCommand(api, message) {
     if (activeGames.has(threadId)) {
       const gameData = activeGames.get(threadId);
       if (gameData.type === "cauca" && gameData.game.players.has(senderId)) {
-        await sendMessageWarning(api, message, "Bạn đã tham gia trò chơi câu cá rồi!");
+        await sendMessageFromSQL(api, message, { message: "Bạn đã tham gia trò chơi câu cá rồi!", success: false });
         return;
       }
     }
@@ -162,12 +160,12 @@ export async function handleFishingCommand(api, message) {
     gameData.game.players.add(senderId);
     const playerData = getPlayerData(threadId, senderId);
 
-    await sendMessageComplete(api, message,
-      `🎉 Chào mừng bạn đến với thế giới câu cá!\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🎉 Chào mừng bạn đến với thế giới câu cá!\n\n` +
       `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
       `🎣 Lượt câu: ${playerData.fishingTurns}\n\n` +
       `Hãy dùng lệnh "daily" để điểm danh hàng ngày!\n` +
-      `Dùng "goto [địa điểm]" để bắt đầu câu cá!`
+      `Dùng "goto [địa điểm]" để bắt đầu câu cá!`, success: true }
     );
     return;
   }
@@ -175,13 +173,13 @@ export async function handleFishingCommand(api, message) {
   if (subCommand === "leave") {
     const activeGames = getActiveGames();
     if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
-      await sendMessageWarning(api, message, "Không có trò chơi câu cá nào đang diễn ra!");
+      await sendMessageFromSQL(api, message, { message: "Không có trò chơi câu cá nào đang diễn ra!", success: false });
       return;
     }
 
     const gameData = activeGames.get(threadId);
     if (!gameData.game.players.has(senderId)) {
-      await sendMessageWarning(api, message, "Bạn chưa tham gia trò chơi!");
+      await sendMessageFromSQL(api, message, { message: "Bạn chưa tham gia trò chơi!", success: false });
       return;
     }
 
@@ -191,7 +189,7 @@ export async function handleFishingCommand(api, message) {
       activeGames.delete(threadId);
     }
     
-    await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu cho lần sau!");
+    await sendMessageFromSQL(api, message, { message: "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu cho lần sau!", success: true });
     return;
   }
 }
@@ -233,8 +231,8 @@ export async function handleFishingMessage(api, message) {
   const playerData = getPlayerData(threadId, senderId);
 
   if (command === "help") {
-    await sendMessageComplete(api, message,
-      `🎣 TRỢ GIÚP GAME CÂU CÁ\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🎣 TRỢ GIÚP GAME CÂU CÁ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📋 CÁC LỆNH:\n\n` +
       `🔹 daily - Điểm danh nhận lượt câu\n` +
@@ -252,9 +250,7 @@ export async function handleFishingMessage(api, message) {
       `• Mua trang bị để tăng tỉ lệ nổ cá hiếm\n` +
       `• Câu cá để nhận thêm lượt câu miễn phí\n` +
       `• Nổ cá hiếm sẽ được tặng nhiều lượt câu hơn\n` +
-      `━━━━━━━━━━━━━━━━━━━━`,
-      false,
-      86400000
+      `━━━━━━━━━━━━━━━━━━━━`, success: true }, false, 86400000
     );
     return;
   }
@@ -278,7 +274,7 @@ export async function handleFishingMessage(api, message) {
     allPlayers.sort((a, b) => b.money - a.money);
 
     if (allPlayers.length === 0) {
-      await sendMessageWarning(api, message, "Chưa có người chơi nào trong bảng xếp hạng!");
+      await sendMessageFromSQL(api, message, { message: "Chưa có người chơi nào trong bảng xếp hạng!", success: false });
       return;
     }
 
@@ -288,13 +284,11 @@ export async function handleFishingMessage(api, message) {
       return `${medal} ID: ${player.userId.slice(-4)}\n   💰 ${player.money.toLocaleString()} xu | 🐟 ${player.totalFished} cá | 🎣 ${player.fishingTurns} lượt | ✨ +${player.rareBonus}%`;
     }).join("\n\n");
 
-    await sendMessageComplete(api, message,
-      `🏆 BẢNG XẾP HẠNG CẦN THỦ\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🏆 BẢNG XẾP HẠNG CẦN THỦ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${rankList}\n` +
-      `━━━━━━━━━━━━━━━━━━━━`,
-      false,
-      86400000
+      `━━━━━━━━━━━━━━━━━━━━`, success: true }, false, 86400000
     );
     return;
   }
@@ -308,16 +302,16 @@ export async function handleFishingMessage(api, message) {
     const amountArg = parseInt(args[1]);
 
     if (!amountArg || amountArg < 1) {
-      await sendMessageWarning(api, message, "Cú pháp: buff [số tiền] hoặc buff [số tiền] @mentions");
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: buff [số tiền] hoặc buff [số tiền] @mentions", success: false });
       return;
     }
 
     if (!mentions || mentions.length === 0) {
       playerData.money += amountArg;
-      await sendMessageComplete(api, message,
-        `✨ BUFF THÀNH CÔNG!\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `✨ BUFF THÀNH CÔNG!\n\n` +
         `💰 Đã cộng: +${amountArg.toLocaleString()} xu\n` +
-        `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
+        `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`, success: true }
       );
       return;
     }
@@ -337,9 +331,9 @@ export async function handleFishingMessage(api, message) {
       buffResults.push(`${targetName}: +${amountArg.toLocaleString()} xu`);
     }
 
-    await sendMessageComplete(api, message,
-      `✨ BUFF THÀNH CÔNG!\n\n` +
-      `${buffResults.join("\n")}`
+    await sendMessageFromSQL(api, message,
+      { message: `✨ BUFF THÀNH CÔNG!\n\n` +
+      `${buffResults.join("\n")}`, success: true }
     );
     return;
   }
@@ -353,7 +347,7 @@ export async function handleFishingMessage(api, message) {
       const timeLeft = oneDayMs - (now - lastDaily);
       const hoursLeft = Math.floor(timeLeft / (60 * 60 * 1000));
       const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-      await sendMessageWarning(api, message, `⏰ Bạn đã điểm danh rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`);
+      await sendMessageFromSQL(api, message, { message: `⏰ Bạn đã điểm danh rồi!\nThời gian còn lại: ${hoursLeft}h ${minutesLeft}m`, success: false });
       return;
     }
 
@@ -362,13 +356,13 @@ export async function handleFishingMessage(api, message) {
     playerData.fishingTurns += turnsReward;
     playerData.money += 100;
 
-    await sendMessageComplete(api, message,
-      `✅ ĐIỂM DANH THÀNH CÔNG!\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `✅ ĐIỂM DANH THÀNH CÔNG!\n\n` +
       `🎁 Phần thưởng:\n` +
       `+ ${turnsReward} lượt câu cá\n` +
       `+ 100 xu\n\n` +
       `🎣 Tổng lượt câu: ${playerData.fishingTurns}\n` +
-      `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`
+      `💰 Tổng tiền: ${playerData.money.toLocaleString()} xu`, success: true }
     );
     return;
   }
@@ -380,55 +374,53 @@ export async function handleFishingMessage(api, message) {
         `${idx + 1}. ${loc.emoji} ${loc.name} - ${loc.description}`
       ).join("\n");
       
-      await sendMessageComplete(api, message,
-        `🌍 DANH SÁCH ĐỊA ĐIỂM CÂU CÁ\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `🌍 DANH SÁCH ĐỊA ĐIỂM CÂU CÁ\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `${locationList}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `Dùng: goto [tên địa điểm]`,
-        false,
-        86400000
+        `Dùng: goto [tên địa điểm]`, success: true }, false, 86400000
       );
       return;
     }
 
     const location = findLocation(locationInput);
     if (!location) {
-      await sendMessageWarning(api, message, "🚫 Không tìm thấy địa điểm này!");
+      await sendMessageFromSQL(api, message, { message: "🚫 Không tìm thấy địa điểm này!", success: false });
       return;
     }
 
     playerData.location = location.name;
-    await sendMessageComplete(api, message,
-      `${location.emoji} Bạn đã đến: ${location.name}\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `${location.emoji} Bạn đã đến: ${location.name}\n` +
       `📝 ${location.description}\n\n` +
       `🐟 Các loại cá có thể câu:\n` +
       `${location.fish.map(f => `${FISH_DATA[f].emoji} ${f}`).join(", ")}\n\n` +
-      `Dùng lệnh "cau" để bắt đầu câu cá!`
+      `Dùng lệnh "cau" để bắt đầu câu cá!`, success: true }
     );
     return;
   }
 
   if (command === "cau") {
     if (!playerData.location) {
-      await sendMessageWarning(api, message, "Bạn chưa chọn địa điểm! Dùng lệnh 'goto [địa điểm]'");
+      await sendMessageFromSQL(api, message, { message: "Bạn chưa chọn địa điểm! Dùng lệnh 'goto [địa điểm]'", success: false });
       return;
     }
 
     const times = parseInt(args[1]) || 1;
     if (times < 1 || times > 50) {
-      await sendMessageWarning(api, message, "Số lần câu phải từ 1 đến 50!");
+      await sendMessageFromSQL(api, message, { message: "Số lần câu phải từ 1 đến 50!", success: false });
       return;
     }
 
     if (playerData.fishingTurns < times) {
-      await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu! Mua thêm trong shop (10 xu/10 lượt)`);
+      await sendMessageFromSQL(api, message, { message: `Bạn chỉ còn ${playerData.fishingTurns} lượt câu! Mua thêm trong shop (10 xu/10 lượt)`, success: false });
       return;
     }
 
     const delayTime = Math.floor(Math.random() * 3000) + 2000;
     
-    await sendMessageComplete(api, message, `🎣 Đang thả câu...`, true, delayTime);
+    await sendMessageFromSQL(api, message, { message: `🎣 Đang thả câu...`, success: true }, true, delayTime);
     
     await delay(delayTime);
 
@@ -464,21 +456,21 @@ export async function handleFishingMessage(api, message) {
           return acc;
         }, {})).map(([fish, count]) => `${fish} x${count}`).join("\n");
 
-    await sendMessageComplete(api, message,
-      `🎣 KẾT QUẢ CÂU CÁ\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🎣 KẾT QUẢ CÂU CÁ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${resultText}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `💎 Tổng giá trị: ${totalValue.toLocaleString()} xu\n` +
       `🎫 Lượt câu nhận được: +${totalTurnsGained}\n` +
-      `🎣 Lượt còn lại: ${playerData.fishingTurns}`
+      `🎣 Lượt còn lại: ${playerData.fishingTurns}`, success: true }
     );
     return;
   }
 
   if (command === "product") {
     if (Object.keys(playerData.inventory).length === 0) {
-      await sendMessageWarning(api, message, "Túi đồ của bạn trống!");
+      await sendMessageFromSQL(api, message, { message: "Túi đồ của bạn trống!", success: false });
       return;
     }
 
@@ -488,14 +480,12 @@ export async function handleFishingMessage(api, message) {
         `${idx + 1}. ${FISH_DATA[fish].emoji} ${fish}: ${count} (${(FISH_DATA[fish].price * count).toLocaleString()} xu)`
       ).join("\n");
 
-    await sendMessageComplete(api, message,
-      `🎒 TÚI ĐỒ CỦA BẠN\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🎒 TÚI ĐỒ CỦA BẠN\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${inventoryList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Dùng: sell [index] [số lượng] để bán`,
-      false,
-      86400000
+      `Dùng: sell [index] [số lượng] để bán`, success: true }, false, 86400000
     );
     return;
   }
@@ -515,16 +505,16 @@ export async function handleFishingMessage(api, message) {
       }
 
       if (totalEarned === 0) {
-        await sendMessageWarning(api, message, "Không có gì để bán!");
+        await sendMessageFromSQL(api, message, { message: "Không có gì để bán!", success: false });
         return;
       }
 
       playerData.money += totalEarned;
-      await sendMessageComplete(api, message,
-        `💰 ĐÃ BÁN TẤT CẢ!\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `💰 ĐÃ BÁN TẤT CẢ!\n\n` +
         `${soldItems.join("\n")}\n\n` +
         `💵 Tổng thu: +${totalEarned.toLocaleString()} xu\n` +
-        `💰 Số dư: ${playerData.money.toLocaleString()} xu`
+        `💰 Số dư: ${playerData.money.toLocaleString()} xu`, success: true }
       );
       return;
     }
@@ -533,19 +523,19 @@ export async function handleFishingMessage(api, message) {
     const amount = parseInt(args[2]);
 
     if (!index || !amount || amount < 1) {
-      await sendMessageWarning(api, message, "Cú pháp: sell [index] [số lượng]");
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: sell [index] [số lượng]", success: false });
       return;
     }
 
     const inventoryArray = Object.entries(playerData.inventory).filter(([_, count]) => count > 0);
     if (index < 1 || index > inventoryArray.length) {
-      await sendMessageWarning(api, message, "Index sản phẩm không hợp lệ! Dùng 'product' để xem danh sách.");
+      await sendMessageFromSQL(api, message, { message: "Index sản phẩm không hợp lệ! Dùng 'product' để xem danh sách.", success: false });
       return;
     }
 
     const [fishName, currentCount] = inventoryArray[index - 1];
     if (amount> currentCount) {
-      await sendMessageWarning(api, message, `Bạn chỉ có ${currentCount} ${fishName}!`);
+      await sendMessageFromSQL(api, message, { message: `Bạn chỉ có ${currentCount} ${fishName}!`, success: false });
       return;
     }
 
@@ -553,11 +543,11 @@ export async function handleFishingMessage(api, message) {
     playerData.inventory[fishName] -= amount;
     playerData.money += earned;
 
-    await sendMessageComplete(api, message,
-      `💰 BÁN THÀNH CÔNG!\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `💰 BÁN THÀNH CÔNG!\n\n` +
       `${FISH_DATA[fishName].emoji} ${fishName} x${amount}\n` +
       `💵 Thu về: +${earned.toLocaleString()} xu\n` +
-      `💰 Số dư: ${playerData.money.toLocaleString()} xu`
+      `💰 Số dư: ${playerData.money.toLocaleString()} xu`, success: true }
     );
     return;
   }
@@ -570,14 +560,12 @@ export async function handleFishingMessage(api, message) {
       return `${item.id}. ${item.emoji} ${item.name}\n   💰 Giá: ${item.price.toLocaleString()} xu | +${item.bonus}% tỉ lệ cá hiếm`;
     }).join("\n\n");
 
-    await sendMessageComplete(api, message,
-      `🏪 CỬA HÀNG CÂU CÁ\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `🏪 CỬA HÀNG CÂU CÁ\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `${shopList}\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Dùng: buy [index] [số lượng]`,
-      false,
-      86400000
+      `Dùng: buy [index] [số lượng]`, success: true }, false, 86400000
     );
     return;
   }
@@ -587,19 +575,19 @@ export async function handleFishingMessage(api, message) {
     const amount = parseInt(args[2]) || 1;
 
     if (!index || amount < 1) {
-      await sendMessageWarning(api, message, "Cú pháp: buy [index] [số lượng]");
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: buy [index] [số lượng]", success: false });
       return;
     }
 
     const item = SHOP_ITEMS.find(i => i.id === index);
     if (!item) {
-      await sendMessageWarning(api, message, "Sản phẩm không tồn tại! Dùng 'shop' để xem danh sách.");
+      await sendMessageFromSQL(api, message, { message: "Sản phẩm không tồn tại! Dùng 'shop' để xem danh sách.", success: false });
       return;
     }
 
     const totalCost = item.price * amount;
     if (playerData.money < totalCost) {
-      await sendMessageWarning(api, message, `Không đủ tiền! Cần: ${totalCost.toLocaleString()} xu`);
+      await sendMessageFromSQL(api, message, { message: `Không đủ tiền! Cần: ${totalCost.toLocaleString()} xu`, success: false });
       return;
     }
 
@@ -607,21 +595,21 @@ export async function handleFishingMessage(api, message) {
 
     if (item.type === "turns") {
       playerData.fishingTurns += 10 * amount;
-      await sendMessageComplete(api, message,
-        `✅ MUA THÀNH CÔNG!\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `✅ MUA THÀNH CÔNG!\n\n` +
         `${item.emoji} ${item.name} x${amount}\n` +
         `💵 Chi phí: -${totalCost.toLocaleString()} xu\n` +
         `💰 Số dư: ${playerData.money.toLocaleString()} xu\n` +
-        `🎣 Lượt câu: ${playerData.fishingTurns}`
+        `🎣 Lượt câu: ${playerData.fishingTurns}`, success: true }
       );
     } else {
       playerData.rareBonus += item.bonus * amount;
-      await sendMessageComplete(api, message,
-        `✅ MUA THÀNH CÔNG!\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `✅ MUA THÀNH CÔNG!\n\n` +
         `${item.emoji} ${item.name} x${amount}\n` +
         `💵 Chi phí: -${totalCost.toLocaleString()} xu\n` +
         `💰 Số dư: ${playerData.money.toLocaleString()} xu\n` +
-        `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%`
+        `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%`, success: true }
       );
     }
     return;
@@ -634,8 +622,8 @@ export async function handleFishingMessage(api, message) {
       const inventoryValue = Object.entries(playerData.inventory)
         .reduce((sum, [fish, count]) => sum + (FISH_DATA[fish].price * count), 0);
 
-      await sendMessageComplete(api, message,
-        `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
+      await sendMessageFromSQL(api, message,
+        { message: `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
         `🎣 Lượt câu: ${playerData.fishingTurns}\n` +
@@ -643,9 +631,7 @@ export async function handleFishingMessage(api, message) {
         `✨ Tỉ lệ cá hiếm: +${playerData.rareBonus}%\n` +
         `🐟 Tổng cá đã câu: ${playerData.totalFished}\n` +
         `🎒 Giá trị túi đồ: ${inventoryValue.toLocaleString()} xu\n` +
-        `━━━━━━━━━━━━━━━━━━━━`,
-        false,
-        86400000
+        `━━━━━━━━━━━━━━━━━━━━`, success: true }, false, 86400000
       );
       return;
     }
@@ -653,7 +639,7 @@ export async function handleFishingMessage(api, message) {
     const targetId = mentions[0].uid;
     
     if (!gameData.game.players.has(targetId)) {
-      await sendMessageWarning(api, message, "Người này chưa tham gia trò chơi!");
+      await sendMessageFromSQL(api, message, { message: "Người này chưa tham gia trò chơi!", success: false });
       return;
     }
 
@@ -661,8 +647,8 @@ export async function handleFishingMessage(api, message) {
     const inventoryValue = Object.entries(targetData.inventory)
       .reduce((sum, [fish, count]) => sum + (FISH_DATA[fish].price * count), 0);
 
-    await sendMessageComplete(api, message,
-      `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
+    await sendMessageFromSQL(api, message,
+      { message: `👤 THÔNG TIN NGƯỜI CHƠI\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💰 Tiền: ${targetData.money.toLocaleString()} xu\n` +
       `🎣 Lượt câu: ${targetData.fishingTurns}\n` +
@@ -670,10 +656,8 @@ export async function handleFishingMessage(api, message) {
       `✨ Tỉ lệ cá hiếm: +${targetData.rareBonus}%\n` +
       `🐟 Tổng cá đã câu: ${targetData.totalFished}\n` +
       `🎒 Giá trị túi đồ: ${inventoryValue.toLocaleString()} xu\n` +
-      `━━━━━━━━━━━━━━━━━━━━`,
-      false,
-      86400000
+      `━━━━━━━━━━━━━━━━━━━━`, success: true }, false, 86400000
     );
     return;
   }
-} 
+}
