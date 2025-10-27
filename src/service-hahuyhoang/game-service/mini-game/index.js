@@ -4,6 +4,7 @@ import { handleGuessNumberCommand, handleGuessNumberGame } from "./guessNumber.j
 import { handleWordChainCommand, handleWordChainMessage } from "./wordChain.js";
 import { handleVuaTiengVietCommand, handleVuaTiengVietMessage } from "./vuaTiengViet.js";
 import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
+import { handleCaroCommand, handleCaroMessage } from "./caro.js";
 import { getGlobalPrefix } from "../../service.js";
 
 const activeGames = new Map();
@@ -38,6 +39,12 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
           break;
         case "cauca":
           await handleFishingMessage(api, message);
+          break;
+        case "caro":
+          const lowerContent = content.toLowerCase();
+          if (lowerContent !== 'lose') {
+            await handleCaroMessage(api, message);
+          }
           break;
       }
     }
@@ -98,6 +105,9 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
     case "cauca":
       await handleFishingCommand(api, message);
       break;
+    case "caro":
+      await handleCaroCommand(api, message);
+      break;
   }
 }
 
@@ -110,6 +120,8 @@ export async function checkHasActiveGame(api, message, threadId) {
       ? "Nối từ" 
       : activeGame.type === "vuaTiengViet"
       ? "Vua Tiếng Việt"
+      : activeGame.type === "caro"
+      ? "Cờ Caro"
       : "Câu Cá";
     
     if (activeGame.type === "cauca") {
