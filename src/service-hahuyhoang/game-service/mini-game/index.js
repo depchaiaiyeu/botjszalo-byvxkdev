@@ -1,49 +1,3 @@
-import { isAdmin } from "../../../index.js";
-import { sendMessageFromSQL } from "../../chat-zalo/chat-style/chat-style.js";
-import { handleGuessNumberCommand, handleGuessNumberGame } from "./guessNumber.js";
-import { handleWordChainCommand, handleWordChainMessage } from "./wordChain.js";
-import { handleVuaTiengVietCommand, handleVuaTiengVietMessage } from "./vuaTiengViet.js";
-import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
-import { getGlobalPrefix } from "../../service.js";
-
-const activeGames = new Map();
-
-export function getActiveGames() {
-  return activeGames;
-}
-
-export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
-  if (isCallGame) return;
-  const threadId = message.threadId;
-  const activeGame = groupSettings[threadId].activeGame;
-  if (activeGame === false) return;
-  
-  let content = message.data.content;
-  const senderId = message.data.uidFrom;
-  
-  if (typeof content === "string") {
-    content = content.trim();
-    const activeGame = activeGames.get(threadId);
-    
-    if (activeGame) {
-      switch (activeGame.type) {
-        case "guessNumber":
-          await handleGuessNumberGame(api, message, threadId, senderId);
-          break;
-        case "wordChain":
-          await handleWordChainMessage(api, message);
-          break;
-        case "vuaTiengViet":
-          await handleVuaTiengVietMessage(api, message, threadId);
-          break;
-        case "fishing":
-          await handleFishingMessage(api, message);
-          break;
-      }
-    }
-  }
-}
-
 export async function startGame(api, message, groupSettings, gameType, args, isAdminBox) {
   const senderId = message.data.uidFrom;
   const threadId = message.threadId;
@@ -66,11 +20,6 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
   
   const subCommand = args && args.length > 0 ? args[0].toLowerCase() : '';
   
-  if (gameType === "fishing") {
-    await handleFishingCommand(api, message);
-    return;
-  }
-  
   if (subCommand === "leave") {
     switch (gameType) {
       case "guessNumber":
@@ -82,10 +31,13 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
       case "vuaTiengViet":
         await handleVuaTiengVietCommand(api, message, threadId, args);
         return;
+      case "cauca":
+        await handleFishingCommand(api, message);
+        return;
     }
   }
   
-  if (gameType !== "fishing" && await checkHasActiveGame(api, message, threadId)) return;
+  if (gameType !== "cauca" && await checkHasActiveGame(api, message, threadId)) return;
   
   switch (gameType) {
     case "guessNumber":
@@ -97,30 +49,8 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
     case "vuaTiengViet":
       await handleVuaTiengVietCommand(api, message, threadId, args);
       break;
+    case "cauca":
+      await handleFishingCommand(api, message);
+      break;
   }
-}
-
-export async function checkHasActiveGame(api, message, threadId) {
-  if (activeGames.has(threadId)) {
-    const activeGame = activeGames.get(threadId);
-    const gameName = activeGame.type === "guessNumber" 
-      ? "Đoán số" 
-      : activeGame.type === "wordChain" 
-      ? "Nối từ" 
-      : activeGame.type === "vuaTiengViet"
-      ? "Vua Tiếng Việt"
-      : "Câu Cá";
-    
-    if (activeGame.type === "fishing") {
-      return false;
-    }
-    
-    const result = {
-      success: false,
-      message: `Trò chơi: ${gameName}\nĐang diễn ra trong nhóm này, hãy kết thúc trò chơi hiện tại trước khi bắt đầu trò chơi mới.`,
-    };
-    await sendMessageFromSQL(api, message, result, true, 30000);
-    return true;
-  }
-  return false;
 }
