@@ -2294,6 +2294,21 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "cauca",
+      "alias": [
+        "fish",
+        "fishing"
+      ],
+      "description": "Chơi trò chơi câu cá",
+      "syntax": "{p}cauca",
+      "permission": "all",
+      "countdown": 10,
+      "icon": "🎣",
+      "type": 5,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
