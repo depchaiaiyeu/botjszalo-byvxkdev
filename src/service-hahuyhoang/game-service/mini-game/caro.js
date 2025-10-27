@@ -4,7 +4,7 @@ import { createCanvas, Canvas } from 'canvas';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getGlobalPrefix } from "../../service.js";
 import { getActiveGames, checkHasActiveGame } from "./index.js";
-import { sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
+import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
 
 const genAI = new GoogleGenerativeAI("AIzaSyANli4dZGQGSF2UEjG9V-X0u8z56Zm8Qmc");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -15,7 +15,7 @@ const BOARD_SIZE = S * S;
 const CELL_SIZE = 50;
 const CANVAS_WIDTH = S * CELL_SIZE;
 const CANVAS_HEIGHT = S * CELL_SIZE;
-const IMAGE_DIR = path.join("Data", "Caro", "images");
+const IMAGE_DIR = path.join("assets", "temp");
 const PROMPTS = {
   1: `QUY TẮC XUẤT RA BẮT BUỘC:
 - Chỉ trả về MỘT số nguyên duy nhất ứng với ô cần đánh (1..S*S).
@@ -359,7 +359,7 @@ export async function handleCaroCommand(api, message) {
   if (command !== 'caro') return;
 
   if (args.length < 3) {
-    await api.sendMessage({ msg: `🎮 Hướng dẫn game cờ Caro (16x16, thắng 5 liên tiếp):\n${prefix}caro [dễ|khó|thách đấu] [x|o]` }, threadId, message.type);
+    await sendMessageComplete(api, message, `🎮 Hướng dẫn game cờ Caro (16x16, thắng 5 liên tiếp):\n${prefix}caro [dễ|khó|thách đấu] [x|o]`);
     return;
   }
 
@@ -376,7 +376,7 @@ export async function handleCaroCommand(api, message) {
 
   const opponentMark = myMark === 'X' ? 'O' : 'X';
   const board = new Array(BOARD_SIZE).fill('.');
-  const imagePath = path.join(IMAGE_DIR, `${Date.now()}_caro.png`);
+  const imagePath = path.join(IMAGE_DIR, `caro_image_${Date.now()}.png`);
   generateBoardImage(board, imagePath);
 
   getActiveGames().set(threadId, {
@@ -445,6 +445,12 @@ export async function handleCaroMessage(api, message) {
   const prefix = getGlobalPrefix();
   if (content.startsWith(prefix)) return;
   if (game.currentPlayer !== game.myMark) return;
+  const lowerContent = content.toLowerCase().trim();
+  if (lowerContent === 'lose') {
+    await sendMessageComplete(api, message, '🤖 Bạn nhận thua! Bot thắng!');
+    endGame(threadId, 'bot_win', api, threadId, message.type);
+    return;
+  }
   const numStr = content.trim();
   const pos = parseInt(numStr, 10) - 1;
   if (isNaN(pos) || pos < 0 || pos >= BOARD_SIZE || game.board[pos] !== '.') {
