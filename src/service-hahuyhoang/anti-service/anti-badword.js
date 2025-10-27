@@ -314,7 +314,7 @@ export async function antiBadWord(
           checkBadWordsResult.word
         );
 
-        let warningMsg = `${senderName} > Tin nhắn bị xóa vì chứa từ ngữ bị cấm: "${checkBadWordsResult.word}"\n`;
+        let warningMsg = `${senderName} -> Tin nhắn bị xóa vì chứa từ ngữ bị cấm: "${checkBadWordsResult.word}"\n`;
         warningMsg += `Cảnh cáo lần ${violation.count}/3`;
 
         if (violation.count >= 3) {
