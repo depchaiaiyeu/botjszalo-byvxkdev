@@ -115,7 +115,7 @@ export async function antiBot(
         const senderName = message.data.dName;
         const violation = await saveViolation(threadId, senderId, senderName);
 
-        let warningMsg = `${senderName} > Tin nhắn bị xóa vì phát hiện bot\n`;
+        let warningMsg = `${senderName} -> Tin nhắn bị xóa vì phát hiện bot\n`;
         warningMsg += `Cảnh cáo lần ${violation.count}/3`;
 
         if (violation.count >= 3) {
