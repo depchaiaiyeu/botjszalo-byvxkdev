@@ -1,394 +1,417 @@
-import fs from "fs";
-import path from "path";
-import { createCanvas, loadImage } from "canvas";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getGlobalPrefix } from "../../service.js";
-import { getActiveGames, checkHasActiveGame } from "./index.js";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
-import { deleteFile } from "../../../utils/util.js";
+import { createCanvas, loadImage } from "canvas";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import { sendMessageComplete, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
+import { removeMention } from "../../utils/format-util.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const genAI = new GoogleGenerativeAI("AIzaSyANli4dZGQGSF2UEjG9V-X0u8z56Zm8Qmc");
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-const BOARD_SIZE = 16;
-const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
-const WIN_LENGTH = 5;
-const CELL_SIZE = 30;
-const CANVAS_WIDTH = BOARD_SIZE * CELL_SIZE;
-const CANVAS_HEIGHT = BOARD_SIZE * CELL_SIZE + 50;
+const activeCaroGames = new Map();
 
 const BASE_HEADER = `
 QUY TẮC XUẤT RA BẮT BUỘC:
-- Chỉ trả về MỘT số nguyên duy nhất ứng với ô cần đánh (1..S*S).
+- Chỉ trả về MỘT số nguyên duy nhất ứng với ô cần đánh (1..256).
 - KHÔNG in giải thích, KHÔNG dấu chấm, KHÔNG ghi kèm ký tự nào khác.
 
 MÔ HÌNH BÀN CỜ & CHỈ SỐ:
-- Bàn cờ kích thước SxS. Ô được đánh số 1..S*S theo hàng (row-major):
-  • Hàng 1: 1..S
-  • Hàng 2: S+1..2S
+- Bàn cờ kích thước 16x16 (256 ô). Ô được đánh số 1..256 theo hàng:
+  • Hàng 1: 1..16
+  • Hàng 2: 17..32
   • ...
 - Ký hiệu: X và O; '.' thể hiện ô trống.
 - Bạn đánh với ký hiệu 'myMark'.
-- Điều kiện thắng: có chuỗi liên tiếp 'need' quân theo hàng, cột hoặc chéo.
+- Điều kiện thắng: có chuỗi liên tiếp 5 quân theo hàng, cột hoặc chéo.
 
 RÀNG BUỘC HỢP LỆ:
 - TUYỆT ĐỐI không chọn ô đã bị chiếm (khác '.').
-- Nếu không tìm thấy nước “rất tốt”, vẫn phải trả về MỘT ô trống hợp lệ (1..S*S).
-- Không bao giờ trả về 0, số âm, hoặc số > S*S.
-`;
+- Nếu không tìm thấy nước "rất tốt", vẫn phải trả về MỘT ô trống hợp lệ (1..256).
+- Không bao giờ trả về 0, số âm, hoặc số > 256.
 
-const PATTERN_CATALOG = `
-TỪ ĐIỂN MẪU HÌNH & KHÁI NIỆM:
-- Five (len=need): chuỗi thắng. Nếu tạo được ngay => CHỌN NGAY.
-- Open four: chuỗi dài (need-1) với 2 đầu mở. Nếu tạo được => gần như thắng cưỡng bức.
-- Closed four: chuỗi dài (need-1) với 1 đầu mở. Vẫn rất mạnh, buộc đối thủ phải chặn ngay.
-- Open three: chuỗi (need-2) với 2 đầu mở. Tạo đe doạ kép “4 mở” trong một nước.
-- Closed three: chuỗi (need-2) với 1 đầu mở. Giá trị thấp hơn “open three”.
-- Open two / Closed two: đà phát triển, ưu tiên khi gần trung tâm/đường chiến lược.
-- Broken four: dạng bị ngắt một ô nhưng có thể thành 4/5 sau một nước.
-- Double-threat (đòn kép): một nước đi tạo ra ít nhất HAI đường thắng trong lượt tiếp theo.
-- VCF / VCT: chuỗi ép buộc bằng việc tạo/ép đối thủ chặn các “4 mở/3 mở”, cuối cùng dẫn tới thắng.
-`;
-
-const POSITIONAL_RULES = `
-NGUYÊN TẮC VỊ TRÍ & GIAI ĐOẠN VÁN:
-- Mở ván: nếu trung tâm trống => ƯU TIÊN trung tâm. Sau đó là các ô ở “vành trung tâm” (Manhattan ≤ 2..3).
-- Kiểm soát trục & chéo trung tâm: đặt quân dọc theo đường trung tâm để tối đa hoá số đường thắng giao nhau.
-- Tránh mép/góc khi nước đi không mở chuỗi/đe doạ hữu ích.
-- Ưu tiên “gần giao tranh”: chọn ô quanh các nhóm quân đang tương tác (bán kính 2..3 ô).
-- Nối dài chuỗi hiện có theo hướng có nhiều đầu mở hơn.
-`;
-
-const CANDIDATE_WINDOW = `
-CỬA SỔ ỨNG VIÊN (Candidate Moves):
-- Chỉ xét các ô trống:
-  • Gần quân trên bàn (bán kính 2..3) hoặc trong vành trung tâm (Manhattan ≤ 2..3).
-  • Gần nước vừa đi (của ta hoặc đối thủ) để duy trì áp lực.
-- Loại bỏ các ô biên/góc nếu không tăng đe doạ hoặc phòng thủ.
-`;
-
-const PRIORITIES = `
-THỨ TỰ ƯU TIÊN (TẤN CÔNG > PHÒNG THỦ):
+THỨ TỰ ƯU TIÊN:
 1) Nếu ta có nước thắng ngay => CHỌN NGAY.
 2) Nếu đối thủ có nước thắng ngay => CHẶN NGAY.
 3) Tạo đòn kép (double-threat) => ƯU TIÊN.
-4) Tạo “open four”, kế đến “closed four”.
-5) Tạo “open three” (để đẩy vào 4 mở) > chặn “open three” của đối thủ.
-6) Nối dài chuỗi theo hướng tăng số đầu mở; ưu tiên gần trung tâm/trục/chéo trung tâm.
-7) Nếu các lựa chọn tương đương: chọn ô gần trung tâm hơn.
+4) Tạo chuỗi 4 quân liên tiếp với đầu mở.
+5) Tạo chuỗi 3 quân liên tiếp với 2 đầu mở.
+6) Chặn các đe dọa của đối thủ.
+7) Mở rộng vị trí gần trung tâm và các quân đã có.
 `;
 
-const DEFENSE_RULES = `
-PHÒNG THỦ CHIẾN LƯỢC:
-- Chặn ngay khi đối thủ có “win-in-one”.
-- Nếu đối thủ có khả năng tạo đòn kép ở lượt tới, chọn nước làm GIẢM TỐI ĐA số “win-in-one” của họ ở lượt sau.
-- Nếu bắt buộc chọn giữa nhiều nước phòng thủ tương đương, ưu tiên ô gần trung tâm/đường chiến lược.
-`;
-
-const OUTPUT_DISCIPLINE = `
-KỶ LUẬT XUẤT RA (RẤT QUAN TRỌNG):
-- Sau khi phân tích, chỉ in MỘT SỐ DUY NHẤT (1..S*S) của ô trống tốt nhất.
-- KHÔNG giải thích, KHÔNG xuống dòng thêm, KHÔNG kèm văn bản.
-`;
-
-const EASY = `${BASE_HEADER}
-${PATTERN_CATALOG}
-${POSITIONAL_RULES}
-${CANDIDATE_WINDOW}
-${PRIORITIES}
-${DEFENSE_RULES}
-${OUTPUT_DISCIPLINE}
-
-ĐIỀU CHỈNH CHO EASY:
+const EASY_MODE = `${BASE_HEADER}
+ĐIỀU CHỈNH CHO DỄ:
 - Ưu tiên an toàn, tránh lỗi.
 - Khi không rõ ràng: chọn gần trung tâm.
 `;
 
-const HARD = `${BASE_HEADER}
-${PATTERN_CATALOG}
-${POSITIONAL_RULES}
-${CANDIDATE_WINDOW}
-${PRIORITIES}
-${DEFENSE_RULES}
-${OUTPUT_DISCIPLINE}
-
-ĐIỀU CHỈNH CHO HARD:
+const HARD_MODE = `${BASE_HEADER}
+ĐIỀU CHỈNH CHO KHÓ:
 - Ưu tiên tạo/duy trì đòn kép; phá đòn kép của đối thủ ngay khi có thể.
 - Ưu tiên chuỗi mở 3/4 trên trục/chéo trung tâm.
 - Không đi góc/biên nếu không gia tăng đe doạ hoặc ngăn đe doạ.
 `;
 
-const CHALLENGE = `${BASE_HEADER}
-${PATTERN_CATALOG}
-${POSITIONAL_RULES}
-${CANDIDATE_WINDOW}
-${PRIORITIES}
-${DEFENSE_RULES}
-${OUTPUT_DISCIPLINE}
-
-ĐIỀU CHỈNH CHO CHALLENGE (ưu tiên ép thắng):
-- Nếu có chuỗi ép buộc kiểu VCF/VCT ngắn => CHỌN.
-- Tạo double-threat > mọi lựa chọn khác; nếu đối thủ có thể tạo đòn kép => vô hiệu hoá ngay.
-- Ưu tiên nối dài chuỗi theo hướng gia tăng số đầu mở; giữ trung tâm mạnh.
+const CHALLENGE_MODE = `${BASE_HEADER}
+ĐIỀU CHỈNH CHO THÁCH ĐẤU (ưu tiên ép thắng):
+- Nếu có chuỗi ép buộc => CHỌN.
+- Tạo double-threat > mọi lựa chọn khác.
+- Ưu tiên nối dài chuỗi theo hướng gia tăng số đầu mở.
 - Phòng thủ: chọn ô làm GIẢM TỐI ĐA số win-in-one của đối thủ ở lượt kế.
-- Phân giải hoà: ưu tiên ô gần trung tâm/trục/chéo trung tâm.
 `;
 
-const caroPrompts = {
-  1: EASY,
-  2: HARD,
-  3: CHALLENGE,
+const PROMPTS = {
+  dễ: EASY_MODE,
+  khó: HARD_MODE,
+  "thách đấu": CHALLENGE_MODE
 };
 
-function buildSystemPrompt(mode = 3) {
-  return caroPrompts[mode] || caroPrompts[3];
-}
-
-async function suggestMove({ board, size, need, myMark, mode = 3 }) {
-  const render = () => {
-    const out = [];
-    for (let r = 0; r < size; r++) {
-      const row = [];
-      for (let c = 0; c < size; c++) {
-        const idx = r * size + c;
-        row.push(board[idx] || ".");
-      }
-      out.push(row.join(" "));
-    }
-    return out.join("\n");
-  };
-  const system = buildSystemPrompt(mode);
-  const prompt = [
-    `S = ${size}`,
-    `need = ${need}`,
-    `myMark = ${myMark}`,
-    "Board ('.' là trống):",
-    render(),
-    "Yêu cầu: chỉ trả về MỘT số hợp lệ (1..S*S) là ô TRỐNG tốt nhất cho 'myMark'."
-  ].join("\n");
-
-  const result = await model.generateContent([system, prompt]);
-  const reply = await result.response.text();
-  const match = String(reply || "").match(/\d+/);
-  if (!match) return -1;
-  const pos = parseInt(match[0], 10) - 1;
-  return Number.isInteger(pos) && pos >= 0 && pos < size * size && board[pos] === '.' ? pos : -1;
-}
-
-function createBoardImage(board, imagePath) {
-  const canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+async function createCaroBoard(board, size = 16) {
+  const cellSize = 40;
+  const padding = 30;
+  const width = size * cellSize + padding * 2;
+  const height = size * cellSize + padding * 2;
+  
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
+  
   ctx.fillStyle = "#f0d9b5";
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-  ctx.strokeStyle = "#8b4513";
+  ctx.fillRect(0, 0, width, height);
+  
+  ctx.strokeStyle = "#000000";
   ctx.lineWidth = 1;
-  for (let i = 0; i <= BOARD_SIZE; i++) {
+  
+  for (let i = 0; i <= size; i++) {
     ctx.beginPath();
-    ctx.moveTo(i * CELL_SIZE, 0);
-    ctx.lineTo(i * CELL_SIZE, BOARD_SIZE * CELL_SIZE);
+    ctx.moveTo(padding, padding + i * cellSize);
+    ctx.lineTo(padding + size * cellSize, padding + i * cellSize);
     ctx.stroke();
+    
     ctx.beginPath();
-    ctx.moveTo(0, i * CELL_SIZE);
-    ctx.lineTo(BOARD_SIZE * CELL_SIZE, i * CELL_SIZE);
+    ctx.moveTo(padding + i * cellSize, padding);
+    ctx.lineTo(padding + i * cellSize, padding + size * cellSize);
     ctx.stroke();
   }
-
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      const idx = r * BOARD_SIZE + c + 1;
-      const x = c * CELL_SIZE + CELL_SIZE / 2;
-      const y = r * CELL_SIZE + CELL_SIZE / 2;
-      ctx.fillStyle = "#000";
-      ctx.font = "12px Arial";
+  
+  ctx.fillStyle = "#666666";
+  ctx.font = "10px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const num = row * size + col + 1;
+      const x = padding + col * cellSize + cellSize / 2;
+      const y = padding + row * cellSize + cellSize / 2;
+      ctx.fillText(num.toString(), x, y);
+    }
+  }
+  
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== ".") {
+      const row = Math.floor(i / size);
+      const col = i % size;
+      const x = padding + col * cellSize + cellSize / 2;
+      const y = padding + row * cellSize + cellSize / 2;
+      
+      ctx.font = "bold 28px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(idx.toString(), x, y);
-
-      const cell = board[r * BOARD_SIZE + c];
-      if (cell === 'X') {
-        ctx.strokeStyle = "#ff0000";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(x - 10, y - 10);
-        ctx.lineTo(x + 10, y + 10);
-        ctx.moveTo(x + 10, y - 10);
-        ctx.lineTo(x - 10, y + 10);
-        ctx.stroke();
-      } else if (cell === 'O') {
-        ctx.strokeStyle = "#0000ff";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(x, y, 10, 0, 2 * Math.PI);
-        ctx.stroke();
+      
+      if (board[i] === "X") {
+        ctx.fillStyle = "#ff0000";
+        ctx.fillText("X", x, y);
+      } else if (board[i] === "O") {
+        ctx.fillStyle = "#0000ff";
+        ctx.fillText("O", x, y);
       }
     }
   }
-
-  ctx.fillStyle = "#000";
-  ctx.font = "bold 16px Arial";
-  ctx.textAlign = "left";
-  ctx.fillText("Nhập số ô để đánh (1-256):", 10, CANVAS_HEIGHT - 30);
-
-  const buffer = canvas.toBuffer("image/png");
-  fs.writeFileSync(imagePath, buffer);
+  
+  return canvas.toBuffer("image/png");
 }
 
-function checkWin(board, mark) {
+async function getAIMove(board, playerMark, mode) {
+  const size = 16;
+  const need = 5;
+  const botMark = playerMark === "X" ? "O" : "X";
+  
+  const boardStr = [];
+  for (let r = 0; r < size; r++) {
+    const row = [];
+    for (let c = 0; c < size; c++) {
+      const idx = r * size + c;
+      row.push(board[idx] || ".");
+    }
+    boardStr.push(row.join(" "));
+  }
+  
+  const prompt = `S = ${size}
+need = ${need}
+myMark = ${botMark}
+Board ('.' là trống):
+${boardStr.join("\n")}
+Yêu cầu: chỉ trả về MỘT số hợp lệ (1..256) là ô TRỐNG tốt nhất cho '${botMark}'.`;
+  
+  const systemPrompt = PROMPTS[mode] || PROMPTS["khó"];
+  
+  try {
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash-exp",
+      systemInstruction: systemPrompt
+    });
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    const match = text.match(/\d+/);
+    if (match) {
+      const pos = parseInt(match[0], 10) - 1;
+      if (pos >= 0 && pos < 256 && board[pos] === ".") {
+        return pos;
+      }
+    }
+  } catch (error) {
+    console.error("Lỗi khi gọi AI:", error);
+  }
+  
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] === ".") return i;
+  }
+  
+  return -1;
+}
+
+function checkWin(board, size = 16, need = 5) {
   const directions = [
-    [0, 1], [1, 0], [1, 1], [1, -1]
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1]
   ];
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (board[r * BOARD_SIZE + c] !== mark) continue;
+  
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const idx = row * size + col;
+      const mark = board[idx];
+      if (mark === ".") continue;
+      
       for (const [dr, dc] of directions) {
         let count = 1;
-        for (let k = 1; k < WIN_LENGTH; k++) {
-          const nr = r + dr * k;
-          const nc = c + dc * k;
-          if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || board[nr * BOARD_SIZE + nc] !== mark) break;
+        for (let step = 1; step < need; step++) {
+          const newRow = row + dr * step;
+          const newCol = col + dc * step;
+          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
+          const newIdx = newRow * size + newCol;
+          if (board[newIdx] !== mark) break;
           count++;
         }
-        if (count >= WIN_LENGTH) return true;
+        if (count >= need) return mark;
       }
     }
   }
-  return false;
+  
+  return null;
 }
-
-const gameDataMap = new Map();
 
 export async function handleCaroCommand(api, message) {
   const threadId = message.threadId;
-  const content = message.data.content || "";
-  const args = content.split(" ");
+  const content = removeMention(message);
   const prefix = getGlobalPrefix();
-
-  if (args[0]?.toLowerCase() === `${prefix}caro` && !args[1]) {
-    await sendMessageComplete(api, message, `🎮 Hướng dẫn game cờ caro:\n🔗 ${prefix}caro thách đấu x/o: Tham gia trò chơi caro với Bot (X đi trước).\n🔖 ${prefix}caro leave: Rời khỏi trò chơi caro.`);
+  const args = content.split(/\s+/);
+  
+  if (!content.includes(`${prefix}caro`)) return;
+  
+  if (args.length < 3) {
+    await sendMessageComplete(api, message, 
+      `🎮 Hướng dẫn chơi Caro:\n\n` +
+      `📌 ${prefix}caro [dễ/khó/thách đấu] [x/o]\n` +
+      `   - Chọn độ khó và quân cờ của bạn\n` +
+      `   - X luôn đi trước\n` +
+      `   - Nhập số ô (1-256) để đánh\n` +
+      `   - 5 quân liên tiếp thắng!\n\n` +
+      `📌 ${prefix}caro leave - Rời khỏi trò chơi`
+    );
     return;
   }
-
-  if (args[1]?.toLowerCase() === "leave") {
-    if (gameDataMap.has(threadId)) {
-      gameDataMap.delete(threadId);
-      await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi caro.");
+  
+  if (args[1].toLowerCase() === "leave") {
+    if (activeCaroGames.has(threadId)) {
+      activeCaroGames.delete(threadId);
+      await sendMessageComplete(api, message, "🚫 Trò chơi Caro đã kết thúc.");
     } else {
-      await sendMessageWarning(api, message, "Không có trò chơi caro nào đang diễn ra.");
+      await sendMessageWarning(api, message, "Không có trò chơi Caro nào đang diễn ra.");
     }
     return;
   }
-
-  if (args[1]?.toLowerCase() === "thách đấu") {
-    if (gameDataMap.has(threadId)) {
-      await sendMessageWarning(api, message, "Đã có trò chơi caro đang diễn ra trong nhóm này.");
-      return;
-    }
-
-    const playerMark = args[2]?.toLowerCase();
-    if (!['x', 'o'].includes(playerMark)) {
-      await sendMessageWarning(api, message, "Vui lòng chọn 'x' hoặc 'o'!");
-      return;
-    }
-
-    const board = new Array(TOTAL_CELLS).fill('.');
-    const isPlayerFirst = playerMark === 'x';
-    const playerTurn = isPlayerFirst;
-
-    gameDataMap.set(threadId, {
-      board,
-      playerMark: playerMark.toUpperCase(),
-      botMark: playerMark === 'X' ? 'O' : 'X',
-      currentPlayer: playerTurn ? 'player' : 'bot',
-      mode: 3,
-      imagePath: path.join(__dirname, `caro_${threadId}_${Date.now()}.png`)
-    });
-
-    createBoardImage(board, gameDataMap.get(threadId).imagePath);
-    const caption = playerTurn ? "🎮 Trò chơi caro bắt đầu! Bạn đi trước (X). Nhập số ô (1-256):" : "🎮 Trò chơi caro bắt đầu! Bot đi trước (O).";
-    await api.sendMessage({
-      msg: caption,
-      attachments: [fs.createReadStream(gameDataMap.get(threadId).imagePath)]
-    }, threadId, message.type);
-
-    if (!playerTurn) {
-      await botTurn(api, message, threadId);
-    }
+  
+  const mode = args[1].toLowerCase();
+  const playerMark = args[2].toUpperCase();
+  
+  if (!["dễ", "khó", "thách đấu"].includes(mode)) {
+    await sendMessageWarning(api, message, "Chế độ không hợp lệ! Chọn: dễ, khó, hoặc thách đấu");
+    return;
+  }
+  
+  if (!["X", "O"].includes(playerMark)) {
+    await sendMessageWarning(api, message, "Quân cờ không hợp lệ! Chọn X hoặc O");
+    return;
+  }
+  
+  const board = Array(256).fill(".");
+  const size = 16;
+  
+  activeCaroGames.set(threadId, {
+    board,
+    playerMark,
+    botMark: playerMark === "X" ? "O" : "X",
+    currentTurn: "X",
+    mode,
+    playerId: message.data.uidFrom,
+    size
+  });
+  
+  const imageBuffer = await createCaroBoard(board, size);
+  const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+  await fs.writeFile(imagePath, imageBuffer);
+  
+  const turnMsg = playerMark === "X" 
+    ? "Bạn đi trước! Nhập số ô (1-256) để đánh." 
+    : "Bot đi trước...";
+  
+  await api.sendMessage(
+    {
+      msg: `🎮 Trò chơi Caro bắt đầu!\n\n` +
+           `🎯 Chế độ: ${mode}\n` +
+           `🔴 Bạn: ${playerMark}\n` +
+           `🔵 Bot: ${playerMark === "X" ? "O" : "X"}\n\n` +
+           `${turnMsg}`,
+      attachments: [imagePath]
+    },
+    threadId,
+    message.type
+  );
+  
+  try {
+    await fs.unlink(imagePath);
+  } catch (error) {}
+  
+  if (playerMark === "O") {
+    await handleBotTurn(api, message);
   }
 }
 
-async function botTurn(api, message, threadId) {
-  const gameData = gameDataMap.get(threadId);
-  if (!gameData) return;
-
-  gameData.currentPlayer = 'bot';
-  const pos = await suggestMove({
-    board: gameData.board,
-    size: BOARD_SIZE,
-    need: WIN_LENGTH,
-    myMark: gameData.botMark,
-    mode: gameData.mode
-  });
-
+async function handleBotTurn(api, message) {
+  const threadId = message.threadId;
+  const game = activeCaroGames.get(threadId);
+  
+  if (!game) return;
+  
+  const pos = await getAIMove(game.board, game.playerMark, game.mode);
+  
   if (pos === -1) {
-    await sendMessageWarning(api, message, "Bot không thể đi. Bạn thắng!");
-    endGame(threadId, 'player');
+    await sendMessageComplete(api, message, "🎮 Hòa! Không còn nước đi.");
+    activeCaroGames.delete(threadId);
     return;
   }
-
-  gameData.board[pos] = gameData.botMark;
-  createBoardImage(gameData.board, gameData.imagePath);
-
-  if (checkWin(gameData.board, gameData.botMark)) {
-    await api.sendMessage({
-      msg: "🤖 Bot thắng!",
-      attachments: [fs.createReadStream(gameData.imagePath)]
-    }, threadId, message.type);
-    endGame(threadId, 'bot');
-    return;
+  
+  game.board[pos] = game.botMark;
+  game.currentTurn = game.playerMark;
+  
+  const winner = checkWin(game.board, game.size);
+  
+  const imageBuffer = await createCaroBoard(game.board, game.size);
+  const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+  await fs.writeFile(imagePath, imageBuffer);
+  
+  if (winner) {
+    await api.sendMessage(
+      {
+        msg: `🎉 Bot thắng!\n\n🔵 Bot đánh ô ${pos + 1}`,
+        attachments: [imagePath]
+      },
+      threadId,
+      message.type
+    );
+    activeCaroGames.delete(threadId);
+  } else {
+    await api.sendMessage(
+      {
+        msg: `🤖 Bot đánh ô ${pos + 1}\n\n👉 Đến lượt bạn!`,
+        attachments: [imagePath]
+      },
+      threadId,
+      message.type
+    );
   }
-
-  gameData.currentPlayer = 'player';
-  await api.sendMessage({
-    msg: "Lượt bạn (X/O). Nhập số ô (1-256):",
-    attachments: [fs.createReadStream(gameData.imagePath)]
-  }, threadId, message.type);
+  
+  try {
+    await fs.unlink(imagePath);
+  } catch (error) {}
 }
 
 export async function handleCaroMessage(api, message) {
   const threadId = message.threadId;
+  const game = activeCaroGames.get(threadId);
+  
+  if (!game) return;
+  if (message.data.uidFrom !== game.playerId) return;
+  if (game.currentTurn !== game.playerMark) return;
+  
   const content = message.data.content || "";
-  const prefix = getGlobalPrefix();
-  const senderId = message.data.uidFrom;
-
-  if (!gameDataMap.has(threadId) || content.startsWith(prefix) || gameDataMap.get(threadId).currentPlayer !== 'player') return;
-
-  const pos = parseInt(content.trim()) - 1;
-  if (isNaN(pos) || pos < 0 || pos >= TOTAL_CELLS || gameDataMap.get(threadId).board[pos] !== '.') {
-    await sendMessageWarning(api, message, "Ô không hợp lệ hoặc đã bị chiếm! Nhập số khác (1-256).");
+  const match = content.match(/^\d+$/);
+  
+  if (!match) return;
+  
+  const pos = parseInt(content, 10) - 1;
+  
+  if (pos < 0 || pos >= 256 || game.board[pos] !== ".") {
+    await sendMessageWarning(api, message, "Ô không hợp lệ! Chọn ô trống (1-256).");
     return;
   }
-
-  const gameData = gameDataMap.get(threadId);
-  gameData.board[pos] = gameData.playerMark;
-  createBoardImage(gameData.board, gameData.imagePath);
-
-  if (checkWin(gameData.board, gameData.playerMark)) {
-    await api.sendMessage({
-      msg: "🎉 Bạn thắng!",
-      attachments: [fs.createReadStream(gameData.imagePath)]
-    }, threadId, message.type);
-    endGame(threadId, 'player');
+  
+  game.board[pos] = game.playerMark;
+  game.currentTurn = game.botMark;
+  
+  const winner = checkWin(game.board, game.size);
+  
+  const imageBuffer = await createCaroBoard(game.board, game.size);
+  const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+  await fs.writeFile(imagePath, imageBuffer);
+  
+  if (winner) {
+    await api.sendMessage(
+      {
+        msg: `🎉 Bạn thắng!\n\n🔴 Bạn đánh ô ${pos + 1}`,
+        attachments: [imagePath]
+      },
+      threadId,
+      message.type
+    );
+    activeCaroGames.delete(threadId);
+    try {
+      await fs.unlink(imagePath);
+    } catch (error) {}
     return;
   }
-
-  await botTurn(api, message, threadId);
-}
-
-function endGame(threadId, winner) {
-  const gameData = gameDataMap.get(threadId);
-  if (gameData && gameData.imagePath) {
-    deleteFile(gameData.imagePath);
-  }
-  gameDataMap.delete(threadId);
+  
+  await api.sendMessage(
+    {
+      msg: `🔴 Bạn đánh ô ${pos + 1}\n\n⏳ Bot đang suy nghĩ...`,
+      attachments: [imagePath]
+    },
+    threadId,
+    message.type
+  );
+  
+  try {
+    await fs.unlink(imagePath);
+  } catch (error) {}
+  
+  await handleBotTurn(api, message);
 }
