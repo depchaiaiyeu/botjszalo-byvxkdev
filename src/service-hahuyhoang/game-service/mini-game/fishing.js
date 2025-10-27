@@ -34,8 +34,18 @@ const SHOP_ITEMS = [
   { id: 1, name: "Cần câu cơ bản", price: 500, type: "rod", bonus: 0, emoji: "🎣" },
   { id: 2, name: "Cần câu nâng cao", price: 2000, type: "rod", bonus: 5, emoji: "🎣" },
   { id: 3, name: "Cần câu chuyên nghiệp", price: 8000, type: "rod", bonus: 15, emoji: "🎣" },
-  { id: 4, name: "Mồi câu đặc biệt", price: 300, type: "bait", bonus: 8, emoji: "🪱" },
-  { id: 5, name: "Phao câu may mắn", price: 1500, type: "float", bonus: 10, emoji: "🎈" }
+  { id: 4, name: "Cần câu siêu cấp", price: 20000, type: "rod", bonus: 25, emoji: "🎣" },
+  { id: 5, name: "Mồi câu thường", price: 100, type: "bait", bonus: 3, emoji: "🪱" },
+  { id: 6, name: "Mồi câu đặc biệt", price: 300, type: "bait", bonus: 8, emoji: "🪱" },
+  { id: 7, name: "Mồi câu cao cấp", price: 800, type: "bait", bonus: 15, emoji: "🪱" },
+  { id: 8, name: "Phao câu thường", price: 500, type: "float", bonus: 5, emoji: "🎈" },
+  { id: 9, name: "Phao câu may mắn", price: 1500, type: "float", bonus: 10, emoji: "🎈" },
+  { id: 10, name: "Phao câu huyền thoại", price: 5000, type: "float", bonus: 20, emoji: "🎈" },
+  { id: 11, name: "Lưới bắt cá", price: 3000, type: "net", bonus: 12, emoji: "🕸️" },
+  { id: 12, name: "Thuyền đánh cá", price: 15000, type: "boat", bonus: 30, emoji: "⛵" },
+  { id: 13, name: "Máy dò cá", price: 10000, type: "sonar", bonus: 22, emoji: "📡" },
+  { id: 14, name: "Áo phao cứu sinh", price: 2500, type: "vest", bonus: 8, emoji: "🦺" },
+  { id: 15, name: "Kính lặn", price: 1800, type: "goggles", bonus: 7, emoji: "🥽" }
 ];
 
 function normalizeText(text) {
@@ -84,6 +94,10 @@ function getFishByRarity(location, rarity) {
   return availableFish[Math.floor(Math.random() * availableFish.length)];
 }
 
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function handleFishingCommand(api, message) {
   const threadId = message.threadId;
   const content = message.data.content || "";
@@ -104,7 +118,7 @@ export async function handleFishingCommand(api, message) {
       `📌 LỆNH CƠ BẢN:\n` +
       `→ ${prefix}cauca join: Tham gia trò chơi\n` +
       `→ ${prefix}cauca leave: Rời khỏi trò chơi\n\n` +
-      `📌 LỆNH CHƠI (không cần ${prefix}cauca):\n` +
+      `📌 LỆNH CHƠI (Cần ${prefix}cauca join để sử dụng):\n` +
       `→ daily: Điểm danh nhận 10 lượt câu\n` +
       `→ goto [địa điểm]: Di chuyển đến địa điểm câu\n` +
       `→ cau [số lần]: Câu cá (mặc định 1 lần)\n` +
@@ -184,13 +198,6 @@ export async function handleFishingMessage(api, message) {
   const prefix = getGlobalPrefix();
 
   if (message.data.mentions && message.data.mentions.length > 0) return;
-  if (content.startsWith(prefix)) return;
-
-  const args = content.trim().split(/\s+/);
-  const command = args[0]?.toLowerCase();
-
-  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info"];
-  if (!validCommands.includes(command)) return;
 
   const activeGames = getActiveGames();
   if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
@@ -201,6 +208,17 @@ export async function handleFishingMessage(api, message) {
   if (!gameData.game.players.has(senderId)) {
     return;
   }
+
+  if (typeof content !== "string") return;
+
+  const contentStr = String(content).trim();
+  if (contentStr.startsWith(prefix)) return;
+
+  const args = contentStr.split(/\s+/);
+  const command = args[0]?.toLowerCase();
+
+  const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info"];
+  if (!validCommands.includes(command)) return;
 
   const commandKey = `${threadId}_${senderId}`;
   const now = Date.now();
@@ -289,6 +307,12 @@ export async function handleFishingMessage(api, message) {
       await sendMessageWarning(api, message, `Bạn chỉ còn ${playerData.fishingTurns} lượt câu!`);
       return;
     }
+
+    const delayTime = Math.floor(Math.random() * 3000) + 2000;
+    
+    await sendMessageComplete(api, message, `🎣 Đang thả câu...`, delayTime);
+    
+    await delay(delayTime);
 
     const location = FISHING_LOCATIONS.find(loc => loc.name === playerData.location);
     playerData.fishingTurns -= times;
