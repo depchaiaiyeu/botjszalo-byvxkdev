@@ -2309,6 +2309,17 @@
       "type": 5,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "caro",
+      "description": "Chơi trò chơi cờ caro",
+      "syntax": "{p}caro",
+      "permission": "all",
+      "countdown": 10,
+      "icon": "🀄",
+      "type": 5,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
