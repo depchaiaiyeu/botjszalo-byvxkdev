@@ -1,342 +1,226 @@
-import axios from "axios";
 import fs from "fs";
-import path from "path";
-import { JSDOM } from "jsdom";
-import { LRUCache } from "lru-cache";
-import { fileURLToPath } from "url";
-import { getGlobalPrefix } from "../../service.js";
-import {
-  sendMessageCompleteRequest,
-  sendMessageFromSQL,
-  sendMessageWarningRequest,
-} from "../../chat-zalo/chat-style/chat-style.js";
+import { readGroupSettings, writeGroupSettings } from "../../utils/io-json.js";
+import { MessageType } from "../../api-zalo/index.js";
+import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van-nien.js";
+import { getMusicInfo, getMusicStreamUrl } from "../api-crawl/music/soundcloud.js";
 import { downloadAndConvertAudio } from "../../chat-zalo/chat-special/send-voice/process-audio.js";
-import { removeMention } from "../../../utils/format-util.js";
 import { sendVoiceMusic } from "../../chat-zalo/chat-special/send-voice/send-voice.js";
-import { setSelectionsMapData } from "../index.js";
 import { getCachedMedia, setCacheData } from "../../../utils/link-platform-cache.js";
-import { deleteFile } from "../../../utils/util.js";
-import { createSearchResultImage } from "../../../utils/canvas/search-canvas.js";
-import { getBotId, isAdmin } from "../../../index.js";
-import { sendReactionWaitingCountdown } from '../../../commands/manager-command/check-countdown.js';
+import path from "path";
 
-let clientId;
-
+const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 const PLATFORM = "soundcloud";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = path.join(__dirname, "../config.json");
-const userAgents = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+
+function readRankInfo() {
+  try {
+    const data = JSON.parse(fs.readFileSync(rankInfoPath, "utf8"));
+    if (!data) data = {};
+    if (!data.groups) data.groups = {};
+    return data;
+  } catch (error) {
+    console.error("Lỗi khi đọc file rank-info.json:", error);
+    return { groups: {} };
+  }
+}
+
+const scheduledTasks = [
+  {
+    time: "06:05",
+    task: async (api) => {
+      const caption = "-> SendTask 06:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn một ngày mới tràn đầy năng lượng!";
+      const timeToLive = 1000 * 60 * 60 * 6;
+      await sendTaskCalendar(api, caption, timeToLive);
+    },
+  },
+  {
+    time: "06:05",
+    task: async (api) => {
+      const caption = `-> SendTask 06:05 <-\nThức dậy cho một ngày mới\nđầy năng lượng thôi nào!\n\nĐón bình minh ngày mới cùng tớ nhé!!!`;
+      const timeToLive = 1000 * 60 * 60 * 3;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc chill buổi sáng");
+    },
+  },
+  {
+    time: "09:05",
+    task: async (api) => {
+      const caption = `-> SendTask 09:05 <-\nChào buổi sáng\ncùng đón nắng ấm suơng mưa nhé!\n\nGiải trí một chút để bớt căng thẳng thôi nào!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc chill cảnh đẹp");
+    },
+  },
+  {
+    time: "10:05",
+    task: async (api) => {
+      const caption = `-> SendTask 10:05 <-\nChào một buổi trưa đầy năng lượng!\n\nNhạc hay để nâng cao năng suất đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc edm năng lượng");
+    },
+  },
+  {
+    time: "11:05",
+    task: async (api) => {
+      const caption = `-> SendTask 11:05 <-\nChào một buổi trưa đầy năng lượng!\n\nNhạc remix sôi động cho anh em đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc remix hot");
+    },
+  },
+  {
+    time: "12:05",
+    task: async (api) => {
+      const caption = "-> SendTask 12:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn buổi trưa vui vẻ!";
+      const timeToLive = 1000 * 60 * 60 * 6;
+      await sendTaskCalendar(api, caption, timeToLive);
+    },
+  },
+  {
+    time: "12:05",
+    task: async (api) => {
+      const caption = `-> SendTask 12:05 <-\nChào một buổi trưa đầy năng lượng!\n\nNhạc jazz thư giãn cho anh em đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc jazz");
+    },
+  },
+  {
+    time: "13:05",
+    task: async (api) => {
+      const caption = `-> SendTask 13:05 <-\nChào một buổi trưa đầy năng lượng!\n\nNhạc anime để bớt căng não anh em nhé!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "anime soundtrack");
+    },
+  },
+  {
+    time: "14:05",
+    task: async (api) => {
+      const caption = `-> SendTask 14:05 <-\nChào một buổi trưa đầy năng lượng!\n\nNhạc k-pop hay để giải trí đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "k-pop hot");
+    },
+  },
+  {
+    time: "15:05",
+    task: async (api) => {
+      const caption = `-> SendTask 15:05 <-\nChào một buổi xế chiều đầy năng lượng!\n\nNhạc sôi động để tỉnh táo đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc edm dance");
+    },
+  },
+  {
+    time: "16:05",
+    task: async (api) => {
+      const caption = `-> SendTask 16:05 <-\nChào một buổi xế chiều đầy năng lượng!\n\nNhạc indie mới lạ cho anh em đây!!!`;
+      const timeToLive = 1000 * 60 * 60 * 1;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc indie hay");
+    },
+  },
+  {
+    time: "17:05",
+    task: async (api) => {
+      const caption = `-> SendTask 17:05 <-\nChúc buổi chiều thật chill và vui vẻ nhé!\n\nĐón hoàng hôn ánh chiều tà thôi nào!!!`;
+      const timeToLive = 1000 * 60 * 60 * 2;
+      await sendTaskMusic(api, caption, timeToLive, "nhạc acoustic hoàng hôn");
+    },
+  },
+  {
+    time: "19:05",
+    task: async (api) => {
+      const caption = `-> SendTask 19:05 <-\nChúc các bạn một buổi tối vui vẻ bên gia đình!\n\nThư giãn cuối ngày thôi nào!!!`;
+      const timeToLive = 1000 * 60 * 60 * 3;
+      await sendTaskMusic(api, caption, timeToLive, "âm nhạc nhẹ nhàng");
+    },
+  },
+  {
+    time: "22:05",
+    task: async (api) => {
+      const caption = `-> SendTask 22:05 <-\nTổng kết tương tác trong ngày 📝\n\n`;
+      const timeToLive = 1000 * 60 * 60 * 8;
+      await sendTaskTopChat(api, caption, timeToLive);
+    },
+  }
 ];
-const TIME_TO_SELECT = 60000;
 
-const acceptLanguages = ["en-US,en;q=0.9", "fr-FR,fr;q=0.9", "es-ES,es;q=0.9", "de-DE,de;q=0.9", "zh-CN,zh;q=0.9"];
-
-export const getRandomElement = (array) => {
-  return array[Math.floor(Math.random() * array.length)];
-};
-
-export const getHeaders = () => {
-  return {
-    "User-Agent": getRandomElement(userAgents),
-    "Accept-Language": getRandomElement(acceptLanguages),
-    Referer: "https://soundcloud.com/",
-    "Upgrade-Insecure-Requests": "1",
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  };
-};
-
-export const getClientId = async () => {
-  try {
-    let config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-    const lastUpdate = new Date(config.soundcloud.lastUpdate);
-    const now = new Date();
-
-    const daysDiff = (now - lastUpdate) / (1000 * 60 * 60 * 24);
-
-    if (daysDiff < 3 && config.soundcloud.clientId) {
-      return config.soundcloud.clientId;
-    }
-
-    const response = await axios.get("https://soundcloud.com/", {
-      headers: getHeaders(),
-    });
-
-    const dom = new JSDOM(response.data);
-    const scriptTags = Array.from(dom.window.document.querySelectorAll("script[crossorigin]"));
-
-    const urls = scriptTags.map((tag) => tag.src).filter((src) => src && src.startsWith("https"));
-
-    if (!urls.length) {
-      throw new Error("Không tìm thấy URL script");
-    }
-
-    const scriptResponse = await axios.get(urls[urls.length - 1], {
-      headers: getHeaders(),
-    });
-
-    const clientId = scriptResponse.data.split(',client_id:"')[1].split('"')[0];
-
-    config.soundcloud = {
-      clientId: clientId,
-      lastUpdate: now.toISOString(),
-    };
-
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-    return clientId;
-  } catch (error) {
-    console.error(`Không thể lấy client ID: ${error}`);
-    try {
-      const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-      return config.soundcloud.clientId;
-    } catch {
-      return "W00nmY7TLer3uyoEo1sWK3Hhke5Ahdl9";
-    }
-  }
-};
-
-export async function getMusicInfo(question, limit) {
-  limit = limit || 10;
-  try {
-    const response = await axios.get("https://api-v2.soundcloud.com/search/tracks", {
-      params: {
-        q: question,
-        variant_ids: "",
-        facet: "genre",
-        client_id: clientId,
-        limit: limit,
-        offset: 0,
-        linked_partitioning: 1,
-        app_locale: "en",
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching music info:", error);
-    return null;
-  }
-}
-
-export async function getMusicStreamUrl(link) {
-  try {
-    const headers = getHeaders();
-    const apiUrl = `https://api-v2.soundcloud.com/resolve?url=${link}&client_id=${clientId}`;
-
-    const response = await axios.get(apiUrl, { headers });
-    const data = response.data;
-
-    const progressiveUrl = data?.media?.transcodings?.find((t) => t.format.protocol === "progressive")?.url;
-
-    if (!progressiveUrl) {
-      throw new Error("Không tìm thấy URL âm thanh");
-    }
-
-    const streamResponse = await axios.get(
-      `${progressiveUrl}?client_id=${clientId}&track_authorization=${data.track_authorization}`,
-      {
-        headers,
-      }
-    );
-
-    return streamResponse.data.url;
-  } catch (error) {
-    console.error("Error getting music stream URL:", error);
-    return null;
-  }
-}
-
-export const musicSelectionsMap = new LRUCache({
-  max: 500,
-  ttl: TIME_TO_SELECT
-});
-
-export async function handleMusicCommand(api, message, aliasCommand) {
+async function sendTaskCalendar(api, caption, timeToLive) {
+  const groupSettings = readGroupSettings();
   let imagePath = null;
+  
   try {
-    if (!clientId) clientId = await getClientId();
-    const content = removeMention(message);
-    const senderId = message.data.uidFrom;
-    const prefix = getGlobalPrefix();
-    const commandContent = content.replace(`${prefix}${aliasCommand}`, "").trim();
-    const [question, numberMusic] = commandContent.split("&&");
-
-    if (!question) {
-      const object = {
-        caption: `Vui lòng nhập từ khóa tìm kiếm\nVí dụ:\n${prefix}${aliasCommand} Bài Hát Cần Tìm`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return;
+    imagePath = await createCalendarImage();
+    
+    for (const threadId of Object.keys(groupSettings)) {
+      if (groupSettings[threadId].sendTask) {
+        try {
+          await api.sendMessage(
+            {
+              msg: caption,
+              attachments: [imagePath],
+              ttl: timeToLive,
+            },
+            threadId,
+            MessageType.GroupMessage
+          );
+        } catch (error) {
+          console.error(`Lỗi khi gửi lịch vạn niên đến nhóm ${threadId}:`, error);
+          if (error.message && error.message.includes("không tồn tại")) {
+            groupSettings[threadId].sendTask = false;
+            writeGroupSettings(groupSettings);
+          }
+        }
+      }
     }
-
-    const musicInfo = await getMusicInfo(question, parseInt(numberMusic));
-    if (!musicInfo || !musicInfo.collection || musicInfo.collection.length === 0) {
-      const object = {
-        caption: `Không tìm thấy bài hát nào với từ khóa: ${question}`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return;
-    }
-
-    let musicListTxt = "Đây là danh sách bài hát trên SoundCloud mà tôi tìm thấy:\n";
-    musicListTxt += "Hãy trả lời tin nhắn này với số index của bài hát bạn muốn tìm!";
-    musicInfo.collection = musicInfo.collection.filter((track) => track.artwork_url);
-
-    if (musicInfo.collection.length === 0) {
-      const object = {
-        caption: `Không tìm thấy bài hát nào với từ khóa: ${question}`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return;
-    }
-
-    const songs = musicInfo.collection.map(track => ({
-      title: track.title,
-      artistsNames: track.user?.username || "Unknown Artist",
-      thumbnailM: track.artwork_url?.replace("-large", "-t500x500") || null,
-      listen: track.playback_count,
-      like: track.likes_count,
-      comment: track.comment_count
-    }));
-
-    imagePath = await createSearchResultImage(songs);
-
-    const object = {
-      caption: musicListTxt,
-      imagePath: imagePath,
-    };
-
-    const TIME_TO_SELECT = 30000;
-    const ttlSeconds = TIME_TO_SELECT / 1000;
-
-    const musicListMessage = await sendMessageCompleteRequest(api, message, object, TIME_TO_SELECT);
-    await sendReactionWaitingCountdown(api, message, ttlSeconds);
-
-    const quotedMsgId = musicListMessage?.message?.msgId || musicListMessage?.attachment?.[0]?.msgId;
-    if (!quotedMsgId) return;
-
-    musicSelectionsMap.set(quotedMsgId.toString(), {
-      userRequest: senderId,
-      collection: musicInfo.collection,
-      timestamp: Date.now(),
-    });
-
-    setSelectionsMapData(senderId, {
-      quotedMsgId: quotedMsgId.toString(),
-      collection: musicInfo.collection,
-      timestamp: Date.now(),
-      platform: PLATFORM,
-    });
-
   } catch (error) {
-    console.error("Error handling music command:", error);
-    await sendMessageFromSQL(
-      api,
-      message,
-      {
-        success: false,
-        message: "Đã xảy ra lỗi khi xử lý lệnh của bạn. Vui lòng thử lại sau.",
-      },
-      true,
-      30000
-    );
+    console.error("Lỗi khi tạo lịch vạn niên:", error);
   } finally {
-    if (imagePath) deleteFile(imagePath);
+    if (imagePath) {
+      await clearImagePath(imagePath);
+    }
   }
 }
 
-export async function handleMusicReply(api, message) {
-  const senderId = message.data.uidFrom;
-  const idBot = getBotId();
-  const isAdminLevelHighest = isAdmin(senderId);
-  let track;
-
+async function sendTaskMusic(api, caption, timeToLive, query) {
+  const groupSettings = readGroupSettings();
+  
   try {
-    if (!message.data.quote || !message.data.quote.globalMsgId) return false;
-
-    const quotedMsgId = message.data.quote.globalMsgId.toString();
-    if (!musicSelectionsMap.has(quotedMsgId)) return false;
-
-    const musicData = musicSelectionsMap.get(quotedMsgId);
-    if (musicData.userRequest !== senderId) return false;
-
-    let selection = removeMention(message);
-    const selectedIndex = parseInt(selection) - 1;
-    if (isNaN(selectedIndex)) {
-      const object = {
-        caption: `Lựa chọn Không hợp lệ. Vui lòng chọn một số từ danh sách.`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return true;
+    const musicInfo = await getMusicInfo(query, 5);
+    
+    if (!musicInfo || !musicInfo.collection || musicInfo.collection.length === 0) {
+      console.error(`Không tìm thấy nhạc cho query: ${query}`);
+      return;
     }
 
-    const { collection } = musicSelectionsMap.get(quotedMsgId);
-    if (selectedIndex < 0 || selectedIndex >= collection.length) {
-      const object = {
-        caption: `Số bạn chọn Không nằm trong danh sách. Vui lòng chọn lại.`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return true;
+    const randomTrack = musicInfo.collection[Math.floor(Math.random() * musicInfo.collection.length)];
+
+    for (const threadId of Object.keys(groupSettings)) {
+      if (groupSettings[threadId].sendTask) {
+        try {
+          await sendMusicToGroup(api, threadId, randomTrack, caption, timeToLive);
+        } catch (error) {
+          console.error(`Lỗi khi gửi nhạc đến nhóm ${threadId}:`, error);
+          if (error.message && error.message.includes("không tồn tại")) {
+            groupSettings[threadId].sendTask = false;
+            writeGroupSettings(groupSettings);
+          }
+        }
+      }
     }
-
-    track = collection[selectedIndex];
-    if (!isAdminLevelHighest && track.duration > 1800000) {
-      const object = {
-        caption: `Thời lượng nhạc vượt quá thời gian tin nhắn tồn tại, vui lòng chọn bài khác.`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return true;
-    }
-
-    const msgDel = {
-      type: message.type,
-      threadId: message.threadId,
-      data: {
-        cliMsgId: message.data.quote.cliMsgId,
-        msgId: message.data.quote.globalMsgId,
-        uidFrom: idBot,
-      },
-    };
-    await api.deleteMessage(msgDel, false);
-    // await api.undoMessage(message);
-    musicSelectionsMap.delete(quotedMsgId);
-
-    return await handleSendTrackSoundCloud(api, message, track);
   } catch (error) {
-    console.error("Error handling music reply:", error);
-    const object = {
-      caption: `Đã xảy ra lỗi khi xử lý lấy nhạc từ SoundCloud cho bạn, vui lòng thử lại sau.`,
-    };
-    await sendMessageWarningRequest(api, message, object, 30000);
-    return true;
+    console.error("Lỗi khi lấy thông tin nhạc từ SoundCloud:", error);
   }
 }
 
-export async function handleSendTrackSoundCloud(api, message, track) {
+async function sendMusicToGroup(api, threadId, track, caption, timeToLive) {
   const cachedMusic = await getCachedMedia(PLATFORM, track.id, null, track.title);
   let voiceUrl;
-
-  const object = {
-    caption: `Chờ bé lấy nhạc một chút, xong bé gọi cho hay.` + `\n\n⏳ ${track.title}`,
-  };
 
   if (cachedMusic) {
     voiceUrl = cachedMusic.fileUrl;
   } else {
-    await sendMessageCompleteRequest(api, message, object, 10000);
     const url = await getMusicStreamUrl(track.permalink_url);
 
     if (!url) {
-      const object = {
-        caption: `Xin lỗi, bé Không thể lấy được bài hát này về. Vui lòng thử lại bài khác.`,
-      };
-      await sendMessageWarningRequest(api, message, object, 30000);
-      return true;
+      console.error(`Không thể lấy stream URL cho bài: ${track.title}`);
+      return;
     }
 
-    voiceUrl = await downloadAndConvertAudio(url, api, message);
+    voiceUrl = await downloadAndConvertAudio(url, api, null);
     setCacheData(PLATFORM, track.id, {
       title: track.title,
       artist: track.user?.username || "Unknown Artist",
@@ -352,7 +236,7 @@ export async function handleSendTrackSoundCloud(api, message, track) {
     track.comment_count && `${track.comment_count.toLocaleString()} 💬`
   ].filter(Boolean);
 
-  const caption = `> From SoundCloud <\nNhạc Của Bạn Đây!!!`;
+  const finalCaption = `${caption}\n\n> From SoundCloud <\n${track.title}`;
 
   const objectMusic = {
     trackId: track.id,
@@ -362,11 +246,82 @@ export async function handleSendTrackSoundCloud(api, message, track) {
     listen: track.playback_count,
     comment: track.comment_count,
     source: "SoundCloud",
-    caption: caption,
+    caption: finalCaption,
     imageUrl: thumbnailUrl,
     voiceUrl: voiceUrl,
     stats: stats,
   };
-  await sendVoiceMusic(api, message, objectMusic, 180000000);
-  return true;
+
+  await api.sendMessage(
+    {
+      msg: finalCaption,
+      attachments: [voiceUrl],
+      ttl: timeToLive,
+    },
+    threadId,
+    MessageType.GroupMessage
+  );
+}
+
+async function sendTaskTopChat(api, caption, timeToLive) {
+  const groupSettings = readGroupSettings();
+  const rankInfo = readRankInfo();
+  const currentDate = new Date().toISOString().split("T")[0];
+
+  for (const threadId of Object.keys(groupSettings)) {
+    if (groupSettings[threadId].sendTask) {
+      try {
+        const groupUsers = rankInfo.groups[threadId]?.users || [];
+        
+        if (groupUsers.length === 0) {
+          continue;
+        }
+
+        const todayUsers = groupUsers.filter((user) => user.lastMessageDate === currentDate);
+        
+        if (todayUsers.length === 0) {
+          continue;
+        }
+
+        const sortedUsers = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday);
+        const top10Users = sortedUsers.slice(0, 10);
+        
+        const totalMessages = todayUsers.reduce((sum, user) => sum + user.messageCountToday, 0);
+
+        let rankMessage = `${caption}📊 Thống kê tương tác của hôm nay:\n💬 Tổng số tin nhắn: ${totalMessages}\n\n🏆 Top tương tác:\n`;
+        
+        top10Users.forEach((user, index) => {
+          rankMessage += `${index + 1}. ${user.UserName}: ${user.messageCountToday} tin nhắn\n`;
+        });
+
+        await api.sendMessage(
+          { msg: rankMessage, ttl: timeToLive },
+          threadId,
+          MessageType.GroupMessage
+        );
+      } catch (error) {
+        console.error(`Lỗi khi gửi top chat đến nhóm ${threadId}:`, error);
+        if (error.message && error.message.includes("không tồn tại")) {
+          groupSettings[threadId].sendTask = false;
+          writeGroupSettings(groupSettings);
+        }
+      }
+    }
+  }
+}
+
+export async function initializeScheduler(api) {
+  setInterval(() => {
+    const now = new Date();
+    const hour = now.getHours().toString().padStart(2, "0");
+    const minute = now.getMinutes().toString().padStart(2, "0");
+    const currentTime = `${hour}:${minute}`;
+
+    const task = scheduledTasks.find((t) => t.time === currentTime);
+    if (task) {
+      task.task(api).catch((error) => {
+        console.error("Lỗi khi thực thi tác vụ định kỳ:", error);
+      });
+    }
+  }, 60000);
 }
