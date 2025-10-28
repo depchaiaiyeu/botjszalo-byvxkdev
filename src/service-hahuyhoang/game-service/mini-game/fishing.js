@@ -1,6 +1,5 @@
 import axios from "axios";
 import { getGlobalPrefix } from "../../service.js";
-import { getActiveGames, checkHasActiveGame } from "./index.js";
 import { sendMessageFromSQL } from "../../chat-zalo/chat-style/chat-style.js";
 import { getUserInfoData } from "../../info-service/user-info.js";
 import { admins } from "../../../index.js";
@@ -141,24 +140,6 @@ export async function handleFishingCommand(api, message) {
   }
 
   if (subCommand === "join") {
-    const activeGames = getActiveGames();
-    if (activeGames.has(threadId)) {
-      const gameData = activeGames.get(threadId);
-      if (gameData.type === "cauca" && gameData.game.players.has(senderId)) {
-        await sendMessageFromSQL(api, message, { message: "Bạn đã tham gia trò chơi câu cá rồi!", success: false }, true, 3600000);
-        return;
-      }
-    }
-
-    if (!activeGames.has(threadId)) {
-      activeGames.set(threadId, {
-        type: "cauca",
-        game: { players: new Set() }
-      });
-    }
-
-    const gameData = activeGames.get(threadId);
-    gameData.game.players.add(senderId);
     const playerData = getPlayerData(threadId, senderId);
 
     await sendMessageFromSQL(api, message,
@@ -172,24 +153,6 @@ export async function handleFishingCommand(api, message) {
   }
 
   if (subCommand === "leave") {
-    const activeGames = getActiveGames();
-    if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
-      await sendMessageFromSQL(api, message, { message: "Không có trò chơi câu cá nào đang diễn ra!", success: false }, true, 3600000);
-      return;
-    }
-
-    const gameData = activeGames.get(threadId);
-    if (!gameData.game.players.has(senderId)) {
-      await sendMessageFromSQL(api, message, { message: "Bạn chưa tham gia trò chơi!", success: false }, true, 3600000);
-      return;
-    }
-
-    gameData.game.players.delete(senderId);
-    
-    if (gameData.game.players.size === 0) {
-      activeGames.delete(threadId);
-    }
-    
     await sendMessageFromSQL(api, message, { message: "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu cho lần sau!", success: true }, true, 3600000);
     return;
   }
@@ -200,16 +163,6 @@ export async function handleFishingMessage(api, message) {
   const content = message.data.content || "";
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
-
-  const activeGames = getActiveGames();
-  if (!activeGames.has(threadId) || activeGames.get(threadId).type !== "cauca") {
-    return;
-  }
-
-  const gameData = activeGames.get(threadId);
-  if (!gameData.game.players.has(senderId)) {
-    return;
-  }
 
   if (typeof content !== "string") return;
 
@@ -332,11 +285,6 @@ export async function handleFishingMessage(api, message) {
       const targetId = mention.uid;
       const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
       
-      if (!gameData.game.players.has(targetId)) {
-        buffResults.push(`${targetName}: Chưa tham gia trò chơi`);
-        continue;
-      }
-
       const targetData = getPlayerData(threadId, targetId);
       targetData.money += amountArg;
       buffResults.push(`${targetName}: +${amountArg.toLocaleString()} xu`);
@@ -649,11 +597,6 @@ export async function handleFishingMessage(api, message) {
 
     const targetId = mentions[0].uid;
     
-    if (!gameData.game.players.has(targetId)) {
-      await sendMessageFromSQL(api, message, { message: "Người này chưa tham gia trò chơi!", success: false }, true, 3600000);
-      return;
-    }
-
     const targetData = getPlayerData(threadId, targetId);
     const inventoryValue = Object.entries(targetData.inventory)
       .reduce((sum, [fish, count]) => sum + (FISH_DATA[fish].price * count), 0);
