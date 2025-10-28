@@ -1,8 +1,9 @@
 import axios from "axios";
 import { getGlobalPrefix } from "../../service.js";
-import { getActiveGames, checkHasActiveGame } from "./index.js";
 import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
 import { admins } from "../../../index.js";
+
+const gameStates = new Map();
 
 function shuffleWord(word) {
   const chars = word.split('');
@@ -58,10 +59,9 @@ function startTimeout(api, message, threadId, game) {
   }
   
   game.timeoutId = setTimeout(async () => {
-    const activeGames = getActiveGames();
-    if (activeGames.has(threadId)) {
+    if (gameStates.has(threadId)) {
       await sendMessageComplete(api, message, `🚫 Hết thời gian chờ (30s), bạn đã thua!\n\n🌟 Đáp án đúng là: ${game.currentWord}`);
-      activeGames.delete(threadId);
+      gameStates.delete(threadId);
     }
   }, 60000);
 }
@@ -77,15 +77,15 @@ export async function handleVuaTiengVietCommand(api, message) {
   }
 
   if (args[1]?.toLowerCase() === "leave") {
-    if (getActiveGames().has(threadId)) {
-      const game = getActiveGames().get(threadId).game;
+    if (gameStates.has(threadId)) {
+      const game = gameStates.get(threadId);
       if (game.players.has(message.data.uidFrom)) {
         if (game.timeoutId) {
           clearTimeout(game.timeoutId);
         }
         game.players.delete(message.data.uidFrom);
         if (game.players.size === 0) {
-          getActiveGames().delete(threadId);
+          gameStates.delete(threadId);
           await sendMessageComplete(api, message, "🚫 Trò chơi đã được hủy bỏ do không còn người chơi.");
         } else {
           await sendMessageComplete(api, message, "Bạn đã rời khỏi trò chơi.");
@@ -100,8 +100,8 @@ export async function handleVuaTiengVietCommand(api, message) {
   }
 
   if (args[1]?.toLowerCase() === "join") {
-    if (await checkHasActiveGame(api, message, threadId)) {
-      const game = getActiveGames().get(threadId).game;
+    if (gameStates.has(threadId)) {
+      const game = gameStates.get(threadId);
       if (game.players.has(message.data.uidFrom)) {
         await sendMessageWarning(api, message, "Bạn đã tham gia trò chơi rồi.");
       } else {
@@ -130,10 +130,7 @@ export async function handleVuaTiengVietCommand(api, message) {
     
     game.botAnswers.set(initWord, true);
     
-    getActiveGames().set(threadId, {
-      type: 'vuaTiengViet',
-      game: game
-    });
+    gameStates.set(threadId, game);
     
     startTimeout(api, message, threadId, game);
     
@@ -144,13 +141,12 @@ export async function handleVuaTiengVietCommand(api, message) {
 
 export async function handleVuaTiengVietMessage(api, message) {
   const threadId = message.threadId;
-  const activeGames = getActiveGames();
   const prefix = getGlobalPrefix();
   const senderId = message.data.uidFrom;
 
-  if (!activeGames.has(threadId) || activeGames.get(threadId).type !== 'vuaTiengViet') return;
+  if (!gameStates.has(threadId)) return;
 
-  const game = activeGames.get(threadId).game;
+  const game = gameStates.get(threadId);
   const cleanContent = message.data.content.trim();
 
   if (cleanContent.startsWith(prefix)) return;
@@ -183,7 +179,7 @@ export async function handleVuaTiengVietMessage(api, message) {
       clearTimeout(game.timeoutId);
     }
     await sendMessageComplete(api, message, `🚫 ${message.data.dName} đã thua!\n\nĐáp án đúng là: ${game.currentWord}\nLý do: Trả lời sai.`);
-    activeGames.delete(threadId);
+    gameStates.delete(threadId);
     return;
   }
 
@@ -197,19 +193,19 @@ export async function handleVuaTiengVietMessage(api, message) {
   
   if (!result.success) {
     await sendMessageComplete(api, message, `✅ Bạn đã đoán đúng!\n\nĐáp án: ${game.currentWord}\n\n🚫 Không thể tiếp tục trò chơi. Bạn thắng!`);
-    activeGames.delete(threadId);
+    gameStates.delete(threadId);
     return;
   }
 
   if (result.win) {
     await sendMessageComplete(api, message, `✅ Bạn đã đoán đúng!\n\nĐáp án: ${game.currentWord}\n\nChúc mừng! Bạn đã hoàn thành và trở thành Vua Tiếng Việt!`);
-    activeGames.delete(threadId);
+    gameStates.delete(threadId);
     return;
   }
 
   if (!result.nextWord) {
     await sendMessageComplete(api, message, `✅ Bạn đã đoán đúng!\n\nĐáp án: ${game.currentWord}\n\n🚫 Không có từ tiếp theo. Bạn thắng!`);
-    activeGames.delete(threadId);
+    gameStates.delete(threadId);
     return;
   }
 
