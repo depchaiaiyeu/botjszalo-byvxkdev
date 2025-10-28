@@ -1449,10 +1449,6 @@ export async function handleCommand(
               await startGame(api, message, groupSettings, "caro", commandParts.slice(1), isAdminBox);
               break;
 
-            case "tutien":
-              await startGame(api, message, groupSettings, "tutien", commandParts.slice(1), isAdminBox);
-              break;
-              
             case "baucua":
               await handleBauCua(api, message, groupSettings);
               break;
