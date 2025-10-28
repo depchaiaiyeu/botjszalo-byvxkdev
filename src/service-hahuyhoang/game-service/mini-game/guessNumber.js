@@ -1,6 +1,4 @@
-import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from "../../service.js";
-import { getActiveGames, checkHasActiveGame } from "./index.js";
 import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
 
 const gameTargetNumbers = new Map();
@@ -13,7 +11,6 @@ export async function handleGuessNumberCommand(api, message) {
   const threadId = message.threadId;
   const args = message.data.content.split(" ");
   const prefix = getGlobalPrefix();
-  const activeGames = getActiveGames();
   const senderId = message.data.uidFrom;
 
   if (args[0]?.toLowerCase() === `${prefix}doanso` && !args[1]) {
@@ -22,7 +19,7 @@ export async function handleGuessNumberCommand(api, message) {
   }
 
   if (args[1]?.toLowerCase() === "leave") {
-    if (activeGames.has(threadId) && activeGames.get(threadId).type === 'guessNumber') {
+    if (gameTargetNumbers.has(threadId)) {
       const players = gamePlayers.get(threadId);
       if (players && players.has(senderId)) {
         players.delete(senderId);
@@ -59,8 +56,10 @@ export async function handleGuessNumberCommand(api, message) {
       }
     }
 
-    if (await checkHasActiveGame(api, message, threadId)) {
-      const players = gamePlayers.get(threadId);
+    const isActive = gameTargetNumbers.has(threadId);
+    const players = gamePlayers.get(threadId);
+
+    if (isActive) {
       if (players && players.has(senderId)) {
         await sendMessageWarning(api, message, "🚫 Bạn đã tham gia trò chơi đoán số rồi.");
       } else {
@@ -76,7 +75,6 @@ export async function handleGuessNumberCommand(api, message) {
     const targetNumber = Math.floor(Math.random() * range) + 1;
     const maxAttemptsPerPlayer = 5;
 
-    activeGames.set(threadId, { type: 'guessNumber' });
     gameTargetNumbers.set(threadId, targetNumber);
     gamePlayers.set(threadId, new Map([[senderId, { attempts: 0, lastGuess: null }]]));
     gameSettings.set(threadId, { range, maxAttemptsPerPlayer });
@@ -91,9 +89,8 @@ export async function handleGuessNumberCommand(api, message) {
 export async function handleGuessNumberGame(api, message) {
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
-  const activeGames = getActiveGames();
 
-  if (!activeGames.has(threadId) || activeGames.get(threadId).type !== 'guessNumber') return;
+  if (!gameTargetNumbers.has(threadId)) return;
 
   const targetNumber = gameTargetNumbers.get(threadId);
   const players = gamePlayers.get(threadId);
@@ -229,7 +226,6 @@ function cleanupGame(threadId) {
     }
   }
 
-  getActiveGames().delete(threadId);
   gameTargetNumbers.delete(threadId);
   gamePlayers.delete(threadId);
   gameSettings.delete(threadId);
