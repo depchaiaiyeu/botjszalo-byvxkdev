@@ -4,32 +4,58 @@ import path from "path";
 import fsPromises from "fs/promises";
 import axios from "axios";
 
-function solarToLunar(dd, mm, yyyy) {
-  const k = Math.floor((yyyy - 2000) * 12.3685);
-  const jd = jdFromDate(dd, mm, yyyy);
-  
-  for (let i = k - 2; i < k + 3; i++) {
-    const a11 = getNewMoonDay(i);
-    const b11 = getNewMoonDay(i + 1);
-    if (jd >= a11 && jd < b11) {
-      const lunarDay = jd - a11 + 1;
-      const lunarMonth = Math.floor((a11 - 2415021.076998695) / 29.530588853) % 12 + 1;
-      let lunarYear = yyyy;
-      
-      if (mm < 3) {
-        lunarYear = yyyy - 1;
+async function solarToLunar(dd, mm, yyyy) {
+  try {
+    const response = await axios.post('https://open.oapi.vn/date/convert-to-lunar', {
+      day: dd,
+      month: mm,
+      year: yyyy
+    }, {
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json'
       }
-      
-      return { 
-        day: Math.floor(lunarDay), 
-        month: lunarMonth > 12 ? lunarMonth - 12 : (lunarMonth < 1 ? lunarMonth + 12 : lunarMonth), 
-        year: lunarYear, 
-        leap: 0 
+    });
+    
+    if (response.data && response.data.code === 'success' && response.data.data) {
+      const data = response.data.data;
+      return {
+        day: data.day,
+        month: data.month,
+        year: data.year,
+        heavenlyStems: data.heavenlyStems,
+        earthlyBranches: data.earthlyBranches,
+        sexagenaryCycle: data.sexagenaryCycle
       };
     }
+  } catch (error) {
+    console.error("Error converting to lunar:", error);
   }
-  
-  return { day: dd, month: mm, year: yyyy, leap: 0 };
+  return null;
+}
+
+async function lunarToSolar(dd, mm, yyyy) {
+  try {
+    const response = await axios.post('https://open.oapi.vn/date/convert-to-solar', {
+      day: dd,
+      month: mm,
+      year: yyyy
+    }, {
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.data && response.data.code === 'success' && response.data.data) {
+      const data = response.data.data;
+      const dateParts = data.date.split('T')[0].split('-');
+      return new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+    }
+  } catch (error) {
+    console.error("Error converting to solar:", error);
+  }
+  return null;
 }
 
 function jdFromDate(dd, mm, yyyy) {
@@ -38,48 +64,6 @@ function jdFromDate(dd, mm, yyyy) {
   const m = mm + 12 * a - 3;
   let jd = dd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
   return jd;
-}
-
-function getNewMoonDay(k) {
-  const T = k / 1236.85;
-  const T2 = T * T;
-  const T3 = T2 * T;
-  const dr = Math.PI / 180;
-  let Jd1 = 2415020.75933 + 29.53058868 * k + 0.0001178 * T2 - 0.000000155 * T3;
-  Jd1 = Jd1 + 0.00033 * Math.sin((166.56 + 132.87 * T - 0.009173 * T2) * dr);
-  const M = 359.2242 + 29.10535608 * k - 0.0000333 * T2 - 0.00000347 * T3;
-  const Mpr = 306.0253 + 385.81691806 * k + 0.0107306 * T2 + 0.00001236 * T3;
-  const F = 21.2964 + 390.67050646 * k - 0.0016528 * T2 - 0.00000239 * T3;
-  let C1 = (0.1734 - 0.000393 * T) * Math.sin(M * dr) + 0.0021 * Math.sin(2 * dr * M);
-  C1 = C1 - 0.4068 * Math.sin(Mpr * dr) + 0.0161 * Math.sin(dr * 2 * Mpr);
-  C1 = C1 - 0.0004 * Math.sin(dr * 3 * Mpr);
-  C1 = C1 + 0.0104 * Math.sin(dr * 2 * F) - 0.0051 * Math.sin(dr * (M + Mpr));
-  C1 = C1 - 0.0074 * Math.sin(dr * (M - Mpr)) + 0.0004 * Math.sin(dr * (2 * F + M));
-  C1 = C1 - 0.0004 * Math.sin(dr * (2 * F - M)) - 0.0006 * Math.sin(dr * (2 * F + Mpr));
-  C1 = C1 + 0.001 * Math.sin(dr * (2 * F - Mpr)) + 0.0005 * Math.sin(dr * (2 * Mpr + M));
-  const deltat = (Jd1 < 2299160) ? 0.001 : (Jd1 < 2382148) ? 0.001 : 0;
-  const JdNew = Jd1 + C1 - deltat;
-  return Math.floor(JdNew + 0.5);
-}
-
-function getSunLongitude(k, timeZone) {
-  const T = k / 1236.85;
-  const T2 = T * T;
-  const dr = Math.PI / 180;
-  const M = 357.52910 + 35999.05030 * T - 0.0001559 * T2 - 0.00000048 * T * T2;
-  const L0 = 280.46645 + 36000.76983 * T + 0.0003032 * T2;
-  let DL = (1.914600 - 0.004817 * T - 0.000014 * T2) * Math.sin(dr * M);
-  DL = DL + (0.019993 - 0.000101 * T) * Math.sin(dr * 2 * M) + 0.000290 * Math.sin(dr * 3 * M);
-  let L = L0 + DL;
-  L = L * dr;
-  L = L - Math.PI * 2 * Math.floor(L / (Math.PI * 2));
-  return Math.floor(L / Math.PI * 6);
-}
-
-function getCanChi(lunar) {
-  const can = ["Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ", "Canh", "Tân", "Nhâm", "Quý"];
-  const chi = ["Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi", "Thân", "Dậu", "Tuất", "Hợi"];
-  return `${can[(lunar.year + 6) % 10]} ${chi[(lunar.year + 8) % 12]}`;
 }
 
 function getGioHoangDao(dd, mm, yyyy) {
@@ -118,41 +102,11 @@ function getGioHacDao(dd, mm, yyyy) {
     [0, 1, 3, 5, 6, 7, 9, 11],
     [0, 2, 3, 4, 6, 8, 9, 10]
   ];
-  const gioNames = ["Dần (3:00-4:59)", "Thìn (7:00-8:59)", "Tỵ (9:00-10:59)", "Mùi (13:00-14:59)", "Thân (15:00-16:59)", "Tuất (19:00-20:59)", "Hợi (21:00-22:59)"];
   const all = ["Tý (23:00-0:59)", "Sửu (1:00-2:59)", "Dần (3:00-4:59)", "Mão (5:00-6:59)", "Thìn (7:00-8:59)", "Tỵ (9:00-10:59)", "Ngọ (11:00-12:59)", "Mùi (13:00-14:59)", "Thân (15:00-16:59)", "Dậu (17:00-18:59)", "Tuất (19:00-20:59)", "Hợi (21:00-22:59)"];
   return gioHacDao[chiOfDay].map(i => all[i]);
 }
 
-function getHuongXuatHanh(lunar) {
-  const huongXH = [
-    "Xuất hành hướng Tây Bắc để đón 'Hỷ Thần' Xuất hành hướng Tây Nam để đón 'Tài Thần' Tránh xuất hành hướng Chính Nam gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Tây Nam để đón 'Hỷ Thần' Xuất hành hướng Tây Nam để đón 'Tài Thần' Tránh xuất hành hướng Đông Nam gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Chính Nam để đón 'Hỷ Thần' Xuất hành hướng Chính Tây để đón 'Tài Thần' Tránh xuất hành hướng Chính Đông gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Đông Nam để đón 'Hỷ Thần' Xuất hành hướng Chính Tây để đón 'Tài Thần' Tránh xuất hành hướng Đông Bắc gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Đông Bắc để đón 'Hỷ Thần' Xuất hành hướng Chính Bắc để đón 'Tài Thần' Tránh xuất hành hướng Tây Bắc gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Tây Bắc để đón 'Hỷ Thần' Xuất hành hướng Đông Bắc để đón 'Tài Thần' Tránh xuất hành hướng Chính Tây gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Tây Nam để đón 'Hỷ Thần' Xuất hành hướng Đông Nam để đón 'Tài Thần' Tránh xuất hành hướng Chính Bắc gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Chính Nam để đón 'Hỷ Thần' Xuất hành hướng Đông Nam để đón 'Tài Thần' Tránh xuất hành hướng Tây Nam gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Đông Nam để đón 'Hỷ Thần' Xuất hành hướng Chính Nam để đón 'Tài Thần' Tránh xuất hành hướng Chính Nam gặp Hạc Thần (xấu)",
-    "Xuất hành hướng Đông Bắc để đón 'Hỷ Thần' Xuất hành hướng Chính Bắc để đón 'Tài Thần' Tránh xuất hành hướng Đông Nam gặp Hạc Thần (xấu)"
-  ];
-  return huongXH[(lunar.year + 6) % 10];
-}
-
-function getLunarDateFromSolar(targetYear, lunarMonth, lunarDay) {
-  const startDate = new Date(targetYear - 1, 11, 1);
-  const endDate = new Date(targetYear + 1, 1, 31);
-  
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const lunar = solarToLunar(d.getDate(), d.getMonth() + 1, d.getFullYear());
-    if (lunar.month === lunarMonth && lunar.day === lunarDay) {
-      return new Date(d);
-    }
-  }
-  return null;
-}
-
-function getVietnameseHolidays(year) {
+async function getVietnameseHolidays(year) {
   const holidays = [];
   
   holidays.push({ name: "Tết Dương lịch", date: new Date(year, 0, 1) });
@@ -168,14 +122,26 @@ function getVietnameseHolidays(year) {
   holidays.push({ name: "Ngày Quốc tế Phụ nữ", date: new Date(year, 2, 8) });
   holidays.push({ name: "Ngày Thương binh Liệt sĩ", date: new Date(year, 6, 27) });
   holidays.push({ name: "Ngày Gia đình Việt Nam", date: new Date(year, 5, 28) });
-  holidays.push({ name: "Tết Trung thu", date: getLunarDateFromSolar(year, 8, 15) });
-  holidays.push({ name: "Tết Đoan Ngọ", date: getLunarDateFromSolar(year, 5, 5) });
-  holidays.push({ name: "Rằm tháng Giêng", date: getLunarDateFromSolar(year, 1, 15) });
-  holidays.push({ name: "Tết Hàn thực", date: getLunarDateFromSolar(year, 3, 3) });
-  holidays.push({ name: "Vu Lan", date: getLunarDateFromSolar(year, 7, 15) });
-  holidays.push({ name: "Ông Táo chầu trời", date: getLunarDateFromSolar(year, 12, 23) });
   
-  const tetDate = getLunarDateFromSolar(year, 1, 1);
+  const tetTrungThu = await lunarToSolar(15, 8, year);
+  if (tetTrungThu) holidays.push({ name: "Tết Trung thu", date: tetTrungThu });
+  
+  const tetDoanNgo = await lunarToSolar(5, 5, year);
+  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNgo });
+  
+  const ramThangGieng = await lunarToSolar(15, 1, year);
+  if (ramThangGieng) holidays.push({ name: "Rằm tháng Giêng", date: ramThangGieng });
+  
+  const tetHanThuc = await lunarToSolar(3, 3, year);
+  if (tetHanThuc) holidays.push({ name: "Tết Hàn thực", date: tetHanThuc });
+  
+  const vuLan = await lunarToSolar(15, 7, year);
+  if (vuLan) holidays.push({ name: "Vu Lan", date: vuLan });
+  
+  const ongTao = await lunarToSolar(23, 12, year);
+  if (ongTao) holidays.push({ name: "Ông Táo chầu trời", date: ongTao });
+  
+  const tetDate = await lunarToSolar(1, 1, year);
   if (tetDate) {
     holidays.push({ name: "Tết Nguyên Đán", date: tetDate });
     const tet2 = new Date(tetDate);
@@ -189,10 +155,11 @@ function getVietnameseHolidays(year) {
   return holidays.filter(h => h.date !== null);
 }
 
-function getUpcomingHolidays(currentDate) {
+async function getUpcomingHolidays(currentDate) {
   const year = currentDate.getFullYear();
-  let holidays = getVietnameseHolidays(year);
-  holidays = holidays.concat(getVietnameseHolidays(year + 1));
+  let holidays = await getVietnameseHolidays(year);
+  const nextYearHolidays = await getVietnameseHolidays(year + 1);
+  holidays = holidays.concat(nextYearHolidays);
   
   const upcoming = holidays
     .map(h => ({ ...h, days: Math.ceil((h.date - currentDate) / (1000 * 60 * 60 * 24)) }))
@@ -273,8 +240,7 @@ export async function createCalendarImage() {
   const dd = now.getDate();
   const mm = now.getMonth() + 1;
   const yyyy = now.getFullYear();
-  const lunar = solarToLunar(dd, mm, yyyy);
-  const canChi = getCanChi(lunar);
+  const lunar = await solarToLunar(dd, mm, yyyy);
 
   const hours = now.getHours();
   const minutes = now.getMinutes();
@@ -300,20 +266,22 @@ export async function createCalendarImage() {
   ctx.fillStyle = gradient;
   ctx.fillText(timeStr, width / 2, 280);
 
-  ctx.font = "bold 28px 'BeVietnamPro', Arial";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
+  if (lunar) {
+    ctx.font = "bold 28px 'BeVietnamPro', Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
 
-  ctx.font = "22px 'BeVietnamPro', Arial";
-  const canChiText = `Ngày ${canChi}`;
-  ctx.fillStyle = gradient;
-  ctx.fillText(canChiText, width / 2, 390);
+    ctx.font = "22px 'BeVietnamPro', Arial";
+    const canChiText = `Ngày ${lunar.sexagenaryCycle}`;
+    ctx.fillStyle = gradient;
+    ctx.fillText(canChiText, width / 2, 390);
+  }
 
-  const holidays = getUpcomingHolidays(now);
+  const holidays = await getUpcomingHolidays(now);
   let yPos = 520;
   
   holidays.forEach(holiday => {
-    const boxH = 75;
+    const boxH = 80;
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.beginPath();
     ctx.roundRect(45, yPos, width - 90, boxH, 12);
@@ -322,12 +290,12 @@ export async function createCalendarImage() {
     ctx.fillStyle = "#FFA500";
     ctx.font = "bold 24px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`${holiday.days} ngày nữa`, 70, yPos + 35);
+    ctx.fillText(`${holiday.days} ngày nữa`, 70, yPos + 32);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 28px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
-    ctx.fillText(holiday.name, 70, yPos + 63);
+    ctx.fillText(holiday.name, 70, yPos + 65);
 
     yPos += boxH + 15;
   });
@@ -379,34 +347,6 @@ export async function createCalendarImage() {
   ctx.fillText(gioHacText1, width / 2, yPos + 80);
   ctx.fillText(gioHacText2, width / 2, yPos + 110);
   ctx.fillText(gioHacText3, width / 2, yPos + 140);
-
-  yPos += 220;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 140, 12);
-  ctx.fill();
-
-  const xuatHanhGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  xuatHanhGradient.addColorStop(0, "#FFD700");
-  xuatHanhGradient.addColorStop(1, "#FFA500");
-  ctx.fillStyle = xuatHanhGradient;
-  ctx.font = "bold 28px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Hướng xuất hành", width / 2, yPos + 40);
-
-  const huongXH = getHuongXuatHanh(lunar);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "16px 'BeVietnamPro', Arial";
-  ctx.textAlign = "left";
-  const lines = huongXH.split(' Xuất hành');
-  let lineY = yPos + 75;
-  lines.forEach((line, idx) => {
-    if (idx > 0) line = 'Xuất hành' + line;
-    if (line.trim()) {
-      ctx.fillText(line.trim(), 70, lineY);
-      lineY += 25;
-    }
-  });
 
   const filePath = path.resolve(`./assets/temp/calendar_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
