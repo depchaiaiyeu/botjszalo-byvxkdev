@@ -7,100 +7,125 @@ import { admins } from "../../../index.js";
 const playerDataMap = new Map();
 const lastCommandMap = new Map();
 
-const LINHDUOC_DATA = {
-  "Tụ Khí Đan": { rarity: "common", expGain: 50, price: 20, emoji: "💊", hpRecover: 0, risk: 0 },
-  "Bồi Khí Đan": { rarity: "common", expGain: 60, price: 25, emoji: "💊", hpRecover: 0, risk: 0 },
-  "Tẩy Tủy Đan": { rarity: "common", expGain: 55, price: 30, emoji: "💊", hpRecover: 5, risk: 5 },
-  "Tụ Linh Đan": { rarity: "uncommon", expGain: 120, price: 100, emoji: "💊", hpRecover: 10, risk: 10 },
-  "Huyết Khí Đan": { rarity: "uncommon", expGain: 150, price: 120, emoji: "💊", hpRecover: 15, risk: 15 },
-  "Ma Linh Quả": { rarity: "uncommon", expGain: 180, price: 150, emoji: "🍎", hpRecover: 20, risk: 20 },
-  "Kim Đan": { rarity: "rare", expGain: 300, price: 500, emoji: "💊", hpRecover: 50, risk: 30 },
-  "Nguyên Anh Quả": { rarity: "rare", expGain: 350, price: 600, emoji: "🍎", hpRecover: 60, risk: 35 },
-  "Hóa Thần Đan": { rarity: "rare", expGain: 400, price: 700, emoji: "💊", hpRecover: 70, risk: 40 },
-  "Độ Kiếp Đan": { rarity: "epic", expGain: 800, price: 2000, emoji: "💊", hpRecover: 100, risk: 50 },
-  "Phi Thăng Quả": { rarity: "epic", expGain: 900, price: 2500, emoji: "🍎", hpRecover: 120, risk: 60 },
-  "Chân Tiên Linh": { rarity: "legendary", expGain: 2000, price: 10000, emoji: "✨", hpRecover: 200, risk: 80 },
-  "Hồi Xuân Đan": { rarity: "common", expGain: 0, price: 100, emoji: "💉", hpRecover: 50, risk: 0 }
-};
+const REALMS = [
+  { level: 1, name: "Luyện Hóa Thành Tiên", minExp: 0, maxExp: 1000, health: 50, damage: 5 },
+  { level: 2, name: "Tiên Nhân Sơ Kỳ", minExp: 1000, maxExp: 3000, health: 100, damage: 15 },
+  { level: 3, name: "Tiên Nhân Trung Kỳ", minExp: 3000, maxExp: 6000, health: 150, damage: 25 },
+  { level: 4, name: "Tiên Nhân Hậu Kỳ", minExp: 6000, maxExp: 10000, health: 200, damage: 35 },
+  { level: 5, name: "Thiên Tiên", minExp: 10000, maxExp: 15000, health: 300, damage: 50 },
+  { level: 6, name: "Đại Lộ Tiên", minExp: 15000, maxExp: 25000, health: 400, damage: 70 },
+  { level: 7, name: "Thánh Tiên", minExp: 25000, maxExp: 40000, health: 500, damage: 100 }
+];
 
-const ALL_PILLS = Object.keys(LINHDUOC_DATA);
+const TECHNIQUES = [
+  { id: 1, name: "Kinh Điển Vô Cực", price: 1000, expBonus: 10, dmg: 0, hp: 0, emoji: "📜" },
+  { id: 2, name: "Kinh Điển Thuyền Sơn", price: 5000, expBonus: 25, dmg: 5, hp: 0, emoji: "📜" },
+  { id: 3, name: "Kinh Điển Tiên Võng", price: 15000, expBonus: 50, dmg: 10, hp: 10, emoji: "📜" },
+  { id: 4, name: "Kinh Điển Võ Trí", price: 50000, expBonus: 100, dmg: 25, hp: 25, emoji: "📜" }
+];
 
-const SHOP_ITEMS = [
-  { id: 1, name: "Cơ Bản Pháp Quyết", price: 500, type: "exp_bonus", bonus: 5, emoji: "📜" },
-  { id: 2, name: "Nâng Cao Pháp Quyết", price: 2000, type: "exp_bonus", bonus: 10, emoji: "📜" },
-  { id: 3, name: "Chuyên Gia Pháp Quyết", price: 8000, type: "exp_bonus", bonus: 20, emoji: "📜" },
-  { id: 4, name: "Siêu Cấp Pháp Quyết", price: 20000, type: "exp_bonus", bonus: 30, emoji: "📜" },
-  { id: 5, name: "Tụ Linh Trận", price: 100, type: "exp_bonus", bonus: 3, emoji: "🔮" },
-  { id: 6, name: "Tăng Tốc Trận Pháp", price: 300, type: "exp_bonus", bonus: 8, emoji: "🔮" },
-  { id: 7, name: "Thần Tốc Trận", price: 800, type: "exp_bonus", bonus: 15, emoji: "🔮" },
-  { id: 8, name: "May Mắn Phù", price: 500, type: "rare_bonus", bonus: 5, emoji: "🧧" },
-  { id: 9, name: "Hiếm Phù", price: 1500, type: "rare_bonus", bonus: 10, emoji: "🧧" },
-  { id: 10, name: "Thần Kỳ Phù", price: 5000, type: "rare_bonus", bonus: 20, emoji: "🧧" },
-  { id: 11, name: "Tìm Kiếm Linh Mâu", price: 3000, type: "rare_bonus", bonus: 12, emoji: "👁️" },
-  { id: 12, name: "Phi Hành Pháp Khí", price: 15000, type: "exp_bonus", bonus: 30, emoji: "🕊️" },
-  { id: 13, name: "Linh Giác Cảm Ứng", price: 10000, type: "rare_bonus", bonus: 22, emoji: "📡" },
-  { id: 14, name: "Hộ Thân Phù", price: 2500, type: "hp_bonus", bonus: 20, emoji: "🛡️" },
-  { id: 15, name: "Tâm Ma Chú", price: 1800, type: "risk_reduce", bonus: 10, emoji: "🧠" },
-  { id: 16, name: "Tu Lượt (x10)", price: 10, type: "turns", bonus: 0, emoji: "⏳" },
-  { id: 17, name: "Hồi Xuân Đan", price: 100, type: "potion", bonus: 50, emoji: "💉" }
+const PILLS = [
+  { id: 1, name: "Linh Khí Đan", price: 500, hp: 50, dmg: 0, emoji: "🔴" },
+  { id: 2, name: "Tăng Công Đan", price: 2000, hp: 0, dmg: 10, emoji: "🟠" },
+  { id: 3, name: "Thần Bát Đan", price: 8000, hp: 100, dmg: 20, emoji: "🟡" },
+  { id: 4, name: "Tiên Nhân Đan", price: 30000, hp: 200, dmg: 40, emoji: "🌟" }
+];
+
+const EQUIPMENT = [
+  { id: 1, name: "Kiếm Phàm Sắt", type: "weapon", price: 2000, dmg: 10, emoji: "⚔️" },
+  { id: 2, name: "Kiếm Huyền Thiết", type: "weapon", price: 8000, dmg: 30, emoji: "⚔️" },
+  { id: 3, name: "Kiếm Tiên Khí", type: "weapon", price: 25000, dmg: 60, emoji: "✨⚔️" },
+  { id: 4, name: "Pháp Cây Thanh Tre", type: "weapon", price: 50000, dmg: 100, emoji: "🌿" },
+  { id: 5, name: "Áo Lụa Thiêu Sơn", type: "armor", price: 3000, hp: 50, emoji: "👔" },
+  { id: 6, name: "Áo Gấm Tiên Kiều", type: "armor", price: 12000, hp: 100, emoji: "👗" },
+  { id: 7, name: "Chiêu Tinh Ban", type: "armor", price: 40000, hp: 200, emoji: "🛡️" }
+];
+
+const DEMONS = [
+  { id: 1, name: "Tinh Quỷ Sơ Cấp", minLv: 1, maxLv: 2, hp: 30, dmg: 5, exp: 50, gold: 100, emoji: "👹" },
+  { id: 2, name: "Quỷ Tướng", minLv: 2, maxLv: 3, hp: 50, dmg: 15, exp: 150, gold: 300, emoji: "👹" },
+  { id: 3, name: "Độc Quỷ", minLv: 3, maxLv: 4, hp: 100, dmg: 30, exp: 300, gold: 600, emoji: "👺" },
+  { id: 4, name: "Ma Đầu", minLv: 4, maxLv: 5, hp: 150, dmg: 50, exp: 600, gold: 1200, emoji: "👺" },
+  { id: 5, name: "Đại Ma Vương", minLv: 5, maxLv: 7, hp: 250, dmg: 80, exp: 1000, gold: 2000, emoji: "😈" }
+];
+
+const PLACES = [
+  { name: "thien long co tran", normalized: "thienlongcotran", emoji: "⛰️", desc: "Hang Động Thiên Long", type: "fight", demons: [1, 2] },
+  { name: "siuu pham pho", normalized: "sieuphampho", emoji: "🏘️", desc: "Chợ Siêu Phẩm", type: "shop", demons: [] },
+  { name: "thanh vu duong", normalized: "thanhvuduong", emoji: "🌊", desc: "Đường Thanh Vũ", type: "fight", demons: [2, 3] },
+  { name: "phuong y cung", normalized: "phuongyicung", emoji: "🏯", desc: "Cung Phương Y", type: "shop", demons: [] },
+  { name: "am phuong duong", normalized: "amphuongduong", emoji: "🌲", desc: "Đường Âm Phương", type: "fight", demons: [3, 4] },
+  { name: "tien canh dien", normalized: "tiencanhd", emoji: "💫", desc: "Thiên Cánh Điền", type: "fight", demons: [4, 5] }
 ];
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
+function findPlace(input) {
+  const norm = normalizeText(input);
+  return PLACES.find(p => normalizeText(p.name) === norm || p.normalized === norm);
+}
+
 function getPlayerData(threadId, userId) {
   const key = `${threadId}_${userId}`;
   if (!playerDataMap.has(key)) {
     playerDataMap.set(key, {
-      linhthach: 1000,
-      tuTurns: Math.floor(Math.random() * 51) + 50,
-      inventory: {},
-      expBonus: 0,
-      rareBonus: 0,
-      riskReduce: 0,
-      hpBonus: 0,
-      lastDaily: 0,
-      totalTu: 0,
+      gold: 5000,
       exp: 0,
       level: 1,
-      nextExp: 1000,
-      hp: 100,
-      maxHp: 100
+      maxHp: 50,
+      currentHp: 50,
+      baseDmg: 5,
+      techniques: [],
+      inventory: {},
+      equipment: { weapon: null, armor: null },
+      location: null,
+      lastDaily: 0,
+      totalKilled: 0,
+      inBattle: false,
+      battleData: null
     });
   }
   return playerDataMap.get(key);
 }
 
-function levelUp(playerData) {
-  if (playerData.exp >= playerData.nextExp) {
-    playerData.level++;
-    playerData.exp = 0;
-    playerData.nextExp = Math.floor(playerData.nextExp * 1.5);
-    playerData.maxHp += 50;
-    playerData.hp = playerData.maxHp;
-    return true;
-  }
-  return false;
+function getRealm(lv) {
+  return REALMS.find(r => r.level === lv) || REALMS[0];
 }
 
-function calculateRarity(baseChance, bonus) {
-  const rand = Math.random() * 100;
-  const adjustedChance = baseChance + bonus;
+function calcDmg(pData) {
+  const realm = getRealm(pData.level);
+  let dmg = realm.damage + pData.baseDmg;
   
-  if (rand < adjustedChance * 0.02) return "legendary";
-  if (rand < adjustedChance * 0.08) return "epic";
-  if (rand < adjustedChance * 0.20) return "rare";
-  if (rand < adjustedChance * 0.45) return "uncommon";
-  return "common";
+  pData.techniques.forEach(tId => {
+    const t = TECHNIQUES.find(x => x.id === tId);
+    if (t) dmg += t.dmg;
+  });
+  
+  if (pData.equipment.weapon) {
+    const w = EQUIPMENT.find(x => x.id === pData.equipment.weapon && x.type === "weapon");
+    if (w) dmg += w.dmg;
+  }
+  
+  return dmg;
 }
 
-function getPillByRarity(rarity) {
-  const availablePills = ALL_PILLS.filter(pillName => LINHDUOC_DATA[pillName].rarity === rarity);
-  if (availablePills.length === 0) {
-    return ALL_PILLS[Math.floor(Math.random() * ALL_PILLS.length)];
+function calcHp(pData) {
+  const realm = getRealm(pData.level);
+  let hp = realm.health + pData.maxHp;
+  
+  pData.techniques.forEach(tId => {
+    const t = TECHNIQUES.find(x => x.id === tId);
+    if (t) hp += t.hp;
+  });
+  
+  if (pData.equipment.armor) {
+    const a = EQUIPMENT.find(x => x.id === pData.equipment.armor && x.type === "armor");
+    if (a) hp += a.hp;
   }
-  return availablePills[Math.floor(Math.random() * availablePills.length)];
+  
+  return hp;
 }
 
 function delay(ms) {
@@ -114,53 +139,56 @@ export async function handleTuTienCommand(api, message) {
   const prefix = getGlobalPrefix();
 
   const args = content.trim().split(/\s+/);
-  const command = args[0]?.toLowerCase();
+  const cmd = args[0]?.toLowerCase();
 
-  if (command !== `${prefix}tutien`) return;
+  if (cmd !== `${prefix}tutien`) return;
 
-  const subCommand = args[1]?.toLowerCase();
+  const subCmd = args[1]?.toLowerCase();
 
-  if (!subCommand) {
+  if (!subCmd) {
     await sendMessageFromSQL(api, message, 
-      { message: `🌀 PHÀM NHÂN TU TIÊN - HƯỚNG DẪN\n\n` +
-      `• ${prefix}tutien join: Bắt đầu hành trình tu đạo\n` +
-      `• ${prefix}tutien leave: Thoát khỏi tiên giới\n\n` +
-      `• daily: Nhận quà điểm danh\n` +
-      `• tu [số]: Nhập định tu luyện (1-50 lần)\n` +
-      `• rest: Hồi phục thương thế\n` +
-      `• product: Kiểm tra trữ vật giới\n` +
-      `• sell [index] [số]: Bán linh dược\n` +
-      `• sell all: Thanh lý toàn bộ\n` +
-      `• shop: Mở tàng bảo các\n` +
-      `• buy [index] [số]: Mua bảo vật\n` +
-      `• consume [index] [số]: Nuốt linh dược\n` +
-      `• info [@tag]: Xem tu vi\n` +
-      `• rank: Thiên tài bảng\n` +
-      `• help: Chi tiết lệnh\n\n` +
-      `👉 Bắt đầu bằng '${prefix}tutien join' để phi thăng!`, success: true }, true, 3600000
+      { message: `✨ HỆ THỐNG TU TIÊN PHÀM NHÂN\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📌 LỆNH CƠ BẢN:\n` +
+      `→ ${prefix}tutien join: Bắt đầu tu luyện\n` +
+      `→ ${prefix}tutien leave: Thoát khỏi tu viện\n\n` +
+      `📌 LỆNH CHÍNH:\n` +
+      `→ daily: Điểm danh nhận phần thưởng\n` +
+      `→ duahang [tên]: Di chuyển đến địa điểm\n` +
+      `→ datrau [số]: Đả quỷ\n` +
+      `→ tuluyen: Tu luyện tăng exp\n` +
+      `→ hanghi: Nghỉ ngơi hồi phục máu\n` +
+      `→ product: Xem hành trang\n` +
+      `→ sell [index] [số]: Bán đồ\n` +
+      `→ shop: Xem cửa hàng\n` +
+      `→ buy [index] [số]: Mua đồ\n` +
+      `→ equip [index]: Trang bị\n` +
+      `→ info: Thông tin nhân vật\n` +
+      `→ rank: Bảng xếp hạng\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (subCommand === "join") {
-    const playerData = getPlayerData(threadId, senderId);
+  if (subCmd === "join") {
+    const pData = getPlayerData(threadId, senderId);
+    const realm = getRealm(pData.level);
 
     await sendMessageFromSQL(api, message,
-      { message: `🌀 ĐẠO HỮU PHI THĂNG THÀNH CÔNG!\n\n` +
-      `💎 Linh Thạch: ${playerData.linhthach.toLocaleString()}\n` +
-      `🔄 Lượt Nhập Định: ${playerData.tuTurns}\n` +
-      `❤️ Sinh Mệnh: ${playerData.hp}/${playerData.maxHp}\n` +
-      `⭐ Tu Vi: Cấp ${playerData.level} (Kinh Nghiệm: ${playerData.exp}/${playerData.nextExp})\n` +
-      `✨ Thưởng EXP: +${playerData.expBonus}%\n` +
-      `🎲 May Mắn: +${playerData.rareBonus}%\n` +
-      `🛡️ Giảm Nguy Hiểm: -${playerData.riskReduce}%\n\n` +
-      `Sử dụng 'daily' nhận thưởng, 'tu' nhập định!`, success: true }, true, 3600000
+      { message: `✨ Chào mừng đến với Thế Giới Tu Tiên!\n\n` +
+      `💫 Cấp độ: ${pData.level} - ${realm.name}\n` +
+      `❤️ Máu: ${pData.currentHp}/${calcHp(pData)}\n` +
+      `⚡ Sức Công: ${calcDmg(pData)}\n` +
+      `💰 Linh Thạch: ${pData.gold.toLocaleString()}\n` +
+      `💡 Kinh Nghiệm: ${pData.exp}/${getRealm(pData.level).maxExp}\n\n` +
+      `Hãy dùng lệnh "daily" để điểm danh!\n` +
+      `Dùng "duahang [nơi]" để bắt đầu phiêu lưu!`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (subCommand === "leave") {
-    await sendMessageFromSQL(api, message, { message: `🌀 Đạo hữu quy ẩn phàm trần. Tu vi được lưu giữ!`, success: true }, true, 3600000);
+  if (subCmd === "leave") {
+    await sendMessageFromSQL(api, message, { message: "Bạn đã rời khỏi tu viện. Dữ liệu được lưu lại!", success: true }, true, 3600000);
     return;
   }
 }
@@ -177,484 +205,577 @@ export async function handleTuTienMessage(api, message) {
   if (contentStr.startsWith(prefix)) return;
 
   const args = contentStr.split(/\s+/);
-  const command = args[0]?.toLowerCase();
+  const cmd = args[0]?.toLowerCase();
 
-  const validCommands = ["daily", "tu", "rest", "sell", "product", "buy", "shop", "info", "help", "consume", "rank"];
-  if (!validCommands.includes(command)) return;
+  const validCmds = ["daily", "duahang", "datrau", "tuluyen", "hanghi", "product", "sell", "shop", "buy", "equip", "info", "rank", "buff"];
+  if (!validCmds.includes(cmd)) return;
 
-  const commandKey = `${threadId}_${senderId}`;
+  const cmdKey = `${threadId}_${senderId}`;
   const now = Date.now();
-  const lastCommand = lastCommandMap.get(commandKey);
+  const lastCmd = lastCommandMap.get(cmdKey);
   
-  if (lastCommand && now - lastCommand < 500) return;
-  lastCommandMap.set(commandKey, now);
+  if (lastCmd && now - lastCmd < 500) return;
+  lastCommandMap.set(cmdKey, now);
 
-  const playerData = getPlayerData(threadId, senderId);
+  const pData = getPlayerData(threadId, senderId);
 
-  if (command === "help") {
+  if (cmd === "buff") {
+    if (!admins.includes(senderId)) return;
+
+    const mentions = message.data.mentions;
+    const amt = parseInt(args[1]);
+
+    if (!amt || amt < 1) {
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: buff [số tiền] hoặc buff [số tiền] @mentions", success: false }, true, 3600000);
+      return;
+    }
+
+    if (!mentions || mentions.length === 0) {
+      pData.gold += amt;
+      await sendMessageFromSQL(api, message,
+        { message: `✨ BUFF THÀNH CÔNG!\n\n` +
+        `💰 Đã cộng: +${amt.toLocaleString()} Linh Thạch\n` +
+        `💰 Tổng: ${pData.gold.toLocaleString()}`, success: true }, true, 3600000
+      );
+      return;
+    }
+
+    let res = [];
+    for (const m of mentions) {
+      const tId = m.uid;
+      const tName = content.substring(m.pos, m.pos + m.len).replace("@", "");
+      const tData = getPlayerData(threadId, tId);
+      tData.gold += amt;
+      res.push(`${tName}: +${amt.toLocaleString()} Linh Thạch`);
+    }
+
     await sendMessageFromSQL(api, message,
-      { message: `🌀 TRỢ GIÚP TU ĐẠO\n\n` +
-      `• daily: Thưởng lượt + linh thạch\n` +
-      `• tu [1-50]: Nhập định ngộ đạo\n` +
-      `• rest: Tĩnh tọa hồi sinh mệnh\n` +
-      `• product: Trữ vật kiểm kê\n` +
-      `• sell [index] [số]: Đổi linh thạch\n` +
-      `• sell all: Toàn bộ thanh lý\n` +
-      `• shop: Tàng bảo mua sắm\n` +
-      `• buy [index] [số]: Thu mua bảo vật\n` +
-      `• consume [index] [số]: Hấp thụ linh dược\n` +
-      `• info [@tag]: Tu vi chi tiết\n` +
-      `• rank: Thiên tài tranh phong\n\n` +
-      `💡 Bí Quyết: Tu luyện rủi ro cao nhưng thưởng lớn. Dùng hộ thân phù giảm nguy!`, success: true }, true, 3600000
+      { message: `✨ BUFF THÀNH CÔNG!\n\n${res.join("\n")}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "rank") {
-    const allPlayers = [];
+  if (cmd === "rank") {
+    const all = [];
     
     for (const [key, data] of playerDataMap.entries()) {
       if (key.startsWith(`${threadId}_`)) {
-        const userId = key.split('_')[1];
-        allPlayers.push({
-          userId: userId,
+        const uId = key.split('_')[1];
+        all.push({
+          uId: uId,
           level: data.level,
           exp: data.exp,
-          linhthach: data.linhthach,
-          totalTu: data.totalTu,
-          tuTurns: data.tuTurns
+          gold: data.gold,
+          killed: data.totalKilled,
+          dmg: calcDmg(data),
+          hp: calcHp(data)
         });
       }
     }
 
-    allPlayers.sort((a, b) => b.level - a.level || b.exp - a.exp);
+    all.sort((a, b) => {
+      if (b.level !== a.level) return b.level - a.level;
+      return b.exp - a.exp;
+    });
 
-    if (allPlayers.length === 0) {
-      await sendMessageFromSQL(api, message, { message: `Chưa có đạo hữu nào phi thăng!`, success: false }, true, 3600000);
+    if (all.length === 0) {
+      await sendMessageFromSQL(api, message, { message: "Chưa có cao thủ nào!", success: false }, true, 3600000);
       return;
     }
 
-    const top10 = allPlayers.slice(0, 10);
-    const topNames = await Promise.all(top10.map(async (player) => {
+    const top10 = all.slice(0, 10);
+    const names = await Promise.all(top10.map(async (p) => {
       try {
-        const userInfo = await getUserInfoData(api, player.userId);
-        return userInfo.name || player.userId.slice(-4);
+        const info = await getUserInfoData(api, p.uId);
+        return info.name || p.uId.slice(-4);
       } catch {
-        return player.userId.slice(-4);
+        return p.uId.slice(-4);
       }
     }));
 
-    const rankList = top10.map((player, idx) => {
-      const medal = idx === 0 ? "👑" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}️⃣`;
-      const name = topNames[idx];
-      return `${medal} ${name}\n   ⭐ Cấp ${player.level} | 💎 ${player.linhthach.toLocaleString()} | 🔄 ${player.totalTu} lần`;
+    const lst = top10.map((p, i) => {
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+      const realm = getRealm(p.level);
+      return `${medal} ${names[i]}\n   🔮 ${realm.name} | 💫 Exp: ${p.exp} | ⚔️ ${p.killed} quỷ | 💪 ${p.dmg}`;
     }).join("\n\n");
 
     await sendMessageFromSQL(api, message,
-      { message: `🏆 THIÊN TÀI BẢNG - TOP PHI THĂNG\n\n` +
-      `${rankList}\n\n` +
-      `Cấp độ quyết định địa vị tiên giới!`, success: true }, true, 3600000
+      { message: `🏆 BẢNG XẾP HẠNG TU TIÊN\n\n━━━━━━━━━━━━━━━━━━━━\n${lst}\n━━━━━━━━━━━━━━━━━━━━`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "buff") {
-    if (!admins.includes(senderId)) {
+  if (cmd === "daily") {
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (now - pData.lastDaily < oneDay) {
+      const left = oneDay - (now - pData.lastDaily);
+      const h = Math.floor(left / (60 * 60 * 1000));
+      const m = Math.floor((left % (60 * 60 * 1000)) / (60 * 1000));
+      await sendMessageFromSQL(api, message, { message: `⏰ Đã điểm danh rồi!\nThời gian còn lại: ${h}h ${m}m`, success: false }, true, 3600000);
       return;
     }
 
-    const mentions = message.data.mentions;
-    const amountArg = parseInt(args[1]);
+    pData.lastDaily = now;
+    const goldRw = 1000;
+    const expRw = 200;
+    pData.gold += goldRw;
+    pData.exp += expRw;
 
-    if (!amountArg || amountArg < 1) {
-      await sendMessageFromSQL(api, message, { message: `Lệnh: buff [số] [@tag]`, success: false }, true, 3600000);
-      return;
-    }
-
-    if (!mentions || mentions.length === 0) {
-      playerData.linhthach += amountArg;
+    if (pData.exp >= getRealm(pData.level).maxExp && pData.level < 7) {
+      pData.level++;
+      pData.maxHp = calcHp(pData);
+      pData.currentHp = pData.maxHp;
+      pData.baseDmg = calcDmg(pData);
+      const newRealm = getRealm(pData.level);
       await sendMessageFromSQL(api, message,
-        { message: `🌀 BUFF TU VI!\n\n` +
-        `💎 +${amountArg.toLocaleString()} linh thạch\n` +
-        `💎 Tổng: ${playerData.linhthach.toLocaleString()}`, success: true }, true, 3600000
+        { message: `✅ ĐIỂM DANH THÀNH CÔNG!\n\n🎁 Phần thưởng:\n+${goldRw.toLocaleString()} Linh Thạch\n+${expRw} Kinh Nghiệm\n\n🌟 NÂNG CẤP LÊN CẤP ${pData.level}!\n🔮 ${newRealm.name}\n❤️ Máu tối đa: ${pData.maxHp}\n⚡ Sức Công: ${calcDmg(pData)}`, success: true }, true, 3600000
       );
       return;
     }
 
-    let buffResults = [];
-    for (const mention of mentions) {
-      const targetId = mention.uid;
-      const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
-      
-      const targetData = getPlayerData(threadId, targetId);
-      targetData.linhthach += amountArg;
-      buffResults.push(`${targetName}: +${amountArg.toLocaleString()}`);
-    }
-
     await sendMessageFromSQL(api, message,
-      { message: `🌀 BUFF ĐA NHÂN!\n\n` +
-      `${buffResults.join("\n")}`, success: true }, true, 3600000
+      { message: `✅ ĐIỂM DANH THÀNH CÔNG!\n\n🎁 Phần thưởng:\n+${goldRw.toLocaleString()} Linh Thạch\n+${expRw} Kinh Nghiệm\n\n💰 Tổng: ${pData.gold.toLocaleString()}\n💫 Exp: ${pData.exp}/${getRealm(pData.level).maxExp}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "daily") {
-    const now = Date.now();
-    const lastDaily = playerData.lastDaily;
-    const oneDayMs = 24 * 60 * 60 * 1000;
-
-    if (now - lastDaily < oneDayMs) {
-      const timeLeft = oneDayMs - (now - lastDaily);
-      const hoursLeft = Math.floor(timeLeft / (60 * 60 * 1000));
-      const minutesLeft = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000));
-      await sendMessageFromSQL(api, message, { message: `⏳ Đã điểm danh hôm nay! Chờ ${hoursLeft}h ${minutesLeft}m`, success: false }, true, 3600000);
+  if (cmd === "duahang") {
+    const plInput = args.slice(1).join(" ");
+    if (!plInput) {
+      const lst = PLACES.map((p, i) => `${i + 1}. ${p.emoji} ${p.name} - ${p.desc}`).join("\n");
+      await sendMessageFromSQL(api, message,
+        { message: `🌍 DANH SÁCH ĐỊA ĐIỂM\n\n━━━━━━━━━━━━━━━━━━━━\n${lst}\n━━━━━━━━━━━━━━━━━━━━\n\nDùng: duahang [tên]`, success: true }, true, 3600000
+      );
       return;
     }
 
-    playerData.lastDaily = now;
-    const turnsReward = Math.floor(Math.random() * 31) + 20;
-    playerData.tuTurns += turnsReward;
-    playerData.linhthach += 200;
+    const pl = findPlace(plInput);
+    if (!pl) {
+      await sendMessageFromSQL(api, message, { message: "🚫 Không tìm thấy địa điểm!", success: false }, true, 3600000);
+      return;
+    }
 
-    await sendMessageFromSQL(api, message,
-      { message: `🌅 ĐIỂM DANH THÀNH CÔNG!\n\n` +
-      `🎁 +${turnsReward} lượt nhập định\n` +
-      `💎 +200 linh thạch\n\n` +
-      `🔄 Tổng lượt: ${playerData.tuTurns}\n` +
-      `💎 Tổng thạch: ${playerData.linhthach.toLocaleString()}`, success: true }, true, 3600000
-    );
+    pData.location = pl.name;
+    if (pl.type === "shop") {
+      await sendMessageFromSQL(api, message,
+        { message: `${pl.emoji} Bạn đã tới: ${pl.name}\n📝 ${pl.desc}\n\n🏪 Đây là khu buôn bán siêu phẩm!\n\nDùng lệnh "shop" để xem hàng hóa!`, success: true }, true, 3600000
+      );
+    } else {
+      const dmLst = pl.demons.map(dId => {
+        const d = DEMONS.find(x => x.id === dId);
+        return `${d.emoji} ${d.name}`;
+      }).join("\n");
+      await sendMessageFromSQL(api, message,
+        { message: `${pl.emoji} Bạn đã tới: ${pl.name}\n📝 ${pl.desc}\n\n👹 Quỷ có thể gặp:\n${dmLst}\n\nDùng lệnh "datrau [số lần]" để chiến đấu!`, success: true }, true, 3600000
+      );
+    }
     return;
   }
 
-  if (command === "tu") {
+  if (cmd === "datrau") {
+    if (!pData.location) {
+      await sendMessageFromSQL(api, message, { message: "Chưa chọn địa điểm! Dùng 'duahang [nơi]'", success: false }, true, 3600000);
+      return;
+    }
+
+    const pl = findPlace(pData.location);
+    if (!pl || pl.type !== "fight") {
+      await sendMessageFromSQL(api, message, { message: "Nơi này không có quỷ để đả!", success: false }, true, 3600000);
+      return;
+    }
+
     const times = parseInt(args[1]) || 1;
-    if (times < 1 || times > 50) {
-      await sendMessageFromSQL(api, message, { message: `Số lần nhập định: 1-50!`, success: false }, true, 3600000);
+    if (times < 1 || times > 10) {
+      await sendMessageFromSQL(api, message, { message: "Số lần đả phải từ 1 đến 10!", success: false }, true, 3600000);
       return;
     }
 
-    if (playerData.tuTurns < times) {
-      await sendMessageFromSQL(api, message, { message: `Chỉ còn ${playerData.tuTurns} lượt! Mua thêm ở tàng bảo các (10 thạch/10 lượt)`, success: false }, true, 3600000);
-      return;
-    }
-
-    const delayTime = Math.floor(Math.random() * 4000) + 3000;
+    const delayTime = Math.floor(Math.random() * 3000) + 2000;
     
-    await sendMessageFromSQL(api, message, { message: `🧘 Đang nhập định ngộ đạo...`, success: true }, true, delayTime);
+    await sendMessageFromSQL(api, message, { message: `⚔️ Chuẩn bị chiến đấu...`, success: true }, true, delayTime);
     
     await delay(delayTime);
 
-    playerData.tuTurns -= times;
-    playerData.totalTu += times;
-    
     let results = [];
-    let totalExp = 0;
-    let totalHpLoss = 0;
-    let leveledUp = false;
+    let totalExpGain = 0;
+    let totalGoldGain = 0;
+    let playerHpLost = 0;
 
     for (let i = 0; i < times; i++) {
-      const rarity = calculateRarity(100, playerData.rareBonus);
-      const pillName = getPillByRarity(rarity);
-      const pillInfo = LINHDUOC_DATA[pillName];
+      const demonId = pl.demons[Math.floor(Math.random() * pl.demons.length)];
+      const demon = DEMONS.find(x => x.id === demonId);
       
-      const expGained = Math.floor(pillInfo.expGain * (1 + playerData.expBonus / 100));
-      totalExp += expGained;
-      
-      const risk = Math.max(0, pillInfo.risk - playerData.riskReduce);
-      const hpLoss = Math.floor(Math.random() * risk) + 1;
-      totalHpLoss += hpLoss;
-      playerData.hp = Math.max(0, playerData.hp - hpLoss);
-      
-      if (!playerData.inventory[pillName]) {
-        playerData.inventory[pillName] = 0;
+      let demonHp = demon.hp;
+      let playerDmg = calcDmg(pData);
+      let demonDmg = demon.dmg;
+      let roundCount = 0;
+
+      while (demonHp > 0 && roundCount < 50) {
+        demonHp -= playerDmg;
+        if (demonHp > 0) {
+          playerHpLost += Math.max(1, demonDmg - Math.floor(calcHp(pData) / 20));
+        }
+        roundCount++;
       }
-      playerData.inventory[pillName]++;
-      
-      results.push(`${pillInfo.emoji} ${pillName} (EXP +${expGained}, HP -${hpLoss})`);
-      
-      playerData.exp += expGained;
-      leveledUp = levelUp(playerData) || leveledUp;
+
+      if (demonHp <= 0) {
+        pData.totalKilled++;
+        totalExpGain += demon.exp;
+        totalGoldGain += demon.gold;
+        results.push(`✅ ${demon.emoji} ${demon.name} (${roundCount} vòng)`);
+      } else {
+        results.push(`❌ ${demon.emoji} ${demon.name} (Quỷ chạy trốn)`);
+      }
     }
 
-    playerData.hp = Math.min(playerData.maxHp + playerData.hpBonus, playerData.hp);
+    pData.currentHp = Math.max(1, pData.currentHp - playerHpLost);
+    pData.exp += totalExpGain;
+    pData.gold += totalGoldGain;
 
-    const resultText = times <= 5 
-      ? results.join("\n• ")
-      : Object.entries(results.reduce((acc, r) => {
-          const name = r.split(' ')[1];
-          acc[name] = (acc[name] || 0) + 1;
-          return acc;
-        }, {})).map(([pill, count]) => `${LINHDUOC_DATA[pill].emoji} ${pill} x${count}`).join("\n• ");
+    let levelUp = false;
+    while (pData.exp >= getRealm(pData.level).maxExp && pData.level < 7) {
+      pData.level++;
+      pData.maxHp = calcHp(pData);
+      pData.currentHp = pData.maxHp;
+      pData.baseDmg = calcDmg(pData);
+      levelUp = true;
+    }
 
-    const levelMsg = leveledUp ? `\n\n🚀 PHÁ CẢNH THÀNH CÔNG! Cấp ${playerData.level}, HP max +50` : "";
+    const resultText = results.join("\n");
+    const lvMsg = levelUp ? `\n\n🌟 NÂNG CẤP LÊN CẤP ${pData.level}!\n🔮 ${getRealm(pData.level).name}` : "";
 
     await sendMessageFromSQL(api, message,
-      { message: `🌀 KẾT QUẢ NHẬP ĐỊNH\n\n` +
-      `• ${resultText}\n\n` +
-      `📈 Tổng EXP: +${totalExp}\n` +
-      `❤️ Mất Sinh Mệnh: -${totalHpLoss}\n` +
-      `🔄 Lượt Còn: ${playerData.tuTurns}\n` +
-      `⭐ Hiện Tại: Cấp ${playerData.level} (${playerData.exp}/${playerData.nextExp})${levelMsg}`, success: true }, true, 3600000
+      { message: `⚔️ KẾT QUẢ CHIẾN ĐẤU\n\n━━━━━━━━━━━━━━━━━━━━\n${resultText}\n━━━━━━━━━━━━━━━━━━━━\n\n💫 Exp: +${totalExpGain}\n💰 Linh Thạch: +${totalGoldGain.toLocaleString()}\n❤️ Máu: ${pData.currentHp}/${calcHp(pData)}${lvMsg}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "rest") {
-    const recover = Math.floor(playerData.maxHp * 0.3) + 20;
-    playerData.hp = Math.min(playerData.maxHp, playerData.hp + recover);
-    playerData.tuTurns = Math.max(0, playerData.tuTurns - 1);
+  if (cmd === "tuluyen") {
+    const expGain = Math.floor(Math.random() * 50) + 30;
+    const hpRegen = Math.floor(Math.random() * 20) + 10;
+    
+    pData.exp += expGain;
+    pData.currentHp = Math.min(calcHp(pData), pData.currentHp + hpRegen);
+
+    let levelUp = false;
+    while (pData.exp >= getRealm(pData.level).maxExp && pData.level < 7) {
+      pData.level++;
+      pData.maxHp = calcHp(pData);
+      pData.currentHp = pData.maxHp;
+      pData.baseDmg = calcDmg(pData);
+      levelUp = true;
+    }
+
+    const lvMsg = levelUp ? `\n\n🌟 NÂNG CẤP LÊN CẤP ${pData.level}!\n🔮 ${getRealm(pData.level).name}` : "";
 
     await sendMessageFromSQL(api, message,
-      { message: `😌 TĨNH TỌA HỒI PHỤC!\n\n` +
-      `❤️ +${recover} sinh mệnh\n` +
-      `❤️ Hiện Tại: ${playerData.hp}/${playerData.maxHp}\n` +
-      `🔄 Đã dùng 1 lượt nhập định`, success: true }, true, 3600000
+      { message: `🧘 TU LUYỆN THÀNH CÔNG!\n\n💫 Kinh Nghiệm: +${expGain}\n❤️ Máu hồi: +${hpRegen}\n\n💫 Tổng Exp: ${pData.exp}/${getRealm(pData.level).maxExp}\n❤️ Máu: ${pData.currentHp}/${calcHp(pData)}${lvMsg}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "product") {
-    if (Object.keys(playerData.inventory).length === 0) {
-      await sendMessageFromSQL(api, message, { message: `Trữ vật giới trống không!`, success: false }, true, 3600000);
+  if (cmd === "hanghi") {
+    const hpRecovered = calcHp(pData) - pData.currentHp;
+    pData.currentHp = calcHp(pData);
+
+    await sendMessageFromSQL(api, message,
+      { message: `😴 NGHỈ NGƠI\n\n❤️ Máu hồi phục: +${hpRecovered}\n❤️ Máu hiện tại: ${pData.currentHp}/${calcHp(pData)}\n\n✨ Bạn đã hoàn toàn khỏe mạnh!`, success: true }, true, 3600000
+    );
+    return;
+  }
+
+  if (cmd === "product") {
+    if (Object.keys(pData.inventory).length === 0) {
+      await sendMessageFromSQL(api, message, { message: "Hành trang trống!", success: false }, true, 3600000);
       return;
     }
 
-    const inventoryList = Object.entries(playerData.inventory)
+    const invList = Object.entries(pData.inventory)
       .filter(([_, count]) => count > 0)
-      .map(([pill, count], idx) => 
-        `${idx + 1}. ${LINHDUOC_DATA[pill].emoji} ${pill}: x${count} (Giá: ${(LINHDUOC_DATA[pill].price * count).toLocaleString()} thạch)`
-      ).join("\n");
+      .map(([itemId, count], i) => {
+        const iId = parseInt(itemId);
+        const technique = TECHNIQUES.find(t => t.id === iId);
+        const pill = PILLS.find(p => p.id === iId);
+        const equip = EQUIPMENT.find(e => e.id === iId);
+        
+        if (technique) {
+          return `${i + 1}. ${technique.emoji} ${technique.name} x${count} (${technique.price.toLocaleString()} mỗi)`;
+        }
+        if (pill) {
+          return `${i + 1}. ${pill.emoji} ${pill.name} x${count} (${pill.price.toLocaleString()} mỗi)`;
+        }
+        if (equip) {
+          return `${i + 1}. ${equip.emoji} ${equip.name} x${count} (${equip.price.toLocaleString()} mỗi)`;
+        }
+        return `${i + 1}. Vật phẩm x${count}`;
+      }).join("\n");
 
     await sendMessageFromSQL(api, message,
-      { message: `🎒 TRỮ VẬT GIỚI\n\n` +
-      `${inventoryList}\n\n` +
-      `Sử dụng 'sell' hoặc 'consume' để xử lý.`, success: true }, true, 3600000
+      { message: `🎒 HÀNH TRANG\n\n━━━━━━━━━━━━━━━━━━━━\n${invList}\n━━━━━━━━━━━━━━━━━━━━\n\nDùng: sell [index] [số lượng]`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "sell") {
+  if (cmd === "sell") {
     if (args[1] === "all") {
-      let totalEarned = 0;
+      let totalMoney = 0;
       let soldItems = [];
 
-      for (const [pill, count] of Object.entries(playerData.inventory)) {
+      for (const [itemId, count] of Object.entries(pData.inventory)) {
         if (count > 0) {
-          const earned = LINHDUOC_DATA[pill].price * count;
-          totalEarned += earned;
-          soldItems.push(`${LINHDUOC_DATA[pill].emoji} ${pill} x${count}`);
-          playerData.inventory[pill] = 0;
+          const iId = parseInt(itemId);
+          const technique = TECHNIQUES.find(t => t.id === iId);
+          const pill = PILLS.find(p => p.id === iId);
+          const equip = EQUIPMENT.find(e => e.id === iId);
+          
+          let price = 0;
+          let name = "Vật phẩm";
+          let emoji = "📦";
+          
+          if (technique) {
+            price = technique.price;
+            name = technique.name;
+            emoji = technique.emoji;
+          } else if (pill) {
+            price = pill.price;
+            name = pill.name;
+            emoji = pill.emoji;
+          } else if (equip) {
+            price = equip.price;
+            name = equip.name;
+            emoji = equip.emoji;
+          }
+          
+          const earned = price * count;
+          totalMoney += earned;
+          soldItems.push(`${emoji} ${name} x${count}`);
+          pData.inventory[itemId] = 0;
         }
       }
 
-      if (totalEarned === 0) {
-        await sendMessageFromSQL(api, message, { message: `Không có linh dược để bán!`, success: false }, true, 3600000);
+      if (totalMoney === 0) {
+        await sendMessageFromSQL(api, message, { message: "Không có gì để bán!", success: false }, true, 3600000);
         return;
       }
 
-      playerData.linhthach += totalEarned;
+      pData.gold += totalMoney;
       await sendMessageFromSQL(api, message,
-        { message: `💰 THANH LÝ TOÀN BỘ!\n\n` +
-        `${soldItems.join("\n")}\n\n` +
-        `💎 Thu Về: +${totalEarned.toLocaleString()} thạch\n` +
-        `💎 Số Dư: ${playerData.linhthach.toLocaleString()}`, success: true }, true, 3600000
+        { message: `💰 ĐÃ BÁN TẤT CẢ!\n\n${soldItems.join("\n")}\n\n💵 Thu về: +${totalMoney.toLocaleString()} Linh Thạch\n💰 Số dư: ${pData.gold.toLocaleString()}`, success: true }, true, 3600000
       );
       return;
     }
 
-    const index = parseInt(args[1]);
+    const idx = parseInt(args[1]);
     const amount = parseInt(args[2]);
 
-    if (!index || !amount || amount < 1) {
-      await sendMessageFromSQL(api, message, { message: `Lệnh: sell [index] [số lượng]`, success: false }, true, 3600000);
+    if (!idx || !amount || amount < 1) {
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: sell [index] [số lượng]", success: false }, true, 3600000);
       return;
     }
 
-    const inventoryArray = Object.entries(playerData.inventory).filter(([_, count]) => count > 0);
-    if (index < 1 || index > inventoryArray.length) {
-      await sendMessageFromSQL(api, message, { message: `Index sai! Dùng 'product' xem danh sách.`, success: false }, true, 3600000);
+    const invArr = Object.entries(pData.inventory).filter(([_, count]) => count > 0);
+    if (idx < 1 || idx > invArr.length) {
+      await sendMessageFromSQL(api, message, { message: "Index không hợp lệ! Dùng 'product'", success: false }, true, 3600000);
       return;
     }
 
-    const [pillName, currentCount] = inventoryArray[index - 1];
+    const [itemId, currentCount] = invArr[idx - 1];
+    const iId = parseInt(itemId);
     if (amount > currentCount) {
-      await sendMessageFromSQL(api, message, { message: `Chỉ có ${currentCount} ${pillName}!`, success: false }, true, 3600000);
+      await sendMessageFromSQL(api, message, { message: `Bạn chỉ có ${currentCount}!`, success: false }, true, 3600000);
       return;
     }
 
-    const earned = LINHDUOC_DATA[pillName].price * amount;
-    playerData.inventory[pillName] -= amount;
-    playerData.linhthach += earned;
+    const technique = TECHNIQUES.find(t => t.id === iId);
+    const pill = PILLS.find(p => p.id === iId);
+    const equip = EQUIPMENT.find(e => e.id === iId);
+    
+    let price = 0;
+    let name = "Vật phẩm";
+    let emoji = "📦";
+    
+    if (technique) {
+      price = technique.price;
+      name = technique.name;
+      emoji = technique.emoji;
+    } else if (pill) {
+      price = pill.price;
+      name = pill.name;
+      emoji = pill.emoji;
+    } else if (equip) {
+      price = equip.price;
+      name = equip.name;
+      emoji = equip.emoji;
+    }
+
+    const earned = price * amount;
+    pData.inventory[itemId] -= amount;
+    pData.gold += earned;
 
     await sendMessageFromSQL(api, message,
-      { message: `💰 BÁN LINH DƯỢC!\n\n` +
-      `${LINHDUOC_DATA[pillName].emoji} ${pillName} x${amount}\n` +
-      `💎 +${earned.toLocaleString()} thạch\n` +
-      `💎 Số Dư: ${playerData.linhthach.toLocaleString()}`, success: true }, true, 3600000
+      { message: `💰 BÁN THÀNH CÔNG!\n\n${emoji} ${name} x${amount}\n💵 Thu về: +${earned.toLocaleString()} Linh Thạch\n💰 Số dư: ${pData.gold.toLocaleString()}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "shop") {
-    const shopList = SHOP_ITEMS.map(item => {
-      if (item.type === "turns") {
-        return `${item.id}. ${item.emoji} ${item.name}\n   💎 ${item.price.toLocaleString()} thạch`;
-      } else if (item.type === "potion") {
-        return `${item.id}. ${item.emoji} ${item.name}\n   💎 ${item.price.toLocaleString()} thạch | Hồi +${item.bonus} HP`;
+  if (cmd === "shop") {
+    const pl = findPlace(pData.location);
+    if (!pl || pl.type !== "shop") {
+      const plList = PLACES.filter(p => p.type === "shop");
+      if (plList.length === 0) {
+        await sendMessageFromSQL(api, message, { message: "Không tìm thấy cửa hàng!", success: false }, true, 3600000);
+        return;
       }
-      return `${item.id}. ${item.emoji} ${item.name}\n   💎 ${item.price.toLocaleString()} thạch | +${item.bonus} ${item.type === "exp_bonus" ? "EXP" : item.type === "rare_bonus" ? "may mắn" : item.type === "hp_bonus" ? "HP max" : "giảm rủi ro"}%`;
-    }).join("\n\n");
+      const plName = plList[0].name;
+      await sendMessageFromSQL(api, message, { message: `Hãy tới ${plName} trước! Dùng: duahang [tên]`, success: false }, true, 3600000);
+      return;
+    }
+
+    const techList = TECHNIQUES.map(t => `${t.id}. ${t.emoji} ${t.name}\n   💰 ${t.price.toLocaleString()} | +${t.expBonus} Exp | +${t.dmg} Sức | +${t.hp} Máu`).join("\n\n");
+    const pillList = PILLS.map(p => `${p.id + 10}. ${p.emoji} ${p.name}\n   💰 ${p.price.toLocaleString()} | +${p.hp} Máu | +${p.dmg} Sức`).join("\n\n");
+    const equipList = EQUIPMENT.map(e => `${e.id + 20}. ${e.emoji} ${e.name}\n   💰 ${e.price.toLocaleString()} | +${e.dmg > 0 ? e.dmg + " Sức" : e.hp + " Máu"}`).join("\n\n");
 
     await sendMessageFromSQL(api, message,
-      { message: `🏛️ TÀNG BẢO CÁC\n\n` +
-      `${shopList}\n\n` +
-      `Lệnh: buy [index] [số lượng]`, success: true }, true, 3600000
+      { message: `🏪 CỬA HÀNG SIÊU PHẨM\n\n📜 KINH ĐIỂN:\n${techList}\n\n🔴 LINH ĐAN:\n${pillList}\n\n⚔️ THIẾT BỊ:\n${equipList}\n\n━━━━━━━━━━━━━━━━━━━━\nDùng: buy [index] [số lượng]`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "buy") {
-    const index = parseInt(args[1]);
+  if (cmd === "buy") {
+    const idx = parseInt(args[1]);
     const amount = parseInt(args[2]) || 1;
 
-    if (!index || amount < 1) {
-      await sendMessageFromSQL(api, message, { message: `Lệnh: buy [index] [số lượng]`, success: false }, true, 3600000);
+    if (!idx || amount < 1) {
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: buy [index] [số lượng]", success: false }, true, 3600000);
       return;
     }
 
-    const item = SHOP_ITEMS.find(i => i.id === index);
+    let item = null;
+    let type = "";
+
+    if (idx >= 1 && idx <= 4) {
+      item = TECHNIQUES.find(t => t.id === idx);
+      type = "technique";
+    } else if (idx >= 11 && idx <= 14) {
+      item = PILLS.find(p => p.id === idx - 10);
+      type = "pill";
+    } else if (idx >= 21 && idx <= 27) {
+      item = EQUIPMENT.find(e => e.id === idx - 20);
+      type = "equipment";
+    }
+
     if (!item) {
-      await sendMessageFromSQL(api, message, { message: `Bảo vật không tồn tại! Xem 'shop'.`, success: false }, true, 3600000);
+      await sendMessageFromSQL(api, message, { message: "Sản phẩm không tồn tại!", success: false }, true, 3600000);
       return;
     }
 
     const totalCost = item.price * amount;
-    if (playerData.linhthach < totalCost) {
-      await sendMessageFromSQL(api, message, { message: `Thiếu thạch! Cần ${totalCost.toLocaleString()}.`, success: false }, true, 3600000);
+    if (pData.gold < totalCost) {
+      await sendMessageFromSQL(api, message, { message: `Không đủ tiền! Cần: ${totalCost.toLocaleString()} Linh Thạch`, success: false }, true, 3600000);
       return;
     }
 
-    playerData.linhthach -= totalCost;
-
-    if (item.type === "turns") {
-      playerData.tuTurns += 10 * amount;
-      await sendMessageFromSQL(api, message,
-        { message: `🛒 MUA THÀNH CÔNG!\n\n` +
-        `${item.emoji} ${item.name} x${amount}\n` +
-        `💎 -${totalCost.toLocaleString()} thạch\n` +
-        `💎 Còn: ${playerData.linhthach.toLocaleString()}\n` +
-        `🔄 Lượt: ${playerData.tuTurns}`, success: true }, true, 3600000
-      );
-    } else if (item.type === "potion") {
-      if (!playerData.inventory[item.name]) playerData.inventory[item.name] = 0;
-      playerData.inventory[item.name] += amount;
-      await sendMessageFromSQL(api, message,
-        { message: `🛒 MUA THÀNH CÔNG!\n\n` +
-        `${item.emoji} ${item.name} x${amount}\n` +
-        `💎 -${totalCost.toLocaleString()} thạch\n` +
-        `💎 Còn: ${playerData.linhthach.toLocaleString()}`, success: true }, true, 3600000
-      );
-    } else {
-      if (item.type === "exp_bonus") playerData.expBonus += item.bonus * amount;
-      if (item.type === "rare_bonus") playerData.rareBonus += item.bonus * amount;
-      if (item.type === "hp_bonus") {
-        playerData.maxHp += item.bonus * amount;
-        playerData.hp += item.bonus * amount;
-      }
-      if (item.type === "risk_reduce") playerData.riskReduce += item.bonus * amount;
-      await sendMessageFromSQL(api, message,
-        { message: `🛒 MUA THÀNH CÔNG!\n\n` +
-        `${item.emoji} ${item.name} x${amount}\n` +
-        `💎 -${totalCost.toLocaleString()} thạch\n` +
-        `💎 Còn: ${playerData.linhthach.toLocaleString()}\n` +
-        `${item.type === "exp_bonus" ? `📈 EXP thưởng: +${playerData.expBonus}%` : 
-          item.type === "rare_bonus" ? `🎲 May mắn: +${playerData.rareBonus}%` : 
-          item.type === "hp_bonus" ? `🛡️ HP max: ${playerData.maxHp}` : 
-          `🛡️ Giảm rủi: -${playerData.riskReduce}%`}`, success: true }, true, 3600000
-      );
+    pData.gold -= totalCost;
+    const realItemId = type === "technique" ? item.id : type === "pill" ? item.id + 10 : item.id + 20;
+    
+    if (!pData.inventory[realItemId]) {
+      pData.inventory[realItemId] = 0;
     }
-    return;
-  }
-
-  if (command === "consume") {
-    const index = parseInt(args[1]);
-    const amount = parseInt(args[2]) || 1;
-
-    if (!index || amount < 1) {
-      await sendMessageFromSQL(api, message, { message: `Lệnh: consume [index] [số lượng]`, success: false }, true, 3600000);
-      return;
-    }
-
-    const inventoryArray = Object.entries(playerData.inventory).filter(([_, count]) => count > 0);
-    if (index < 1 || index > inventoryArray.length) {
-      await sendMessageFromSQL(api, message, { message: `Index sai! Xem 'product'.`, success: false }, true, 3600000);
-      return;
-    }
-
-    const [pillName, currentCount] = inventoryArray[index - 1];
-    if (amount > currentCount) {
-      await sendMessageFromSQL(api, message, { message: `Chỉ có ${currentCount} ${pillName}!`, success: false }, true, 3600000);
-      return;
-    }
-
-    const pillInfo = LINHDUOC_DATA[pillName];
-    const expGained = Math.floor(pillInfo.expGain * amount * (1 + playerData.expBonus / 100));
-    const hpRecovered = Math.floor(pillInfo.hpRecover * amount);
-    playerData.inventory[pillName] -= amount;
-    playerData.exp += expGained;
-    playerData.hp = Math.min(playerData.maxHp, playerData.hp + hpRecovered);
-    const leveled = levelUp(playerData);
+    pData.inventory[realItemId] += amount;
 
     await sendMessageFromSQL(api, message,
-      { message: `💊 HẤP THỤ LINH DƯỢC!\n\n` +
-      `${pillInfo.emoji} ${pillName} x${amount}\n` +
-      `📈 +${expGained} kinh nghiệm\n` +
-      `❤️ +${hpRecovered} sinh mệnh\n\n` +
-      `⭐ Tu Vi: Cấp ${playerData.level} (${playerData.exp}/${playerData.nextExp})${leveled ? " (Phá cảnh!)" : ""}\n` +
-      `❤️ HP: ${playerData.hp}/${playerData.maxHp}`, success: true }, true, 3600000
+      { message: `✅ MUA THÀNH CÔNG!\n\n${item.emoji} ${item.name} x${amount}\n💵 Chi phí: -${totalCost.toLocaleString()} Linh Thạch\n💰 Số dư: ${pData.gold.toLocaleString()}`, success: true }, true, 3600000
     );
     return;
   }
 
-  if (command === "info") {
+  if (cmd === "equip") {
+    const idx = parseInt(args[1]);
+
+    if (!idx) {
+      await sendMessageFromSQL(api, message, { message: "Cú pháp: equip [index]", success: false }, true, 3600000);
+      return;
+    }
+
+    const invArr = Object.entries(pData.inventory).filter(([_, count]) => count > 0);
+    if (idx < 1 || idx > invArr.length) {
+      await sendMessageFromSQL(api, message, { message: "Index không hợp lệ!", success: false }, true, 3600000);
+      return;
+    }
+
+    const [itemId] = invArr[idx - 1];
+    const iId = parseInt(itemId);
+    const equip = EQUIPMENT.find(e => {
+      if (e.id === iId - 20) return true;
+      return false;
+    });
+
+    if (!equip) {
+      await sendMessageFromSQL(api, message, { message: "Vật phẩm này không thể trang bị!", success: false }, true, 3600000);
+      return;
+    }
+
+    if (equip.type === "weapon") {
+      pData.equipment.weapon = equip.id + 20;
+      await sendMessageFromSQL(api, message,
+        { message: `⚔️ TRANG BỊ THÀNH CÔNG!\n\n${equip.emoji} ${equip.name}\n⚡ Sức Công: +${equip.dmg}\n\nTổng Sức Công: ${calcDmg(pData)}`, success: true }, true, 3600000
+      );
+    } else if (equip.type === "armor") {
+      pData.equipment.armor = equip.id + 20;
+      pData.maxHp = calcHp(pData);
+      pData.currentHp = Math.min(pData.currentHp, pData.maxHp);
+      await sendMessageFromSQL(api, message,
+        { message: `🛡️ TRANG BỊ THÀNH CÔNG!\n\n${equip.emoji} ${equip.name}\n❤️ Máu tối đa: +${equip.hp}\n\nTổng Máu: ${pData.maxHp}`, success: true }, true, 3600000
+      );
+    }
+    return;
+  }
+
+  if (cmd === "info") {
     const mentions = message.data.mentions;
     
     if (!mentions || mentions.length === 0) {
-      const inventoryValue = Object.entries(playerData.inventory)
-        .reduce((sum, [pill, count]) => sum + (LINHDUOC_DATA[pill].price * count), 0);
+      const invValue = Object.entries(pData.inventory)
+        .reduce((sum, [itemId, count]) => {
+          const iId = parseInt(itemId);
+          const technique = TECHNIQUES.find(t => t.id === iId);
+          const pill = PILLS.find(p => p.id === iId);
+          const equip = EQUIPMENT.find(e => e.id === iId);
+          const price = (technique?.price || pill?.price || equip?.price || 0);
+          return sum + (price * count);
+        }, 0);
+
+      const realm = getRealm(pData.level);
+      const wpn = pData.equipment.weapon ? EQUIPMENT.find(e => e.id + 20 === pData.equipment.weapon) : null;
+      const arm = pData.equipment.armor ? EQUIPMENT.find(e => e.id + 20 === pData.equipment.armor) : null;
 
       await sendMessageFromSQL(api, message,
-        { message: `🌀 TU VI ĐẠO HỮU\n\n` +
-        `💎 Linh Thạch: ${playerData.linhthach.toLocaleString()}\n` +
-        `🔄 Lượt Nhập Định: ${playerData.tuTurns}\n` +
-        `❤️ Sinh Mệnh: ${playerData.hp}/${playerData.maxHp}\n` +
-        `⭐ Cấp Độ: ${playerData.level} (EXP: ${playerData.exp}/${playerData.nextExp})\n` +
-        `📈 EXP Thưởng: +${playerData.expBonus}%\n` +
-        `🎲 May Mắn: +${playerData.rareBonus}%\n` +
-        `🛡️ Giảm Rủi: -${playerData.riskReduce}%\n` +
-        `🔢 Tổng Nhập Định: ${playerData.totalTu}\n` +
-        `💰 Giá Trị Trữ Vật: ${inventoryValue.toLocaleString()} thạch`, success: true }, true, 3600000
+        { message: `👤 THÔNG TIN NHÂN VẬT\n\n━━━━━━━━━━━━━━━━━━━━\n🔮 Cấp Độ: ${pData.level} - ${realm.name}\n💫 Kinh Nghiệm: ${pData.exp}/${realm.maxExp}\n❤️ Máu: ${pData.currentHp}/${calcHp(pData)}\n⚡ Sức Công: ${calcDmg(pData)}\n💰 Linh Thạch: ${pData.gold.toLocaleString()}\n⚔️ Quỷ Đã Tiêu: ${pData.totalKilled}\n📍 Vị Trí: ${pData.location || "Chưa chọn"}\n🎒 Giá Trị Hành Trang: ${invValue.toLocaleString()}\n\n${wpn ? `⚔️ Vũ Khí: ${wpn.emoji} ${wpn.name}\n` : ""}${arm ? `🛡️ Áo Giáp: ${arm.emoji} ${arm.name}\n` : ""}━━━━━━━━━━━━━━━━━━━━`, success: true }, true, 3600000
       );
       return;
     }
 
-    const targetId = mentions[0].uid;
-    const targetData = getPlayerData(threadId, targetId);
-    const inventoryValue = Object.entries(targetData.inventory)
-      .reduce((sum, [pill, count]) => sum + (LINHDUOC_DATA[pill].price * count), 0);
+    const tId = mentions[0].uid;
+    const tData = getPlayerData(threadId, tId);
+    const invValue = Object.entries(tData.inventory)
+      .reduce((sum, [itemId, count]) => {
+        const iId = parseInt(itemId);
+        const technique = TECHNIQUES.find(t => t.id === iId);
+        const pill = PILLS.find(p => p.id === iId);
+        const equip = EQUIPMENT.find(e => e.id === iId);
+        const price = (technique?.price || pill?.price || equip?.price || 0);
+        return sum + (price * count);
+      }, 0);
+
+    const realm = getRealm(tData.level);
+    const wpn = tData.equipment.weapon ? EQUIPMENT.find(e => e.id + 20 === tData.equipment.weapon) : null;
+    const arm = tData.equipment.armor ? EQUIPMENT.find(e => e.id + 20 === tData.equipment.armor) : null;
 
     await sendMessageFromSQL(api, message,
-      { message: `🌀 TU VI ĐẠO HỮU\n\n` +
-      `💎 Linh Thạch: ${targetData.linhthach.toLocaleString()}\n` +
-      `🔄 Lượt Nhập Định: ${targetData.tuTurns}\n` +
-      `❤️ Sinh Mệnh: ${targetData.hp}/${targetData.maxHp}\n` +
-      `⭐ Cấp Độ: ${targetData.level} (EXP: ${targetData.exp}/${targetData.nextExp})\n` +
-      `📈 EXP Thưởng: +${targetData.expBonus}%\n` +
-      `🎲 May Mắn: +${targetData.rareBonus}%\n` +
-      `🛡️ Giảm Rủi: -${targetData.riskReduce}%\n` +
-      `🔢 Tổng Nhập Định: ${targetData.totalTu}\n` +
-      `💰 Giá Trị Trữ Vật: ${inventoryValue.toLocaleString()} thạch`, success: true }, true, 3600000
-    );
-    return;
+      { message: `👤 THÔNG TIN NHÂN VẬT\n\n━━━━━━━━━━━━━━━━━━━━\n🔮 Cấp Độ: ${tData.level} - ${realm.name}\n💫 Kinh Nghiệm: ${tData.exp}/${realm.maxExp}\n❤️ Máu: ${tData.currentHp}/${calcHp(tData)}\n⚡ Sức Công: ${calcDmg(tData)}\n💰 Linh Thạch: ${tData.gold.toLocaleString()}\n⚔️ Quỷ Đã Tiêu: ${tData.totalKilled}\n📍 Vị Trí: ${tData.location || "Chưa chọn"}\n🎒 Giá Trị Hành Trang: ${invValue.toLocaleString()}\n\n${wpn ? `⚔️ Vũ Khí: ${wpn.emoji} ${wpn.name}\n` : ""}${arm ? `🛡️ Áo Giáp: ${arm.emoji} ${arm.name}\n` : ""}━━━━━━━━━━━━━━━━━━━━`, success: true }, true, 3600000
+      );
+      return;
+    }
   }
 }
