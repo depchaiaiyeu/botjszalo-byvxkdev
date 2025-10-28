@@ -6,23 +6,30 @@ import axios from "axios";
 
 function solarToLunar(dd, mm, yyyy) {
   const k = Math.floor((yyyy - 2000) * 12.3685);
-  let a11 = getNewMoonDay(k - 1);
-  if (a11 >= getSunLongitude(k - 1, 7)) {
-    a11 = getNewMoonDay(k - 2);
-  }
-  const off = jdFromDate(dd, mm, yyyy) - a11 + 1;
-  const lunarLeap = 0;
-  const lunarDay = off;
-  const lunarMonth = k - Math.floor((a11 - 2415021.076998695) / 29.530588853);
-  const lunarYear = yyyy;
+  const jd = jdFromDate(dd, mm, yyyy);
   
-  if (lunarMonth > 12) {
-    return { day: Math.floor(lunarDay), month: lunarMonth - 12, year: lunarYear, leap: lunarLeap };
+  for (let i = k - 2; i < k + 3; i++) {
+    const a11 = getNewMoonDay(i);
+    const b11 = getNewMoonDay(i + 1);
+    if (jd >= a11 && jd < b11) {
+      const lunarDay = jd - a11 + 1;
+      const lunarMonth = Math.floor((a11 - 2415021.076998695) / 29.530588853) % 12 + 1;
+      let lunarYear = yyyy;
+      
+      if (mm < 3) {
+        lunarYear = yyyy - 1;
+      }
+      
+      return { 
+        day: Math.floor(lunarDay), 
+        month: lunarMonth > 12 ? lunarMonth - 12 : (lunarMonth < 1 ? lunarMonth + 12 : lunarMonth), 
+        year: lunarYear, 
+        leap: 0 
+      };
+    }
   }
-  if (lunarMonth < 1) {
-    return { day: Math.floor(lunarDay), month: lunarMonth + 12, year: lunarYear - 1, leap: lunarLeap };
-  }
-  return { day: Math.floor(lunarDay), month: lunarMonth, year: lunarYear, leap: lunarLeap };
+  
+  return { day: dd, month: mm, year: yyyy, leap: 0 };
 }
 
 function jdFromDate(dd, mm, yyyy) {
@@ -282,23 +289,23 @@ export async function createCalendarImage() {
   ctx.fill();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 32px Arial";
+  ctx.font = "bold 32px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   ctx.fillText(`${dayName}, Ngày ${dd} ${monthNames[mm - 1]} Năm ${yyyy}`, width / 2, 140);
 
-  ctx.font = "bold 120px Arial";
+  ctx.font = "bold 120px 'BeVietnamPro', Arial";
   const gradient = ctx.createLinearGradient(0, 0, width, 0);
   gradient.addColorStop(0, "#4ECB71");
   gradient.addColorStop(1, "#1E90FF");
   ctx.fillStyle = gradient;
   ctx.fillText(timeStr, width / 2, 280);
 
-  ctx.font = "bold 28px Arial";
+  ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.fillStyle = "#ffffff";
   ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
 
-  ctx.font = "22px Arial";
-  const canChiText = `Ngày ${canChi} Tháng Bính Tuất Năm Ất Tỵ`;
+  ctx.font = "22px 'BeVietnamPro', Arial";
+  const canChiText = `Ngày ${canChi}`;
   ctx.fillStyle = gradient;
   ctx.fillText(canChiText, width / 2, 390);
 
@@ -313,12 +320,12 @@ export async function createCalendarImage() {
     ctx.fill();
 
     ctx.fillStyle = "#FFA500";
-    ctx.font = "bold 24px Arial";
+    ctx.font = "bold 24px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
     ctx.fillText(`${holiday.days} ngày nữa`, 70, yPos + 35);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 28px Arial";
+    ctx.font = "bold 28px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
     ctx.fillText(holiday.name, 70, yPos + 63);
 
@@ -338,12 +345,12 @@ export async function createCalendarImage() {
   hdGradient.addColorStop(0, "#4ECB71");
   hdGradient.addColorStop(1, "#1E90FF");
   ctx.fillStyle = hdGradient;
-  ctx.font = "bold 28px Arial";
+  ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   ctx.fillText("Giờ Hoàng Đạo", width / 2, yPos + 40);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "18px Arial";
+  ctx.font = "18px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   const gioHDText1 = `${gioHD[0]}    ${gioHD[1]}`;
   const gioHDText2 = `${gioHD[2]}    ${gioHD[3] || ''}`;
@@ -360,12 +367,12 @@ export async function createCalendarImage() {
   hacGradient.addColorStop(0, "#FF6B6B");
   hacGradient.addColorStop(1, "#FF8E53");
   ctx.fillStyle = hacGradient;
-  ctx.font = "bold 28px Arial";
+  ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   ctx.fillText("Giờ Hắc Đạo", width / 2, yPos + 40);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "16px Arial";
+  ctx.font = "16px 'BeVietnamPro', Arial";
   const gioHacText1 = `${gioHacDao[0]}  ${gioHacDao[1]}  ${gioHacDao[2]}`;
   const gioHacText2 = `${gioHacDao[3]}  ${gioHacDao[4]}  ${gioHacDao[5]}`;
   const gioHacText3 = `${gioHacDao[6] || ''}`;
@@ -383,13 +390,13 @@ export async function createCalendarImage() {
   xuatHanhGradient.addColorStop(0, "#FFD700");
   xuatHanhGradient.addColorStop(1, "#FFA500");
   ctx.fillStyle = xuatHanhGradient;
-  ctx.font = "bold 28px Arial";
+  ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   ctx.fillText("Hướng xuất hành", width / 2, yPos + 40);
 
   const huongXH = getHuongXuatHanh(lunar);
   ctx.fillStyle = "#ffffff";
-  ctx.font = "16px Arial";
+  ctx.font = "16px 'BeVietnamPro', Arial";
   ctx.textAlign = "left";
   const lines = huongXH.split(' Xuất hành');
   let lineY = yPos + 75;
