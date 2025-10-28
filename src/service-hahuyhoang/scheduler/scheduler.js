@@ -5,8 +5,8 @@ import { sendRandomGirlVideo } from "../chat-zalo/chat-special/send-video/send-v
 import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van-nien.js";
 import path from "path";
 import { getClientId, getMusicInfo, getMusicStreamUrl } from "../api-crawl/music/soundcloud.js";
-import { downloadAndConvertAudio } from "../../chat-zalo/chat-special/send-voice/process-audio.js";
-import { sendVoiceMusic } from "../../chat-zalo/chat-special/send-voice/send-voice.js";
+import { downloadAndConvertAudio } from "../chat-zalo/chat-special/send-voice/process-audio.js";
+import { sendVoiceMusic } from "../chat-zalo/chat-special/send-voice/send-voice.js";
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 
