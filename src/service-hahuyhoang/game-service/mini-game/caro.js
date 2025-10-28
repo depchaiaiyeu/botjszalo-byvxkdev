@@ -275,7 +275,7 @@ YOUR MOVE (single number only):`;
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-exp",
+      model: "gemini-2.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
       generationConfig: {
         temperature: mode === "easy" ? 0.3 : mode === "hard" ? 0.15 : 0.05,
