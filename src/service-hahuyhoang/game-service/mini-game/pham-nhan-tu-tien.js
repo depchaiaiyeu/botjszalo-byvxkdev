@@ -68,7 +68,7 @@ function findPlace(input) {
 }
 
 function getPlayerData(threadId, userId) {
-  const key = `${threadId}_${userId}`;
+  const key = `tutien_${threadId}_${userId}`;
   if (!playerDataMap.has(key)) {
     playerDataMap.set(key, {
       gold: 5000,
@@ -778,3 +778,4 @@ export async function handleTuTienMessage(api, message) {
       return;
     }
   }
+}
