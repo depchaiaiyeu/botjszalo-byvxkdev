@@ -1,5 +1,6 @@
 import axios from "axios";
 import path from "path";
+import fs from "fs";
 import { getGlobalPrefix } from "../../service.js";
 import {
   sendMessageWarningRequest,
@@ -8,6 +9,7 @@ import { downloadFile, deleteFile } from "../../../utils/util.js";
 import { capitalizeEachWord, removeMention } from "../../../utils/format-util.js";
 import { clearImagePath } from "../../../utils/canvas/index.js";
 import { tempDir } from "../../../utils/io-json.js";
+import { uploadAudioFile } from "../../chat-zalo/chat-special/send-voice/process-audio.js";
 
 import { MultiMsgStyle, MessageStyle, MessageMention } from "../../../api-zalo/index.js";
 export const COLOR_GREEN = "15a85f";
@@ -118,6 +120,33 @@ export const getDataDownloadVideo = async (url) => {
   return null;
 };
 
+export async function downloadAndConvertAudio(url, api, message) {
+  const mp3Path = path.join(tempDir, `temp_${Date.now()}.mp3`);
+
+  try {
+    const response = await axios({
+      url,
+      method: "GET",
+      responseType: "stream",
+    });
+
+    await new Promise((resolve, reject) => {
+      const writer = fs.createWriteStream(mp3Path);
+      response.data.pipe(writer);
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+
+    const voiceFinalUrl = await uploadAudioFile(mp3Path, api, message);
+
+    return voiceFinalUrl;
+  } catch (error) {
+    throw error;
+  } finally {
+    await deleteFile(mp3Path);
+  }
+}
+
 export async function processAndSendMedia(api, message, mediaData) {
   const {
     selectedMedia,
@@ -194,10 +223,17 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
     }
     
     const dataLink = [];
+    const audioData = [];
     let uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     dataDownload.medias.forEach((item) => {
-      if (item.type.toLowerCase() !== "audio") {
+      if (item.type.toLowerCase() === "audio") {
+        audioData.push({
+          url: item.url,
+          type: item.type.toLowerCase(),
+          extension: item.extension,
+        });
+      } else {
         dataLink.push({
           url: item.url,
           quality: item.quality || "unknown",
@@ -209,7 +245,22 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
       }
     });
 
+    const mediaType = dataDownload.source;
+    const title = dataDownload.title;
+    const author = dataDownload.author || "Unknown Author";
+    const duration = dataDownload.duration || 0;
+
+    let voiceUrl = null;
+    if (audioData.length > 0) {
+      const audioItem = audioData[0];
+      voiceUrl = await downloadAndConvertAudio(audioItem.url, api, message);
+    }
+
     if (dataLink.length === 0) {
+      if (voiceUrl) {
+        await api.sendVoice(message, voiceUrl, 600000);
+        return;
+      }
       const object = {
         caption: `Không tìm thấy dữ liệu tải về phù hợp cho link này!\nVui lòng thử lại với link khác.`,
       };
@@ -218,10 +269,6 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
     }
 
     const onlyImages = dataLink.every(item => item.type.toLowerCase() === "image");
-    const mediaType = dataDownload.source;
-    const title = dataDownload.title;
-    const author = dataDownload.author || "Unknown Author";
-    const duration = dataDownload.duration || 0;
     
     if (onlyImages) {
       if (dataLink.length === 1) {
@@ -243,6 +290,10 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
         }, message.threadId, message.type);
 
         await clearImagePath(filePath);
+
+        if (voiceUrl) {
+          await api.sendVoice(message, voiceUrl, 600000);
+        }
       } else {
         const attachmentPaths = [];
     
@@ -271,6 +322,10 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
     
         for (const filePath of attachmentPaths) {
           await clearImagePath(filePath);
+        }
+
+        if (voiceUrl) {
+          await api.sendVoice(message, voiceUrl, 600000);
         }
       }
     
