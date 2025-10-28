@@ -1,10 +1,12 @@
 import fs from "fs";
 import { readGroupSettings, writeGroupSettings } from "../../utils/io-json.js";
 import { MessageType } from "../../api-zalo/index.js";
-import { getRandomVideoFromArray, searchVideoTiktok } from "../api-crawl/tiktok/tiktok-service.js";
 import { sendRandomGirlVideo } from "../chat-zalo/chat-special/send-video/send-video.js";
 import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van-nien.js";
 import path from "path";
+import { getClientId, getMusicInfo, getMusicStreamUrl } from "../api-crawl/music/soundcloud.js";
+import { downloadAndConvertAudio } from "../../chat-zalo/chat-special/send-voice/process-audio.js";
+import { sendVoiceMusic } from "../../chat-zalo/chat-special/send-voice/send-voice.js";
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 
@@ -24,7 +26,7 @@ const scheduledTasks = [
   {
     time: "06:05",
     task: async (api) => {
-      const caption = "-> SendTask 06:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn một ngày mới tràn đầy năng lượng!";
+      const caption = "-> SendTask 06:05 <-\nXem lịch của ngày hôm nay nào\n\nChúc bạn một ngày mới tràn đầy năng lượng!";
       const timeToLive = 1000 * 60 * 60 * 6;
       await sendTaskCalendar(api, caption, timeToLive);
     },
@@ -64,7 +66,7 @@ const scheduledTasks = [
   {
     time: "12:05",
     task: async (api) => {
-      const caption = "-> SendTask 12:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn buổi trưa vui vẻ!";
+      const caption = "-> SendTask 12:05 <-\nCùng nhau xem lại lịch của ngày hôm nay\nChúc bạn buổi trưa vui vẻ!";
       const timeToLive = 1000 * 60 * 60 * 6;
       await sendTaskCalendar(api, caption, timeToLive);
     },
@@ -140,10 +142,8 @@ async function sendTaskCalendar(api, caption, timeToLive) {
   let imagePath = null;
   
   try {
-    // Tạo ảnh lịch một lần duy nhất
     imagePath = await createCalendarImage();
     
-    // Gửi đến tất cả các nhóm có bật sendTask
     for (const threadId of Object.keys(groupSettings)) {
       if (groupSettings[threadId].sendTask) {
         try {
@@ -196,10 +196,32 @@ async function sendTaskGirlVideo(api, caption, timeToLive, type = "default") {
 }
 
 async function sendTaskVideo(api, caption, timeToLive, query) {
-  const chillListVideo = await searchVideoTiktok(query);
-  if (chillListVideo) {
-    const groupSettings = readGroupSettings();
-    let captionFinal = `${caption}`;
+  const groupSettings = readGroupSettings();
+  let voiceUrl = null;
+  let randomTrack = null;
+  try {
+    const clientId = await getClientId();
+    const musicInfo = await getMusicInfo(query, 20);
+    if (!musicInfo || !musicInfo.collection || musicInfo.collection.length === 0) {
+      return;
+    }
+    const tracks = musicInfo.collection.filter((track) => track.artwork_url && track.duration <= 300000);
+    if (tracks.length === 0) {
+      return;
+    }
+    randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
+    const streamUrl = await getMusicStreamUrl(randomTrack.permalink_url);
+    if (!streamUrl) {
+      return;
+    }
+    voiceUrl = await downloadAndConvertAudio(streamUrl, api, null);
+    const thumbnailUrl = randomTrack.artwork_url?.replace("-large", "-t500x500");
+    const stats = [
+      randomTrack.playback_count && `${randomTrack.playback_count.toLocaleString()} 👂`,
+      randomTrack.likes_count && `${randomTrack.likes_count.toLocaleString()} ❤️`,
+      randomTrack.comment_count && `${randomTrack.comment_count.toLocaleString()} 💬`
+    ].filter(Boolean).join(" | ");
+    const musicCaption = `> From SoundCloud <\n${caption}\n\n${randomTrack.title} - ${randomTrack.user?.username || "Unknown Artist"}\n${stats}`;
     for (const threadId of Object.keys(groupSettings)) {
       if (groupSettings[threadId].sendTask) {
         try {
@@ -207,24 +229,33 @@ async function sendTaskVideo(api, caption, timeToLive, query) {
             threadId: threadId,
             type: MessageType.GroupMessage,
           };
-          const videoUrl = await getRandomVideoFromArray(api, message, chillListVideo);
-          await api.sendVideo({
-            videoUrl: videoUrl,
-            threadId: message.threadId,
-            threadType: message.type,
-            message: {
-              text: captionFinal,
-            },
-            ttl: timeToLive,
-          });
+          const objectMusic = {
+            title: randomTrack.title,
+            artists: randomTrack.user?.username || "Unknown Artist",
+            like: randomTrack.likes_count,
+            listen: randomTrack.playback_count,
+            comment: randomTrack.comment_count,
+            source: "SoundCloud",
+            caption: musicCaption,
+            imageUrl: thumbnailUrl,
+            voiceUrl: voiceUrl,
+            stats: stats ? stats.split(" | ") : [],
+          };
+          await sendVoiceMusic(api, message, objectMusic, timeToLive);
         } catch (error) {
-          console.error(`Lỗi khi gửi video tiktok in ${threadId}:`, error);
+          console.error(`Lỗi khi gửi nhạc soundcloud in ${threadId}:`, error);
           if (error.message && error.message.includes("không tồn tại")) {
             groupSettings[threadId].sendTask = false;
             writeGroupSettings(groupSettings);
           }
         }
       }
+    }
+  } catch (error) {
+    console.error("Lỗi khi gửi nhạc soundcloud:", error);
+  } finally {
+    if (voiceUrl && fs.existsSync(voiceUrl)) {
+      fs.unlinkSync(voiceUrl);
     }
   }
 }
