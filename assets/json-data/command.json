@@ -2320,6 +2320,17 @@
       "type": 5,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "lich",
+      "description": "Xem lịch vạn niên",
+      "syntax": "{p}lich",
+      "permission": "all",
+      "countdown": 30,
+      "icon": "📆",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
