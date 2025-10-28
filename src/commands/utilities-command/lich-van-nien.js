@@ -1,6 +1,6 @@
 import { sendMessageQuery } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import fs from "fs/promises";
-import { createCalendarImage, clearImagePath } from "../../utils/canvas/calendar.js";
+import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van-nien.js";
 
 export async function handleCalendarCommand(api, message) {
   const threadId = message.threadId;
