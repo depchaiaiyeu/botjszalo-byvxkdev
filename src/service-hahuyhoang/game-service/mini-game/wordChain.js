@@ -1,11 +1,11 @@
 import axios from "axios";
 import { getGlobalPrefix } from "../../service.js";
-import { getActiveGames, checkHasActiveGame } from "./index.js";
 import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
 
 const botDataMap = new Map();
 const playerDataMap = new Map();
 const turnTimersMap = new Map();
+const gameStates = new Map();
 
 async function checkWordValidity(word) {
   try {
@@ -13,7 +13,6 @@ async function checkWordValidity(word) {
     const response = await axios.get(`https://noitu.pro/answer?word=${encodedWord}`);
     return response.data;
   } catch (error) {
-    console.error("Lỗi khi kiểm tra từ với API nối từ:", error.message);
     return { success: false };
   }
 }
@@ -26,7 +25,6 @@ async function getInitialWord() {
     }
     return null;
   } catch (error) {
-    console.error("Lỗi khi lấy từ khởi tạo:", error.message);
     return null;
   }
 }
@@ -71,8 +69,8 @@ export async function handleWordChainCommand(api, message) {
   }
 
   if (args[1]?.toLowerCase() === "leave") {
-    if (getActiveGames().has(threadId)) {
-      const gameData = getActiveGames().get(threadId);
+    if (gameStates.has(threadId)) {
+      const gameData = gameStates.get(threadId);
       const game = gameData.game;
       
       if (game.players.has(message.data.uidFrom)) {
@@ -83,7 +81,7 @@ export async function handleWordChainCommand(api, message) {
         clearTurnTimer(threadId, message.data.uidFrom);
         
         if (game.players.size === 0) {
-          getActiveGames().delete(threadId);
+          gameStates.delete(threadId);
           botDataMap.delete(threadId);
           await sendMessageComplete(api, message, "🚫 Trò chơi nối từ đã được hủy bỏ do không còn người chơi.");
         } else {
@@ -99,8 +97,8 @@ export async function handleWordChainCommand(api, message) {
   }
 
   if (args[1]?.toLowerCase() === "join") {
-    if (await checkHasActiveGame(api, message, threadId)) {
-      const gameData = getActiveGames().get(threadId);
+    if (gameStates.has(threadId)) {
+      const gameData = gameStates.get(threadId);
       const game = gameData.game;
       if (game.players.has(message.data.uidFrom)) {
         await sendMessageWarning(api, message, "Bạn đã tham gia trò chơi nối từ rồi.");
@@ -136,7 +134,7 @@ export async function handleWordChainCommand(api, message) {
       lastMessageTime: Date.now()
     });
 
-    getActiveGames().set(threadId, {
+    gameStates.set(threadId, {
       type: 'wordChain',
       game: {
         players: new Set([message.data.uidFrom]),
@@ -156,7 +154,7 @@ export async function handleWordChainCommand(api, message) {
 }
 
 function startTurnTimer(api, message, threadId, playerId) {
-  const gameData = getActiveGames().get(threadId);
+  const gameData = gameStates.get(threadId);
   if (!gameData) return;
   
   const timerKey = `${threadId}_${playerId}`;
@@ -166,7 +164,7 @@ function startTurnTimer(api, message, threadId, playerId) {
   }
   
   const timer = setTimeout(async () => {
-    const currentGameData = getActiveGames().get(threadId);
+    const currentGameData = gameStates.get(threadId);
     if (!currentGameData || currentGameData.type !== 'wordChain') return;
     
     const currentGame = currentGameData.game;
@@ -174,7 +172,7 @@ function startTurnTimer(api, message, threadId, playerId) {
     
     await sendMessageComplete(api, message, `🧭 Hết thời gian chờ.\nBạn không trả lời Bot trong 60 giây.\n🚫 Bạn đã thua, Bot thắng!`);
     
-    getActiveGames().delete(threadId);
+    gameStates.delete(threadId);
     botDataMap.delete(threadId);
     playerDataMap.delete(`${threadId}_${playerId}`);
     turnTimersMap.delete(timerKey);
@@ -193,13 +191,12 @@ function clearTurnTimer(threadId, playerId) {
 
 export async function handleWordChainMessage(api, message) {
   const threadId = message.threadId;
-  const activeGames = getActiveGames();
   const prefix = getGlobalPrefix();
   const senderId = message.data.uidFrom;
 
-  if (!activeGames.has(threadId)) return;
+  if (!gameStates.has(threadId)) return;
 
-  const gameData = activeGames.get(threadId);
+  const gameData = gameStates.get(threadId);
   if (gameData.type !== 'wordChain') return;
 
   const game = gameData.game;
@@ -255,7 +252,7 @@ export async function handleWordChainMessage(api, message) {
       
       await sendMessageComplete(api, message, `🚫 ${message.data.dName} đã thua!\n${reason} (2 lần sai)`);
       
-      getActiveGames().delete(threadId);
+      gameStates.delete(threadId);
       botDataMap.delete(threadId);
       playerDataMap.delete(playerKey);
       clearTurnTimer(threadId, senderId);
@@ -271,7 +268,7 @@ export async function handleWordChainMessage(api, message) {
   }
 
   playerData.lastPhrase = cleanContentTrim;
-  playerData.lastAttempt = ""; // Clear last attempt on success
+  playerData.lastAttempt = "";
   playerData.incorrectAttempts = 0;
   playerData.lastMessageTime = Date.now();
   game.processingBot = true;
@@ -296,7 +293,7 @@ export async function handleWordChainMessage(api, message) {
 
       await sendMessageComplete(api, message, `🎉 Bot không tìm được cụm từ phù hợp hoặc ${botReason}.\nBot thua, bạn thắng!`);
       
-      getActiveGames().delete(threadId);
+      gameStates.delete(threadId);
       botDataMap.delete(threadId);
       playerDataMap.delete(playerKey);
       clearTurnTimer(threadId, senderId);
@@ -304,7 +301,7 @@ export async function handleWordChainMessage(api, message) {
   } else {
     await sendMessageComplete(api, message, "🎉 Bot không tìm được cụm từ phù hợp. Bạn thắng!");
     
-    getActiveGames().delete(threadId);
+    gameStates.delete(threadId);
     botDataMap.delete(threadId);
     playerDataMap.delete(playerKey);
     clearTurnTimer(threadId, senderId);
@@ -320,7 +317,6 @@ async function findNextPhrase(lastPhrase) {
     }
     return null;
   } catch (error) {
-    console.error("Lỗi khi gọi API nối từ để tìm từ tiếp theo:", error.message);
     return null;
   }
 }
