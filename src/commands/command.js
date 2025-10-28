@@ -164,6 +164,7 @@ import { handleHH3DCommand } from "../service-hahuyhoang/api-crawl/video/yanhh3d
 import { handleKKPhimCommand } from "../service-hahuyhoang/api-crawl/video/kkphim.js";
 import { handleGoldPriceCommand } from "../service-hahuyhoang/tien-ich/gold-price.js";
 
+import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -723,8 +724,8 @@ export async function handleCommandPrivate(api, message) {
               case "hoathinh3dtrungquoc":
                 await handleHH3DCommand (api, message, aliasCommand);
                 return 0;
-              case "kkphim":
-                await handleKKPhimCommand (api, message, aliasCommand);
+              case "lich":
+                await handleCalendarCommand (api, message);
                 return 0;
         }
       } else {
