@@ -2331,6 +2331,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "tutien",
+      "description": "Chơi trò chơi phàm nhân tu tiên",
+      "syntax": "{p}tutien",
+      "permission": "all",
+      "countdown": 10,
+      "icon": "🎮",
+      "type": 5,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
