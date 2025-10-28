@@ -7,7 +7,6 @@ import axios from "axios";
 function solarToLunar(dd, mm, yyyy) {
   const k = Math.floor((yyyy - 2000) * 12.3685);
   let a11 = getNewMoonDay(k - 1);
-  let b11 = a11;
   if (a11 >= getSunLongitude(k - 1, 7)) {
     a11 = getNewMoonDay(k - 2);
   }
@@ -133,26 +132,54 @@ function getHuongXuatHanh(lunar) {
   return huongXH[(lunar.year + 6) % 10];
 }
 
-function getVietnameseHolidays(year) {
-  return [
-    { name: "Tết Dương lịch", date: new Date(year, 0, 1) },
-    { name: "Ngày Nhà giáo Việt Nam", date: new Date(year, 10, 20) },
-    { name: "Ngày hội Quốc phòng Toàn dân", date: new Date(year, 11, 22) },
-    { name: "Ngày thành lập Đảng", date: new Date(year, 1, 3) },
-    { name: "Ông Táo chầu trời", date: getLunarDate(year, 12, 23) },
-    { name: "Tết Nguyên Đán", date: getLunarDate(year, 1, 1) }
-  ];
-}
-
-function getLunarDate(year, month, day) {
-  for (let i = 0; i < 60; i++) {
-    const checkDate = new Date(year, 0, 1 + i);
-    const lunar = solarToLunar(checkDate.getDate(), checkDate.getMonth() + 1, checkDate.getFullYear());
-    if (lunar.month === month && lunar.day === day) {
-      return checkDate;
+function getLunarDateFromSolar(targetYear, lunarMonth, lunarDay) {
+  const startDate = new Date(targetYear - 1, 11, 1);
+  const endDate = new Date(targetYear + 1, 1, 31);
+  
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const lunar = solarToLunar(d.getDate(), d.getMonth() + 1, d.getFullYear());
+    if (lunar.month === lunarMonth && lunar.day === lunarDay) {
+      return new Date(d);
     }
   }
-  return new Date(year, 0, 1);
+  return null;
+}
+
+function getVietnameseHolidays(year) {
+  const holidays = [];
+  
+  holidays.push({ name: "Tết Dương lịch", date: new Date(year, 0, 1) });
+  holidays.push({ name: "Ngày thành lập Đảng", date: new Date(year, 1, 3) });
+  holidays.push({ name: "Ngày Giải phóng miền Nam", date: new Date(year, 3, 30) });
+  holidays.push({ name: "Ngày Quốc tế Lao động", date: new Date(year, 4, 1) });
+  holidays.push({ name: "Sinh nhật Bác Hồ", date: new Date(year, 4, 19) });
+  holidays.push({ name: "Ngày Quốc khánh", date: new Date(year, 8, 2) });
+  holidays.push({ name: "Ngày Phụ nữ Việt Nam", date: new Date(year, 9, 20) });
+  holidays.push({ name: "Ngày Nhà giáo Việt Nam", date: new Date(year, 10, 20) });
+  holidays.push({ name: "Ngày hội Quốc phòng Toàn dân", date: new Date(year, 11, 22) });
+  holidays.push({ name: "Giáng sinh", date: new Date(year, 11, 25) });
+  holidays.push({ name: "Ngày Quốc tế Phụ nữ", date: new Date(year, 2, 8) });
+  holidays.push({ name: "Ngày Thương binh Liệt sĩ", date: new Date(year, 6, 27) });
+  holidays.push({ name: "Ngày Gia đình Việt Nam", date: new Date(year, 5, 28) });
+  holidays.push({ name: "Tết Trung thu", date: getLunarDateFromSolar(year, 8, 15) });
+  holidays.push({ name: "Tết Đoan Ngọ", date: getLunarDateFromSolar(year, 5, 5) });
+  holidays.push({ name: "Rằm tháng Giêng", date: getLunarDateFromSolar(year, 1, 15) });
+  holidays.push({ name: "Tết Hàn thực", date: getLunarDateFromSolar(year, 3, 3) });
+  holidays.push({ name: "Vu Lan", date: getLunarDateFromSolar(year, 7, 15) });
+  holidays.push({ name: "Ông Táo chầu trời", date: getLunarDateFromSolar(year, 12, 23) });
+  
+  const tetDate = getLunarDateFromSolar(year, 1, 1);
+  if (tetDate) {
+    holidays.push({ name: "Tết Nguyên Đán", date: tetDate });
+    const tet2 = new Date(tetDate);
+    tet2.setDate(tet2.getDate() + 1);
+    holidays.push({ name: "Mùng 2 Tết", date: tet2 });
+    const tet3 = new Date(tetDate);
+    tet3.setDate(tet3.getDate() + 2);
+    holidays.push({ name: "Mùng 3 Tết", date: tet3 });
+  }
+  
+  return holidays.filter(h => h.date !== null);
 }
 
 function getUpcomingHolidays(currentDate) {
@@ -162,7 +189,7 @@ function getUpcomingHolidays(currentDate) {
   
   const upcoming = holidays
     .map(h => ({ ...h, days: Math.ceil((h.date - currentDate) / (1000 * 60 * 60 * 24)) }))
-    .filter(h => h.days >= 0)
+    .filter(h => h.days > 0)
     .sort((a, b) => a.days - b.days)
     .slice(0, 5);
   
@@ -181,7 +208,8 @@ async function getRandomLandscapeImage() {
         iiprop: 'url',
         iiurlwidth: 1400,
         grnlimit: 10
-      }
+      },
+      timeout: 5000
     });
     
     const pages = response.data.query?.pages;
@@ -241,6 +269,10 @@ export async function createCalendarImage() {
   const lunar = solarToLunar(dd, mm, yyyy);
   const canChi = getCanChi(lunar);
 
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
+
   const boxGradient = ctx.createLinearGradient(0, 80, 0, 460);
   boxGradient.addColorStop(0, "rgba(0, 0, 0, 0.7)");
   boxGradient.addColorStop(1, "rgba(0, 0, 0, 0.5)");
@@ -255,7 +287,6 @@ export async function createCalendarImage() {
   ctx.fillText(`${dayName}, Ngày ${dd} ${monthNames[mm - 1]} Năm ${yyyy}`, width / 2, 140);
 
   ctx.font = "bold 120px Arial";
-  const timeStr = now.toTimeString().substring(0, 5);
   const gradient = ctx.createLinearGradient(0, 0, width, 0);
   gradient.addColorStop(0, "#4ECB71");
   gradient.addColorStop(1, "#1E90FF");
