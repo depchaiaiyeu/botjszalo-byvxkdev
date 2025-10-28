@@ -3,6 +3,7 @@ import { readGroupSettings, writeGroupSettings } from "../../utils/io-json.js";
 import { MessageType } from "../../api-zalo/index.js";
 import { getRandomVideoFromArray, searchVideoTiktok } from "../api-crawl/tiktok/tiktok-service.js";
 import { sendRandomGirlVideo } from "../chat-zalo/chat-special/send-video/send-video.js";
+import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van-nien.js";
 import path from "path";
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
@@ -20,6 +21,14 @@ function readRankInfo() {
 }
 
 const scheduledTasks = [
+  {
+    time: "06:05",
+    task: async (api) => {
+      const caption = "-> SendTask 06:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn một ngày mới tràn đầy năng lượng!";
+      const timeToLive = 1000 * 60 * 60 * 6;
+      await sendTaskCalendar(api, caption, timeToLive);
+    },
+  },
   {
     time: "06:05",
     task: async (api) => {
@@ -50,6 +59,14 @@ const scheduledTasks = [
       const caption = `-> SendTask 11:05 <-\nChào một buổi trưa đầy năng lượng!\n\nCung cấp vitamin gái cực sexy cho anh em đây!!!`;
       const timeToLive = 1000 * 60 * 60 * 1;
       await sendTaskGirlVideo(api, caption, timeToLive, "sexy");
+    },
+  },
+  {
+    time: "12:05",
+    task: async (api) => {
+      const caption = "-> SendTask 12:05 <-\n📅 Lịch Vạn Niên\n\nChúc bạn buổi trưa vui vẻ!";
+      const timeToLive = 1000 * 60 * 60 * 6;
+      await sendTaskCalendar(api, caption, timeToLive);
     },
   },
   {
@@ -117,6 +134,45 @@ const scheduledTasks = [
     },
   }
 ];
+
+async function sendTaskCalendar(api, caption, timeToLive) {
+  const groupSettings = readGroupSettings();
+  let imagePath = null;
+  
+  try {
+    // Tạo ảnh lịch một lần duy nhất
+    imagePath = await createCalendarImage();
+    
+    // Gửi đến tất cả các nhóm có bật sendTask
+    for (const threadId of Object.keys(groupSettings)) {
+      if (groupSettings[threadId].sendTask) {
+        try {
+          await api.sendMessage(
+            {
+              msg: caption,
+              attachments: [imagePath],
+              ttl: timeToLive,
+            },
+            threadId,
+            MessageType.GroupMessage
+          );
+        } catch (error) {
+          console.error(`Lỗi khi gửi lịch vạn niên đến nhóm ${threadId}:`, error);
+          if (error.message && error.message.includes("không tồn tại")) {
+            groupSettings[threadId].sendTask = false;
+            writeGroupSettings(groupSettings);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Lỗi khi tạo lịch vạn niên:", error);
+  } finally {
+    if (imagePath) {
+      await clearImagePath(imagePath);
+    }
+  }
+}
 
 async function sendTaskGirlVideo(api, caption, timeToLive, type = "default") {
   const groupSettings = readGroupSettings();
