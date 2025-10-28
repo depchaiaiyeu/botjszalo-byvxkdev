@@ -5,7 +5,6 @@ import { handleWordChainCommand, handleWordChainMessage } from "./wordChain.js";
 import { handleVuaTiengVietCommand, handleVuaTiengVietMessage } from "./vuaTiengViet.js";
 import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
 import { handleCaroCommand, handleCaroMessage } from "./caro.js";
-import { handleTuTienCommand, handleTuTienMessage } from "./pham-nhan-tu-tien.js";
 import { getGlobalPrefix } from "../../service.js";
 
 export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
@@ -60,9 +59,6 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
       break;
     case "cauca":
       await handleFishingCommand(api, message);
-      break;
-    case "tutien":
-      await handleTuTienCommand(api, message);
       break;
     case "caro":
       await handleCaroCommand(api, message);
