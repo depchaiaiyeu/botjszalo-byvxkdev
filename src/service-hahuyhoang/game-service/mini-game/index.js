@@ -7,12 +7,6 @@ import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
 import { handleCaroCommand, handleCaroMessage } from "./caro.js";
 import { getGlobalPrefix } from "../../service.js";
 
-const activeGames = new Map();
-
-export function getActiveGames() {
-  return activeGames;
-}
-
 export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
   if (isCallGame) return;
   const threadId = message.threadId;
@@ -24,27 +18,11 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
   
   if (typeof content === "string") {
     content = content.trim();
-    const currentGame = activeGames.get(threadId);
-    
-    if (currentGame) {
-      switch (currentGame.type) {
-        case "guessNumber":
-          await handleGuessNumberGame(api, message, threadId, senderId);
-          break;
-        case "wordChain":
-          await handleWordChainMessage(api, message);
-          break;
-        case "vuaTiengViet":
-          await handleVuaTiengVietMessage(api, message, threadId);
-          break;
-        case "cauca":
-          await handleFishingMessage(api, message);
-          break;
-        case "caro":
-          await handleCaroMessage(api, message);
-          break;
-      }
-    }
+    await handleGuessNumberGame(api, message);
+    await handleWordChainMessage(api, message);
+    await handleVuaTiengVietMessage(api, message);
+    await handleFishingMessage(api, message);
+    await handleCaroMessage(api, message);
   }
 }
 
@@ -68,27 +46,6 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
     return;
   }
   
-  const subCommand = args && args.length > 0 ? args[0].toLowerCase() : '';
-  
-  if (subCommand === "leave") {
-    switch (gameType) {
-      case "guessNumber":
-        await handleGuessNumberCommand(api, message);
-        return;
-      case "wordChain":
-        await handleWordChainCommand(api, message, args);
-        return;
-      case "vuaTiengViet":
-        await handleVuaTiengVietCommand(api, message, threadId, args);
-        return;
-      case "cauca":
-        await handleFishingCommand(api, message);
-        return;
-    }
-  }
-  
-  if (gameType !== "cauca" && await checkHasActiveGame(api, message, threadId)) return;
-  
   switch (gameType) {
     case "guessNumber":
       await handleGuessNumberCommand(api, message);
@@ -106,31 +63,4 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
       await handleCaroCommand(api, message);
       break;
   }
-}
-
-export async function checkHasActiveGame(api, message, threadId) {
-  if (activeGames.has(threadId)) {
-    const activeGame = activeGames.get(threadId);
-    const gameName = activeGame.type === "guessNumber" 
-      ? "Đoán số" 
-      : activeGame.type === "wordChain" 
-      ? "Nối từ" 
-      : activeGame.type === "vuaTiengViet"
-      ? "Vua Tiếng Việt"
-      : activeGame.type === "caro"
-      ? "Cờ Caro"
-      : "Câu Cá";
-    
-    if (activeGame.type === "cauca") {
-      return false;
-    }
-    
-    const result = {
-      success: false,
-      message: `Trò chơi: ${gameName}\nĐang diễn ra trong nhóm này, hãy kết thúc trò chơi hiện tại trước khi bắt đầu trò chơi mới.`,
-    };
-    await sendMessageFromSQL(api, message, result, true, 30000);
-    return true;
-  }
-  return false;
 }
