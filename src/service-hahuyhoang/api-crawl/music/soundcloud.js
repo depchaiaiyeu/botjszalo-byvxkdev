@@ -35,11 +35,11 @@ const TIME_TO_SELECT = 60000;
 
 const acceptLanguages = ["en-US,en;q=0.9", "fr-FR,fr;q=0.9", "es-ES,es;q=0.9", "de-DE,de;q=0.9", "zh-CN,zh;q=0.9"];
 
-const getRandomElement = (array) => {
+export const getRandomElement = (array) => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const getHeaders = () => {
+export const getHeaders = () => {
   return {
     "User-Agent": getRandomElement(userAgents),
     "Accept-Language": getRandomElement(acceptLanguages),
@@ -49,7 +49,7 @@ const getHeaders = () => {
   };
 };
 
-const getClientId = async () => {
+export const getClientId = async () => {
   try {
     let config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
     const lastUpdate = new Date(config.soundcloud.lastUpdate);
@@ -98,7 +98,7 @@ const getClientId = async () => {
   }
 };
 
-async function getMusicInfo(question, limit) {
+export async function getMusicInfo(question, limit) {
   limit = limit || 10;
   try {
     const response = await axios.get("https://api-v2.soundcloud.com/search/tracks", {
@@ -120,7 +120,7 @@ async function getMusicInfo(question, limit) {
   }
 }
 
-async function getMusicStreamUrl(link) {
+export async function getMusicStreamUrl(link) {
   try {
     const headers = getHeaders();
     const apiUrl = `https://api-v2.soundcloud.com/resolve?url=${link}&client_id=${clientId}`;
@@ -148,7 +148,7 @@ async function getMusicStreamUrl(link) {
   }
 }
 
-const musicSelectionsMap = new LRUCache({
+export const musicSelectionsMap = new LRUCache({
   max: 500,
   ttl: TIME_TO_SELECT
 });
