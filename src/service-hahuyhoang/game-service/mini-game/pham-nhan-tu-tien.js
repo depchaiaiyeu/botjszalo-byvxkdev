@@ -778,4 +778,3 @@ export async function handleTuTienMessage(api, message) {
       return;
     }
   }
-}
