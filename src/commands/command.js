@@ -1372,6 +1372,9 @@ export async function handleCommand(
               case "giavang":
                 await handleGoldPriceCommand (api, message);
                 break;
+              case "lich":
+                await handleCalendarCommand (api, message);
+                break;
             }
           } else {
             if (isAdminBot) {
