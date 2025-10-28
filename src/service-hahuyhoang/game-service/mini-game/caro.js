@@ -93,7 +93,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
       await api.sendMessage(
         {
           msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n⏰ Hết giờ! ${game.playerName} không đánh trong 60 giây.\n🎉 Bot thắng!`,
-          mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+          mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
           attachments: [imagePath]
         },
         threadId,
@@ -103,7 +103,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
       await api.sendMessage(
         {
           msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n⏰ Hết giờ! Bot không phản hồi trong 60 giây.\n🎉 ${game.playerName} thắng!`,
-          mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+          mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
           attachments: [imagePath]
         },
         threadId,
@@ -360,7 +360,7 @@ export async function handleCaroCommand(api, message) {
   
   if (args.length < 3) {
     await sendMessageComplete(api, message, 
-      `🎮 Hướng dẫn chơi Caro:\n\n` +
+      `🎮 Hướng dẫn chơi cờ Caro:\n\n` +
       `📌 ${prefix}caro [easy/hard/super] [x/o]\n` +
       `   - Chọn độ khó và quân cờ của bạn\n` +
       `   - X luôn đi trước\n` +
@@ -423,13 +423,13 @@ export async function handleCaroCommand(api, message) {
   
   const modeText = mode === "easy" ? "dễ" : mode === "hard" ? "khó" : "thách đấu";
   const turnMsg = playerMark === "X" 
-    ? `\n👉 Đến Lượt Bạn\n\nHãy chọn số từ 1-256 để đánh quân cờ.` 
+    ? `\n👉 Đến Lượt Bạn\n\n🔢 Hãy chọn số từ 1-256 để đánh quân cờ.` 
     : "(Bot đi trước)";
   
   await api.sendMessage(
     {
       msg: `@${message.data.dName}\n🎮 Trận Caro bắt đầu! ${turnMsg}\n🤖 Độ khó: ${modeText}`,
-      mentions: [{ pos: 0, uid: message.data.uidFrom, len: message.data.dName.length }],
+      mentions: [{ pos: 1, uid: message.data.uidFrom, len: message.data.dName.length }],
       attachments: [imagePath]
     },
     threadId,
@@ -470,8 +470,8 @@ async function handleBotTurn(api, message) {
     
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro hòa!\n🤖 Độ khó: ${modeText}\n\nKhông còn nước đi.`,
-        mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+        msg: `@${game.playerName}\n🎮 Trận Caro hòa!\n🤖 Độ khó: ${modeText}\n\n🔗 Hòa do không còn nước đi(256/256).`,
+        mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
       threadId,
@@ -501,8 +501,8 @@ async function handleBotTurn(api, message) {
   if (winner) {
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n🤖 Bot đánh ô số ${pos + 1}\n🎉 Bot thắng!`,
-        mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+        msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n🔢 Bot đánh ô số ${pos + 1}\n🎉 Bot thắng!`,
+        mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
       threadId,
@@ -513,8 +513,8 @@ async function handleBotTurn(api, message) {
   } else {
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro đang diễn ra!\n🤖 Độ khó: ${modeText}\n\n🤖 Bot đánh ô số ${pos + 1}\n👉 Đến lượt bạn!`,
-        mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+        msg: `@${game.playerName}\n🎮 Trận Caro tiếp diễn!\n🤖 Độ khó: ${modeText}\n\n🔢 Bot đánh ô số ${pos + 1}\n👉 Đến lượt bạn!`,
+        mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
       threadId,
@@ -574,7 +574,7 @@ export async function handleCaroMessage(api, message) {
     await api.sendMessage(
       {
         msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n👤 Bạn đánh ô số ${pos + 1}\n🎉 ${game.playerName} thắng!`,
-        mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+        mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
       threadId,
@@ -590,8 +590,8 @@ export async function handleCaroMessage(api, message) {
   
   await api.sendMessage(
     {
-      msg: `@${game.playerName}\n🎮 Trận Caro đang diễn ra!\n🤖 Độ khó: ${modeText}\n\n👤 Bạn đánh ô số ${pos + 1}\n⏳ Bot đang suy nghĩ...`,
-      mentions: [{ pos: 0, uid: game.playerId, len: game.playerName.length }],
+      msg: `@${game.playerName}\n🎮 Trận Caro đang diễn ra!\n🤖 Độ khó: ${modeText}\n\n👤 Bạn đánh ô số ${pos + 1}\n🧭 Bot đang suy nghĩ...`,
+      mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
       attachments: [imagePath]
     },
     threadId,
