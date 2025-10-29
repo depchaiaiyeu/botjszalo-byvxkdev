@@ -165,6 +165,7 @@ import { handleKKPhimCommand } from "../service-hahuyhoang/api-crawl/video/kkphi
 import { handleGoldPriceCommand } from "../service-hahuyhoang/tien-ich/gold-price.js";
 
 import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
+import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-virus.js";
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -1374,6 +1375,9 @@ export async function handleCommand(
                 break;
               case "lich":
                 await handleCalendarCommand (api, message);
+                break;
+              case "checkvirus":
+                await handleVirusScanCommand (api, message);
                 break;
             }
           } else {
