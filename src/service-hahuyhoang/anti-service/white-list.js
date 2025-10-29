@@ -7,7 +7,7 @@ import {
 } from "../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { createListImage } from "../../utils/canvas/info.js";
+import { createWhiteListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../info-service/user-info.js";
 import path from "path";
 import fs from "fs/promises";
@@ -42,7 +42,7 @@ export async function handleWhiteList(api, message, groupSettings, groupAdmins) 
 
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `whitelist_${threadId}.png`);
     
-    await createListImage(whiteListData, imagePath);
+    await createWhiteListImage(whiteListData, imagePath);
 
     await api.sendMessage(
       {
