@@ -20,13 +20,13 @@ let currentTester = {
 };
 let otherThreadRequester = {};
 
-function evaluateSpeed(speedInMBps) {
-    if (speedInMBps < 0.625) return "Rất chậm";
-    if (speedInMBps < 1.25) return "Chậm";
-    if (speedInMBps < 3.75) return "Trung bình";
-    if (speedInMBps < 6.25) return "Khá tốt";
-    if (speedInMBps < 12.5) return "Tốt";
-    if (speedInMBps < 62.5) return "Rất tốt";
+function evaluateSpeed(speedInMbps) {
+    if (speedInMbps < 5) return "Rất chậm";
+    if (speedInMbps < 10) return "Chậm";
+    if (speedInMbps < 30) return "Trung bình";
+    if (speedInMbps < 50) return "Khá tốt";
+    if (speedInMbps < 100) return "Tốt";
+    if (speedInMbps < 500) return "Rất tốt";
     return "Siêu tốc";
 }
 
@@ -161,17 +161,17 @@ export async function createSpeedTestImage(result) {
     const infoStartX = xLogo + widthLogo / 2 + 86;
     let y = 110;
 
-    const downloadBandwidthBytes = result.download.bandwidth || 0;
-    const uploadBandwidthBytes = result.upload.bandwidth || 0;
-    const downloadSpeedMbps = (downloadBandwidthBytes / 125000).toFixed(2);
-    const uploadSpeedMbps = (uploadBandwidthBytes / 125000).toFixed(2);
-    const downloadSpeedMBps = (downloadBandwidthBytes / 1000000).toFixed(2);
-    const uploadSpeedMBps = (uploadBandwidthBytes / 1000000).toFixed(2);
+    const downloadBits = result.download.bandwidth || 0;
+    const uploadBits = result.upload.bandwidth || 0;
+    
+    const downloadMbps = (downloadBits / 1000000).toFixed(2);
+    const uploadMbps = (uploadBits / 1000000).toFixed(2);
+    
     const ping = Math.round(result.ping?.latency || 0);
 
     const fields = [
-        { label: "📥 Download", value: `${downloadSpeedMbps} MB/s (${evaluateSpeed(parseFloat(downloadSpeedMBps))} 🚀)` },
-        { label: "📤 Upload", value: `${uploadSpeedMbps} MB/s (${evaluateSpeed(parseFloat(uploadSpeedMBps))} 🚀)` },
+        { label: "📥 Download", value: `${downloadMbps} Mbps (${evaluateSpeed(parseFloat(downloadMbps))} 🚀)` },
+        { label: "📤 Upload", value: `${uploadMbps} Mbps (${evaluateSpeed(parseFloat(uploadMbps))} 🚀)` },
         { label: "💬 Ping", value: `${ping}ms` },
         { label: "🌐 Server", value: `${result.server?.name || 'N/A'}` },
         { label: "🌍 Location", value: `${result.server?.location || 'N/A'} (${result.server?.country || 'N/A'})` },
