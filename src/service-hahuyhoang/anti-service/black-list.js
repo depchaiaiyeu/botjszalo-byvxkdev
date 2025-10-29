@@ -7,7 +7,7 @@ import {
 } from "../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { createBlackListImage } from "../../utils/canvas/info.js";
+import { createListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../info-service/user-info.js";
 import { initializeGroupEvent, GroupEventType } from "../api-zalo/models/GroupEvent.js";
 import path from "path";
@@ -43,7 +43,7 @@ export async function handleBlackList(api, message, groupSettings, groupAdmins) 
 
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `blacklist_${threadId}.png`);
     
-    await createBlackListImage(blackListData, imagePath);
+    await createListImage(blackListData, imagePath);
 
     await api.sendMessage(
       {
