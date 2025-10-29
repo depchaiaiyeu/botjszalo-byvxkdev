@@ -45,6 +45,20 @@ export async function groupEvents(api, event) {
     if (updateMembers.length === 1) {
       const user = updateMembers[0];
       const userId = user.id;
+      
+      if (type === GroupEventType.JOIN && threadSettings.blackList && threadSettings.blackList[userId]) {
+        const userInfo = await getUserInfoData(api, userId);
+        await api.removeUserFromGroup(threadId, userId);
+        await api.sendMessage(
+          {
+            msg: `Người dùng ${userInfo.name} đã bị kick do nằm trong danh sách đen của nhóm.`
+          },
+          threadId,
+          MessageType.GroupMessage
+        );
+        return;
+      }
+
       const userInfo = await getUserInfoData(api, userId);
       const userActionInfo = await getUserInfoData(api, idAction);
       const idBot = getBotId();
@@ -62,17 +76,6 @@ export async function groupEvents(api, event) {
           break;
       
         case GroupEventType.JOIN:
-          if (threadSettings.blackList && threadSettings.blackList[userId]) {
-            await api.removeUserFromGroup(threadId, userId);
-            await api.sendMessage(
-              {
-                msg: `Người dùng ${userInfo.name} đã bị kick do nằm trong danh sách đen của nhóm.`
-              },
-              threadId,
-              MessageType.GroupMessage
-            );
-            return;
-          }
           if (idBot === userId && getListGroupSpamWithoutJoin().includes(threadId)) {
             await api.leaveGroup(threadId);
           }
@@ -116,9 +119,7 @@ export async function groupEvents(api, event) {
         await sendGroupMessage(api, threadId, imagePath, messageText);
         await cv.clearImagePath(imagePath);
       }
-    } else if (type === GroupEventType.JOIN && updateMembers.length > 1 && threadSettings.welcomeGroup) {
-      const userActionInfo = await getUserInfoData(api, idAction);
-      const userActionName = userActionInfo.name;
+    } else if (type === GroupEventType.JOIN && updateMembers.length > 1) {
       for (const user of updateMembers) {
         const userId = user.id;
         
@@ -135,12 +136,16 @@ export async function groupEvents(api, event) {
           continue;
         }
         
-        const userInfo = await getUserInfoData(api, userId);
-        const isAdminUser = isAdmin(userId, threadId);
+        if (threadSettings.welcomeGroup) {
+          const userInfo = await getUserInfoData(api, userId);
+          const userActionInfo = await getUserInfoData(api, idAction);
+          const userActionName = userActionInfo.name;
+          const isAdminUser = isAdmin(userId, threadId);
 
-        const imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminUser);
-        await sendGroupMessage(api, threadId, imagePath, "");
-        await cv.clearImagePath(imagePath);
+          const imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminUser);
+          await sendGroupMessage(api, threadId, imagePath, "");
+          await cv.clearImagePath(imagePath);
+        }
       }
     }
   } else {
