@@ -54,6 +54,10 @@ export async function groupEvents(api, event) {
         return;
       }
 
+      if ((type === GroupEventType.REMOVE_MEMBER || type === GroupEventType.BLOCK_MEMBER) && threadSettings.blackList && threadSettings.blackList[userId]) {
+        return;
+      }
+
       const userInfo = await getUserInfoData(api, userId);
       const userActionInfo = await getUserInfoData(api, idAction);
       const idBot = getBotId();
@@ -119,21 +123,7 @@ export async function groupEvents(api, event) {
       const userActionName = userActionInfo.name;
       
       for (const user of updateMembers) {
-        const userId = user.id;
-        
-        if (threadSettings.blackList && threadSettings.blackList[userId]) {
-          const userInfo = await getUserInfoData(api, userId);
-          await api.removeUserFromGroup(threadId, userId);
-          await api.sendMessage(
-            {
-              msg: `Người dùng ${userInfo.name} đã bị kick do nằm trong danh sách đen của nhóm.`
-            },
-            threadId,
-            MessageType.GroupMessage
-          );
-          continue;
-        }
-        
+        const userId = user.id;  
         if (threadSettings.welcomeGroup) {
           const userInfo = await getUserInfoData(api, userId);
           const isAdminUser = isAdmin(userId, threadId);
@@ -172,7 +162,7 @@ export async function groupEvents(api, event) {
       break;
 
     case GroupEventType.UPDATE:
-      imagePath = await cv.createUpdateDescImage(actorInfo, actorName, groupType);
+      imagePath = await cv.createUpdateDescImage(actorInfo, actorName, groupName, groupType);
       break;
 
     case GroupEventType.NEW_LINK:
