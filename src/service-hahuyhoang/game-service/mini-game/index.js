@@ -22,7 +22,6 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
     await handleWordChainMessage(api, message);
     await handleVuaTiengVietMessage(api, message);
     await handleFishingMessage(api, message);
-    await handleTuTienMessage(api, message);
     await handleCaroMessage(api, message);
   }
 }
