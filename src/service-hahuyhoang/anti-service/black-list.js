@@ -174,30 +174,3 @@ export function isInBlackList(groupSettings, threadId, senderId) {
   const blackList = groupSettings[threadId]?.blackList || {};
   return blackList[senderId];
 }
-
-export async function handleCheckBlackList(api, threadId, members, groupSettings) {
-  const blackList = groupSettings[threadId]?.blackList || {};
-
-  for (const member of members) {
-    const uid = member.id;
-    const name = member.dName || "Người dùng";
-
-    if (blackList[uid]) {
-      try {
-        await api.removeUserFromGroup(threadId, uid);
-        
-        const userName = blackList[uid].name || name;
-        
-        await api.sendMessage(
-          {
-            msg: `Người dùng ${userName} đã bị kick do nằm trong danh sách đen của nhóm.`,
-          },
-          threadId,
-          MessageType.MessageGroup
-        );
-      } catch (error) {
-        console.error("Không thể kick người dùng trong blacklist:", error);
-      }
-    }
-  }
-}
