@@ -171,34 +171,64 @@ async function getUpcomingHolidays(currentDate) {
 }
 
 async function getRandomLandscapeImage() {
+  const query = "phong cảnh Việt Nam";
   try {
-    const response = await axios.get('https://vi.wikipedia.org/w/api.php', {
+    const searchResponse = await axios.get("https://vi.wikipedia.org/w/api.php", {
       params: {
-        action: 'query',
-        format: 'json',
-        generator: 'random',
-        grnnamespace: 6,
-        prop: 'imageinfo',
-        iiprop: 'url',
+        action: "query",
+        format: "json",
+        generator: "search",
+        gsrsearch: query,
+        gsrlimit: 10,
+        prop: "imageinfo",
+        iiprop: "url",
         iiurlwidth: 1400,
-        grnlimit: 10
+        origin: "*",
       },
-      timeout: 5000
+      timeout: 5000,
     });
-    
-    const pages = response.data.query?.pages;
-    if (pages) {
-      const images = Object.values(pages)
-        .filter(p => p.imageinfo && p.imageinfo[0].thumburl)
+
+    let images = [];
+
+    if (searchResponse.data.query?.pages) {
+      images = Object.values(searchResponse.data.query.pages)
+        .filter(p => p.imageinfo && p.imageinfo[0]?.thumburl)
         .map(p => p.imageinfo[0].thumburl);
-      
-      if (images.length > 0) {
-        return images[Math.floor(Math.random() * images.length)];
+    }
+
+    if (images.length > 0) {
+      return images[Math.floor(Math.random() * images.length)];
+    }
+
+    const randomResponse = await axios.get("https://vi.wikipedia.org/w/api.php", {
+      params: {
+        action: "query",
+        format: "json",
+        generator: "random",
+        grnnamespace: 6,
+        prop: "imageinfo",
+        iiprop: "url",
+        iiurlwidth: 1400,
+        grnlimit: 10,
+        origin: "*",
+      },
+      timeout: 5000,
+    });
+
+    const randomPages = randomResponse.data.query?.pages;
+    if (randomPages) {
+      const randomImages = Object.values(randomPages)
+        .filter(p => p.imageinfo && p.imageinfo[0]?.thumburl)
+        .map(p => p.imageinfo[0].thumburl);
+
+      if (randomImages.length > 0) {
+        return randomImages[Math.floor(Math.random() * randomImages.length)];
       }
     }
   } catch (error) {
     console.error("Error fetching Wikipedia image:", error);
   }
+
   return null;
 }
 
