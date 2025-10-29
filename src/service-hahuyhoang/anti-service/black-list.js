@@ -9,7 +9,7 @@ import { getGlobalPrefix } from "../service.js";
 import { removeMention } from "../../utils/format-util.js";
 import { createListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../info-service/user-info.js";
-import { initializeGroupEvent, GroupEventType } from "../api-zalo/models/GroupEvent.js";
+import { initializeGroupEvent, GroupEventType } from "../../api-zalo/models/GroupEvent.js";
 import path from "path";
 import fs from "fs/promises";
 
