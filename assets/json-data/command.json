@@ -2331,6 +2331,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "checkvirus",
+      "description": "Kiểm tra file có virus hay không",
+      "syntax": "{p}checkvirus <quote>",
+      "permission": "all",
+      "countdown": 30,
+      "icon": "🧬",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
