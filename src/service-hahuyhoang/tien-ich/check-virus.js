@@ -164,20 +164,48 @@ export async function handleVirusScanCommand(api, message) {
 
     const analysisId = uploadResult.data.id;
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    let analysisResult = await getAnalysisResult(analysisId);
+    let status = analysisResult.data?.attributes?.status || "queued";
 
-    const analysisResult = await getAnalysisResult(analysisId);
+    if (status === "queued") {
+      await sendMessageFromSQL(api, message, { message: "Đang bắt đầu kiểm tra, chờ tí!!!", success: true }, true, 1800000);
+    }
+
+    let retries = 0;
+    while (status !== "completed" && retries < 30) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      analysisResult = await getAnalysisResult(analysisId);
+      status = analysisResult.data?.attributes?.status || "queued";
+      retries++;
+    }
     
     const attributes = analysisResult.data?.attributes || {};
     const stats = attributes.stats || {};
-    const status = attributes.status || "unknown";
+    const size = attributes.size || 0;
+    const type = attributes.type_description || "Unknown";
+    const tags = attributes.tags || [];
+    const meaningful_name = attributes.meaningful_name || "Unknown";
+    const last_submission_date = new Date(attributes.last_submission_date * 1000).toLocaleString("vi-VN") || "N/A";
+
+    const total = stats.harmless + stats.undetected + stats.suspicious + stats.malicious;
+    const harmlessPercent = total > 0 ? ((stats.harmless / total) * 100).toFixed(1) : 0;
+    const undetectedPercent = total > 0 ? ((stats.undetected / total) * 100).toFixed(1) : 0;
+    const suspiciousPercent = total > 0 ? ((stats.suspicious / total) * 100).toFixed(1) : 0;
+    const maliciousPercent = total > 0 ? ((stats.malicious / total) * 100).toFixed(1) : 0;
 
     let resultMessage = `[ 🔍 Kết Quả Quét VirusTotal ]\n\n`;
-    resultMessage += `📊 Trạng thái: ${status}\n`;
-    resultMessage += `✅ Sạch: ${stats.harmless || 0}\n`;
-    resultMessage += `⚠️  Không chắc chắn: ${stats.undetected || 0}\n`;
-    resultMessage += `❓ Đáng ngờ: ${stats.suspicious || 0}\n`;
-    resultMessage += `🚫 Malware: ${stats.malicious || 0}\n\n`;
+    resultMessage += `📄 Tên file: ${meaningful_name}\n`;
+    resultMessage += `📊 Loại: ${type}\n`;
+    resultMessage += `💾 Kích thước: ${(size / 1024).toFixed(2)} KB\n`;
+    resultMessage += `📅 Ngày kiểm tra: ${last_submission_date}\n\n`;
+    resultMessage += `✅ Sạch: ${stats.harmless || 0} (${harmlessPercent}%)\n`;
+    resultMessage += `⚠️  Không chắc chắn: ${stats.undetected || 0} (${undetectedPercent}%)\n`;
+    resultMessage += `❓ Đáng ngờ: ${stats.suspicious || 0} (${suspiciousPercent}%)\n`;
+    resultMessage += `🚫 Malware: ${stats.malicious || 0} (${maliciousPercent}%)\n\n`;
+
+    if (tags.length > 0) {
+      resultMessage += `🏷️  Tags: ${tags.join(", ")}\n\n`;
+    }
 
     if (stats.malicious > 0) {
       resultMessage += `🚫 🚫 🚫 CẢNH BÁO: PHÁT HIỆN MALWARE! 🚫 🚫 🚫\n`;
@@ -187,7 +215,7 @@ export async function handleVirusScanCommand(api, message) {
       resultMessage += `✅ File an toàn!\n`;
     }
 
-    resultMessage += `\n🔗 Chi tiết: https://www.virustotal.com/gui/file/${uploadResult.data.id}`;
+    resultMessage += `\n🔗 Chi tiết phát hiện: https://www.virustotal.com/gui/file/${uploadResult.data.id}`;
 
     await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
 
