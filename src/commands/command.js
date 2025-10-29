@@ -245,6 +245,7 @@ export function initGroupSettings(groupSettings, threadId, nameGroup) {
     adminList: {},
     muteList: {},
     whileList: {},
+    blackList: {},
     activeBot: false,
     activeGame: false,
     welcomeGroup: false,
