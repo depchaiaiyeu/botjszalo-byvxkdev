@@ -2342,6 +2342,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "spamjoin",
+      "description": "Spam join và leave đến group theo link",
+      "syntax": "{p}spamjoin <link> <count>",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "🌟",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
