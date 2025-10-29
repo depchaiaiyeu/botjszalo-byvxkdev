@@ -135,6 +135,7 @@ import { handleJoinGroup, handleLeaveGroup, handleShowGroupsList } from "./bot-m
 import { handleNhacCuaTuiCommand } from "../service-hahuyhoang/api-crawl/music/nhaccuatui.js";
 import { removeMention } from "../utils/format-util.js";
 import { handleWhiteList } from "../service-hahuyhoang/anti-service/white-list.js";
+import { handleBlackList } from "../service-hahuyhoang/anti-service/black-list.js";
 import { handleWhitelistCommand } from "../service-hahuyhoang/anti-service/white-list-link.js";
 import { handleAntiUndoCommand } from "../service-hahuyhoang/anti-service/anti-undo.js";
 import { handleDownloadCommand } from "../service-hahuyhoang/api-crawl/api-hahuyhoangbot/aio-downlink.js";
@@ -156,7 +157,6 @@ import { handleGetMessageCommand } from "../service-hahuyhoang/tien-ich/get-mess
 import { handleImageAnalytics } from "../service-hahuyhoang/ai-genmini/analytics-image.js";
 import { handleImageGeneration } from "../service-hahuyhoang/ai-genmini/create-image.js";
 import { handleWelcomeCommand } from "../service-hahuyhoang/servises/send-msg-code.js";
-import { handleBlockUIDByCommand } from "../service-hahuyhoang/servises/block-user-join.js"
 import { handleCheckHostCommand } from "../service-hahuyhoang/servises/check-host.js";
 
 import { handleAntiStickerCommand } from "../service-hahuyhoang/anti-service/anti-sticker.js";
@@ -1026,6 +1026,10 @@ export async function handleCommand(
         isChangeSetting = await handleWhiteList(api, message, groupSettings, groupAdmins);
         break;
 
+      case "blacklist":
+        isChangeSetting = await handleBlackList(api, message, groupSettings, groupAdmins);
+        break;
+
       case "sendauto":
         isChangeSetting = handleWelcomeCommand(api, message, aliasCommand, groupSettings);
         break;
@@ -1068,10 +1072,6 @@ export async function handleCommand(
                 break;  
               case "card":
                 await userBussinessCardCommand(api, message, aliasCommand);
-                break;
-
-              case "danhsachden":
-                await handleBlockUIDByCommand (api, message, aliasCommand);
                 break;
 
               case "help":
