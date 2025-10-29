@@ -6,20 +6,20 @@ import { promisify } from "util";
 import { pipeline } from "stream";
 
 const streamPipeline = promisify(pipeline);
-
 const VIRUSTOTAL_API_KEY = "8c33bc9a4690c56559bc11ea0ca949b0f492fb739ff6baf6a216e06f1e087474";
 const VIRUSTOTAL_UPLOAD_URL = "https://www.virustotal.com/api/v3/files";
 const VIRUSTOTAL_REPORT_URL = "https://www.virustotal.com/api/v3/analyses/";
 
 export async function handleVirusScanCommand(api, message) {
   try {
-    if (!message.data.quote?.attach?.href) {
-      await sendMessageQuery(api, message, "Vui lòng quote file cần kiểm tra virus!");
+    const quote = message.data?.quote || message.data?.reply || message.reply;
+    if (!quote?.attach?.href) {
+      await sendMessageQuery(api, message, "Vui lòng quote file cần kiểm tra virus 🤔");
       return;
     }
 
-    const fileUrl = message.data.quote.attach.href;
-    const fileName = message.data.quote.attach.name || `file_${Date.now()}`;
+    const fileUrl = quote.attach.href;
+    const fileName = quote.attach.name || `file_${Date.now()}`;
     const tempDir = path.join(process.cwd(), "temp");
     const tempFilePath = path.join(tempDir, fileName);
 
@@ -36,7 +36,8 @@ export async function handleVirusScanCommand(api, message) {
     await sendMessageFromSQL(api, message, { message: "🔍 Đang phân tích file... Vui lòng đợi", success: true }, true, 5000);
 
     const formData = new FormData();
-    formData.append("file", new Blob([fs.readFileSync(tempFilePath)]), fileName);
+    const fileBuffer = await fs.promises.readFile(tempFilePath);
+    formData.append("file", new Blob([fileBuffer]), fileName);
 
     const uploadResponse = await axios.post(VIRUSTOTAL_UPLOAD_URL, formData, {
       headers: { "x-apikey": VIRUSTOTAL_API_KEY },
@@ -45,7 +46,6 @@ export async function handleVirusScanCommand(api, message) {
     });
 
     const analysisId = uploadResponse.data.data.id;
-
     await new Promise(resolve => setTimeout(resolve, 30000));
 
     const reportResponse = await axios.get(VIRUSTOTAL_REPORT_URL + analysisId, {
@@ -87,10 +87,8 @@ export async function handleVirusScanCommand(api, message) {
 
     resultMessage += `\n═`.repeat(50);
     resultMessage += `\n🔗 Chi tiết: https://www.virustotal.com/gui/file-analysis/${analysisId}`;
-
     fs.unlinkSync(tempFilePath);
 
-    // Chia nhỏ tin nhắn dài hơn 4000 ký tự
     const chunks = [];
     for (let i = 0; i < resultMessage.length; i += 4000) {
       chunks.push(resultMessage.slice(i, i + 4000));
@@ -99,11 +97,8 @@ export async function handleVirusScanCommand(api, message) {
     for (const chunk of chunks) {
       await sendMessageFromSQL(api, message, { message: chunk, success: true }, true, 1800000);
     }
-
   } catch (error) {
-    console.error("Error in handleVirusScanCommand:", error);
     let errorMessage = "🚫 Đã xảy ra lỗi khi quét virus: ";
-
     if (error.response) {
       if (error.response.status === 401) errorMessage += "API Key không hợp lệ!";
       else if (error.response.status === 429) errorMessage += "Vượt quá giới hạn API. Vui lòng thử lại sau!";
@@ -113,7 +108,6 @@ export async function handleVirusScanCommand(api, message) {
     } else {
       errorMessage += error.message || "Lỗi không xác định";
     }
-
     await sendMessageFailed(api, message, errorMessage);
   }
 }
