@@ -64,6 +64,7 @@ async function uploadToVirusTotal(filePath) {
         if (res.statusCode === 200) {
           try {
             const result = JSON.parse(data);
+            console.log("[UPLOAD] VirusTotal upload response:", JSON.stringify(result, null, 2));
             resolve(result);
           } catch (e) {
             reject(new Error("Failed to parse VirusTotal response"));
@@ -102,6 +103,7 @@ async function getAnalysisResult(analysisId) {
         if (res.statusCode === 200) {
           try {
             const result = JSON.parse(data);
+            console.log("[ANALYSIS] Response:", JSON.stringify(result, null, 2));
             resolve(result);
           } catch (e) {
             reject(new Error("Failed to parse analysis result"));
@@ -121,6 +123,8 @@ function extractDownloadLink(attachment) {
       attachData = JSON.parse(attachData);
     }
 
+    console.log("[ATTACH] Extracted data:", JSON.stringify(attachData, null, 2));
+
     if (attachData.href) return attachData.href;
     if (attachData.url) return attachData.url;
     if (attachData.params?.href) return attachData.params.href;
@@ -128,6 +132,7 @@ function extractDownloadLink(attachment) {
     
     return null;
   } catch (e) {
+    console.log("[ATTACH] Error parsing attachment:", e);
     return null;
   }
 }
@@ -136,9 +141,14 @@ export async function handleVirusScanCommand(api, message) {
   let tempFilePath = null;
 
   try {
+    console.log("[START] handleVirusScanCommand called");
+    
     const quote = message.data?.quote || message.reply;
     
+    console.log("[QUOTE] Quote data:", JSON.stringify(quote, null, 2));
+    
     if (!quote || !quote.attach || quote.attach === "") {
+      console.log("[ERROR] No quote or attachment found");
       return;
     }
 
@@ -149,13 +159,19 @@ export async function handleVirusScanCommand(api, message) {
     const downloadLink = extractDownloadLink(quote.attach);
     
     if (!downloadLink) {
+      console.log("[ERROR] Could not extract download link");
       return;
     }
+
+    console.log("[DOWNLOAD] Link:", downloadLink);
 
     const fileName = `file_${Date.now()}`;
     tempFilePath = path.join(tempDir, fileName);
     
+    console.log("[DOWNLOAD] Saving to:", tempFilePath);
     await downloadFile(downloadLink, tempFilePath);
+    console.log("[DOWNLOAD] File downloaded successfully");
+
     const uploadResult = await uploadToVirusTotal(tempFilePath);
     
     if (!uploadResult.data?.id) {
@@ -163,12 +179,16 @@ export async function handleVirusScanCommand(api, message) {
     }
 
     const analysisId = uploadResult.data.id;
+    console.log("[ANALYSIS_ID]", analysisId);
 
     let analysisResult = await getAnalysisResult(analysisId);
     let status = analysisResult.data?.attributes?.status || "queued";
 
+    console.log("[STATUS]", status);
+
     if (status === "queued") {
-      await sendMessageFromSQL(api, message, { message: "Đang bắt đầu kiểm tra, chờ tí!!!", success: true }, true, 1800000);
+      console.log("[QUEUED] File is queued, sending notification");
+      await sendMessageFromSQL(api, message, { message: "Đang check rồi, chờ tí!!!", success: true }, true, 1800000);
     }
 
     let retries = 0;
@@ -177,50 +197,55 @@ export async function handleVirusScanCommand(api, message) {
       analysisResult = await getAnalysisResult(analysisId);
       status = analysisResult.data?.attributes?.status || "queued";
       retries++;
+      console.log(`[RETRY] ${retries}/30 - Status: ${status}`);
     }
     
+    console.log("[COMPLETE] Analysis completed");
+    
     const attributes = analysisResult.data?.attributes || {};
-    const stats = attributes.stats || {};
+    const stats = attributes.last_analysis_stats || {};
     const size = attributes.size || 0;
-    const type = attributes.type_description || "Unknown";
-    const tags = attributes.tags || [];
-    const meaningful_name = attributes.meaningful_name || "Unknown";
-    const last_submission_date = new Date(attributes.last_submission_date * 1000).toLocaleString("vi-VN") || "N/A";
+    const type_tag = attributes.type_tag || "Unknown";
+    const names = attributes.names || [];
+    const meaningful_name = names[0] || "Unknown";
+    const last_submission_date = attributes.last_submission_date ? new Date(attributes.last_submission_date * 1000).toLocaleString("vi-VN") : "N/A";
 
-    const total = stats.harmless + stats.undetected + stats.suspicious + stats.malicious;
-    const harmlessPercent = total > 0 ? ((stats.harmless / total) * 100).toFixed(1) : 0;
-    const undetectedPercent = total > 0 ? ((stats.undetected / total) * 100).toFixed(1) : 0;
-    const suspiciousPercent = total > 0 ? ((stats.suspicious / total) * 100).toFixed(1) : 0;
-    const maliciousPercent = total > 0 ? ((stats.malicious / total) * 100).toFixed(1) : 0;
+    console.log("[STATS]", JSON.stringify(stats, null, 2));
+
+    const harmless = stats.harmless || 0;
+    const malicious = stats.malicious || 0;
+    const suspicious = stats.suspicious || 0;
+    const undetected = stats.undetected || 0;
+    const total = harmless + malicious + suspicious + undetected;
+
+    const harmlessPercent = total > 0 ? ((harmless / total) * 100).toFixed(1) : 0;
+    const maliciousPercent = total > 0 ? ((malicious / total) * 100).toFixed(1) : 0;
+    const suspiciousPercent = total > 0 ? ((suspicious / total) * 100).toFixed(1) : 0;
 
     let resultMessage = `[ 🔍 Kết Quả Quét VirusTotal ]\n\n`;
     resultMessage += `📄 Tên file: ${meaningful_name}\n`;
-    resultMessage += `📊 Loại: ${type}\n`;
+    resultMessage += `📊 Loại: ${type_tag}\n`;
     resultMessage += `💾 Kích thước: ${(size / 1024).toFixed(2)} KB\n`;
     resultMessage += `📅 Ngày kiểm tra: ${last_submission_date}\n\n`;
-    resultMessage += `✅ Sạch: ${stats.harmless || 0} (${harmlessPercent}%)\n`;
-    resultMessage += `⚠️  Không chắc chắn: ${stats.undetected || 0} (${undetectedPercent}%)\n`;
-    resultMessage += `❓ Đáng ngờ: ${stats.suspicious || 0} (${suspiciousPercent}%)\n`;
-    resultMessage += `🚫 Malware: ${stats.malicious || 0} (${maliciousPercent}%)\n\n`;
+    resultMessage += `✅ Sạch: ${harmlessPercent}%\n`;
+    resultMessage += `🚫 Malware: ${maliciousPercent}%\n`;
+    resultMessage += `❓ Đáng ngờ: ${suspiciousPercent}%\n\n`;
 
-    if (tags.length > 0) {
-      resultMessage += `🏷️  Tags: ${tags.join(", ")}\n\n`;
-    }
-
-    if (stats.malicious > 0) {
+    if (malicious > 0) {
       resultMessage += `🚫 🚫 🚫 CẢNH BÁO: PHÁT HIỆN MALWARE! 🚫 🚫 🚫\n`;
-    } else if (stats.suspicious > 0) {
+    } else if (suspicious > 0) {
       resultMessage += `⚠️ CẢNH BÁO: FILE ĐÁNG NGỜ!\n`;
     } else {
       resultMessage += `✅ File an toàn!\n`;
     }
 
-    resultMessage += `\n🔗 Chi tiết phát hiện: https://www.virustotal.com/gui/file/${uploadResult.data.id}`;
+    resultMessage += `\n🔗 Chi tiết: https://www.virustotal.com/gui/file/${uploadResult.data.id}`;
 
+    console.log("[SUCCESS] Sending result message");
     await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
 
   } catch (error) {
-    console.error("Error in handleVirusScanCommand:", error);
+    console.error("[ERROR] handleVirusScanCommand:", error);
     await sendMessageFailed(
       api,
       message,
@@ -230,8 +255,9 @@ export async function handleVirusScanCommand(api, message) {
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       try {
         fs.unlinkSync(tempFilePath);
+        console.log("[CLEANUP] Temp file deleted");
       } catch (e) {
-        console.error("Error cleaning up temp file:", e);
+        console.error("[CLEANUP] Error deleting temp file:", e);
       }
     }
   }
