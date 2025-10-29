@@ -1,113 +1,210 @@
-import { sendMessageFromSQL, sendMessageFailed, sendMessageQuery } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
-import axios from "axios";
 import fs from "fs";
 import path from "path";
-import { promisify } from "util";
-import { pipeline } from "stream";
+import https from "https";
+import http from "http";
+import FormData from "form-data";
+import { sendMessageFromSQL, sendMessageFailed } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 
-const streamPipeline = promisify(pipeline);
 const VIRUSTOTAL_API_KEY = "8c33bc9a4690c56559bc11ea0ca949b0f492fb739ff6baf6a216e06f1e087474";
-const VIRUSTOTAL_UPLOAD_URL = "https://www.virustotal.com/api/v3/files";
-const VIRUSTOTAL_REPORT_URL = "https://www.virustotal.com/api/v3/analyses/";
+const tempDir = path.join(process.cwd(), "assets/temp");
+
+async function downloadFile(fileUrl, filePath) {
+  return new Promise((resolve, reject) => {
+    const protocol = fileUrl.startsWith("https") ? https : http;
+    
+    protocol.get(fileUrl, (response) => {
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        downloadFile(response.headers.location, filePath)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      const file = fs.createWriteStream(filePath);
+      response.pipe(file);
+
+      file.on("finish", () => {
+        file.close();
+        resolve(filePath);
+      });
+
+      file.on("error", (err) => {
+        fs.unlink(filePath, () => {});
+        reject(err);
+      });
+    }).on("error", reject);
+  });
+}
+
+async function uploadToVirusTotal(filePath) {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    const fileStream = fs.createReadStream(filePath);
+    form.append("file", fileStream);
+
+    const options = {
+      hostname: "www.virustotal.com",
+      port: 443,
+      path: "/api/v3/files",
+      method: "POST",
+      headers: {
+        ...form.getHeaders(),
+        "x-apikey": VIRUSTOTAL_API_KEY,
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      res.on("end", () => {
+        if (res.statusCode === 200) {
+          try {
+            const result = JSON.parse(data);
+            resolve(result);
+          } catch (e) {
+            reject(new Error("Failed to parse VirusTotal response"));
+          }
+        } else {
+          reject(new Error(`VirusTotal API error: ${res.statusCode} - ${data}`));
+        }
+      });
+    });
+
+    req.on("error", reject);
+    form.pipe(req);
+  });
+}
+
+async function getAnalysisResult(analysisId) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "www.virustotal.com",
+      port: 443,
+      path: `/api/v3/analyses/${analysisId}`,
+      method: "GET",
+      headers: {
+        "x-apikey": VIRUSTOTAL_API_KEY,
+      },
+    };
+
+    https.request(options, (res) => {
+      let data = "";
+
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      res.on("end", () => {
+        if (res.statusCode === 200) {
+          try {
+            const result = JSON.parse(data);
+            resolve(result);
+          } catch (e) {
+            reject(new Error("Failed to parse analysis result"));
+          }
+        } else {
+          reject(new Error(`Failed to get analysis: ${res.statusCode}`));
+        }
+      });
+    }).on("error", reject).end();
+  });
+}
+
+function extractDownloadLink(attachment) {
+  try {
+    let attachData = attachment;
+    if (typeof attachData === "string") {
+      attachData = JSON.parse(attachData);
+    }
+
+    if (attachData.href) return attachData.href;
+    if (attachData.url) return attachData.url;
+    if (attachData.params?.href) return attachData.params.href;
+    if (attachData.params?.url) return attachData.params.url;
+    
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
 
 export async function handleVirusScanCommand(api, message) {
+  let tempFilePath = null;
+
   try {
-    const quote = message.data?.quote || message.data?.reply || message.reply;
-    if (!quote?.attach?.href) {
-      await sendMessageQuery(api, message, "Vui lòng quote file cần kiểm tra virus 🤔");
+    const quote = message.data?.quote || message.reply;
+    
+    if (!quote || !quote.attach || quote.attach === "") {
       return;
     }
 
-    const fileUrl = quote.attach.href;
-    const fileName = quote.attach.name || `file_${Date.now()}`;
-    const tempDir = path.join(process.cwd(), "temp");
-    const tempFilePath = path.join(tempDir, fileName);
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
 
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const downloadLink = extractDownloadLink(quote.attach);
+    
+    if (!downloadLink) {
+      return;
+    }
 
-    const downloadResponse = await axios({
-      method: "GET",
-      url: fileUrl,
-      responseType: "stream",
-      timeout: 60000
-    });
-    await streamPipeline(downloadResponse.data, fs.createWriteStream(tempFilePath));
+    const fileName = `file_${Date.now()}`;
+    tempFilePath = path.join(tempDir, fileName);
+    
+    await downloadFile(downloadLink, tempFilePath);
+    const uploadResult = await uploadToVirusTotal(tempFilePath);
+    
+    if (!uploadResult.data?.id) {
+      throw new Error("VirusTotal did not return an analysis ID");
+    }
 
-    await sendMessageFromSQL(api, message, { message: "🔍 Đang phân tích file... Vui lòng đợi", success: true }, true, 5000);
+    const analysisId = uploadResult.data.id;
 
-    const formData = new FormData();
-    const fileBuffer = await fs.promises.readFile(tempFilePath);
-    formData.append("file", new Blob([fileBuffer]), fileName);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    const uploadResponse = await axios.post(VIRUSTOTAL_UPLOAD_URL, formData, {
-      headers: { "x-apikey": VIRUSTOTAL_API_KEY },
-      maxBodyLength: Infinity,
-      timeout: 120000
-    });
+    const analysisResult = await getAnalysisResult(analysisId);
+    
+    const attributes = analysisResult.data?.attributes || {};
+    const stats = attributes.stats || {};
+    const status = attributes.status || "unknown";
 
-    const analysisId = uploadResponse.data.data.id;
-    await new Promise(resolve => setTimeout(resolve, 30000));
-
-    const reportResponse = await axios.get(VIRUSTOTAL_REPORT_URL + analysisId, {
-      headers: { "x-apikey": VIRUSTOTAL_API_KEY },
-      timeout: 30000
-    });
-
-    const stats = reportResponse.data.data.attributes.stats;
-    const results = reportResponse.data.data.attributes.results;
-
-    let resultMessage = `🛡️ KẾT QUẢ QUÉT VIRUS\n`;
-    resultMessage += `═`.repeat(50) + "\n\n";
-    resultMessage += `📄 Tên file: ${fileName}\n`;
-    resultMessage += `🔍 Công cụ quét: VirusTotal\n\n`;
-    resultMessage += `📊 THỐNG KÊ:\n`;
-    resultMessage += `─`.repeat(50) + "\n";
-    resultMessage += `✅ An toàn: ${stats.harmless || 0}\n`;
-    resultMessage += `🔴 Phát hiện virus: ${stats.malicious || 0}\n`;
-    resultMessage += `⚠️ Nghi ngờ: ${stats.suspicious || 0}\n`;
-    resultMessage += `❓ Không xác định: ${stats.undetected || 0}\n`;
-    resultMessage += `⏱️ Timeout: ${stats.timeout || 0}\n\n`;
+    let resultMessage = `[ 🔍 Kết Quả Quét VirusTotal ]\n\n`;
+    resultMessage += `📊 Trạng thái: ${status}\n`;
+    resultMessage += `✅ Sạch: ${stats.harmless || 0}\n`;
+    resultMessage += `⚠️  Không chắc chắn: ${stats.undetected || 0}\n`;
+    resultMessage += `❓ Đáng ngờ: ${stats.suspicious || 0}\n`;
+    resultMessage += `🚫 Malware: ${stats.malicious || 0}\n\n`;
 
     if (stats.malicious > 0) {
-      resultMessage += `⚠️ CẢNH BÁO: File có thể chứa mã độc!\n\n🦠 DANH SÁCH PHÁT HIỆN:\n`;
-      resultMessage += `─`.repeat(50) + "\n";
-      let count = 0;
-      for (const [engine, result] of Object.entries(results)) {
-        if (result.category === "malicious" && count < 10) {
-          resultMessage += `🔸 ${engine}: ${result.result}\n`;
-          count++;
-        }
-      }
-      if (stats.malicious > 10) resultMessage += `\n... và ${stats.malicious - 10} phát hiện khác\n`;
+      resultMessage += `🚫 🚫 🚫 CẢNH BÁO: PHÁT HIỆN MALWARE! 🚫 🚫 🚫\n`;
     } else if (stats.suspicious > 0) {
-      resultMessage += `⚠️ CHÚ Ý: File có dấu hiệu nghi ngờ!\n`;
+      resultMessage += `⚠️ CẢNH BÁO: FILE ĐÁNG NGỜ!\n`;
     } else {
-      resultMessage += `✅ File an toàn! Không phát hiện mã độc.\n`;
+      resultMessage += `✅ File an toàn!\n`;
     }
 
-    resultMessage += `\n═`.repeat(50);
-    resultMessage += `\n🔗 Chi tiết: https://www.virustotal.com/gui/file-analysis/${analysisId}`;
-    fs.unlinkSync(tempFilePath);
+    resultMessage += `\n🔗 Chi tiết: https://www.virustotal.com/gui/file/${uploadResult.data.id}`;
 
-    const chunks = [];
-    for (let i = 0; i < resultMessage.length; i += 4000) {
-      chunks.push(resultMessage.slice(i, i + 4000));
-    }
+    await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
 
-    for (const chunk of chunks) {
-      await sendMessageFromSQL(api, message, { message: chunk, success: true }, true, 1800000);
-    }
   } catch (error) {
-    let errorMessage = "🚫 Đã xảy ra lỗi khi quét virus: ";
-    if (error.response) {
-      if (error.response.status === 401) errorMessage += "API Key không hợp lệ!";
-      else if (error.response.status === 429) errorMessage += "Vượt quá giới hạn API. Vui lòng thử lại sau!";
-      else errorMessage += `Lỗi từ VirusTotal (${error.response.status})`;
-    } else if (error.code === "ECONNABORTED") {
-      errorMessage += "Timeout khi kết nối đến VirusTotal!";
-    } else {
-      errorMessage += error.message || "Lỗi không xác định";
+    console.error("Error in handleVirusScanCommand:", error);
+    await sendMessageFailed(
+      api,
+      message,
+      `🚫 Lỗi quét virus: ${error.message || error}`
+    );
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {
+        console.error("Error cleaning up temp file:", e);
+      }
     }
-    await sendMessageFailed(api, message, errorMessage);
   }
 }
