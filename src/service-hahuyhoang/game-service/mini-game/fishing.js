@@ -6,6 +6,7 @@ import { admins } from "../../../index.js";
 
 const playerDataMap = new Map();
 const lastCommandMap = new Map();
+const activePlayers = new Map();
 
 const FISHING_LOCATIONS = [
   { name: "bến cảng thượng hải", normalized: "bencangthượnghải", emoji: "🏙️", description: "Bến cảng hiện đại", fish: ["Cá Mè", "Cá Chép", "Cá Rô", "Cá Thu", "Cá Ngừ", "Cá Hồng", "Cá Bạc Má", "Cá Chim"] },
@@ -142,6 +143,11 @@ export async function handleFishingCommand(api, message) {
   if (subCommand === "join") {
     const playerData = getPlayerData(threadId, senderId);
 
+    if (!activePlayers.has(threadId)) {
+      activePlayers.set(threadId, new Set());
+    }
+    activePlayers.get(threadId).add(senderId);
+
     await sendMessageFromSQL(api, message,
       { message: `🎉 Chào mừng bạn đến với thế giới câu cá!\n\n` +
       `💰 Tiền: ${playerData.money.toLocaleString()} xu\n` +
@@ -154,6 +160,13 @@ export async function handleFishingCommand(api, message) {
 
   if (subCommand === "leave") {
     await sendMessageFromSQL(api, message, { message: "Bạn đã rời khỏi trò chơi câu cá. Dữ liệu của bạn đã được lưu cho lần sau!", success: true }, true, 3600000);
+    
+    if (activePlayers.has(threadId)) {
+      activePlayers.get(threadId).delete(senderId);
+      if (activePlayers.get(threadId).size === 0) {
+        activePlayers.delete(threadId);
+      }
+    }
     return;
   }
 }
@@ -174,6 +187,10 @@ export async function handleFishingMessage(api, message) {
 
   const validCommands = ["daily", "goto", "cau", "sell", "product", "buy", "shop", "info", "help", "buff", "rank"];
   if (!validCommands.includes(command)) return;
+
+  if (!activePlayers.has(threadId) || !activePlayers.get(threadId).has(senderId)) {
+    return;
+  }
 
   const commandKey = `${threadId}_${senderId}`;
   const now = Date.now();
