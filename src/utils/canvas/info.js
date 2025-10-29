@@ -931,22 +931,6 @@ function drawDefaultAvatar(ctx, x, y, size) {
   ctx.font = "bold 32px BeVietnamPro";
   ctx.textAlign = "center";
   ctx.fillText("?", x + size / 2, y + size / 2 + 12);
-}import { createCanvas, loadImage } from "canvas";
-import cv from "./canvas-util.js";
-import path from "path";
-import fs from "fs";
-
-function drawDefaultAvatar(ctx, x, y, size) {
-  const gradient = ctx.createLinearGradient(x, y, x + size, y + size);
-  gradient.addColorStop(0, "#667eea");
-  gradient.addColorStop(1, "#764ba2");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, size, size);
-  
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `bold ${size / 2}px BeVietnamPro`;
-  ctx.textAlign = "center";
-  ctx.fillText("?", x + size / 2, y + size / 2 + size / 6);
 }
 
 export async function createListImage(listData, outputPath, api, threadId) {
