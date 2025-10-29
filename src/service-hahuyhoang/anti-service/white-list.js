@@ -7,7 +7,7 @@ import {
 } from "../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { createWhiteListImage } from "../../utils/canvas/info.js";
+import { createListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../info-service/user-info.js";
 import path from "path";
 import fs from "fs/promises";
