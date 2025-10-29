@@ -4,6 +4,7 @@ import { getGroupInfoData } from "../service-hahuyhoang/info-service/group-info.
 import * as cv from "../utils/canvas/index.js";
 import { readGroupSettings } from "../utils/io-json.js";
 import { getBotId, isAdmin } from "../index.js";
+import { handleCheckBlackList } from "../service-hahuyhoang/anti-service/black-list.js";
 
 const blockedMembers = new Map();
 const BLOCK_CHECK_TIMEOUT = 300;
@@ -42,6 +43,10 @@ export async function groupEvents(api, event) {
   }
 
   if (updateMembers) {
+    if (type === GroupEventType.JOIN) {
+      await handleCheckBlackList(api, threadId, updateMembers, groupSettings);
+    }
+
     if (updateMembers.length === 1) {
       const user = updateMembers[0];
       const userId = user.id;
