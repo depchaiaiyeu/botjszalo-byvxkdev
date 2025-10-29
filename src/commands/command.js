@@ -259,7 +259,6 @@ export function initGroupSettings(groupSettings, threadId, nameGroup) {
     onlyText: false,
     memberApprove: false,
     antiNude: false,
-    whiteList: {},
     autoLockChat: {},
     antiMedia: false,
     antiSticker: false,
