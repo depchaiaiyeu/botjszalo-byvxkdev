@@ -171,7 +171,7 @@ async function getUpcomingHolidays(currentDate) {
 }
 
 async function getRandomLandscapeImage() {
-  const query = "phong cảnh đẹp";
+  const query = "bầu trời";
   try {
     const searchResponse = await axios.get("https://vi.wikipedia.org/w/api.php", {
       params: {
