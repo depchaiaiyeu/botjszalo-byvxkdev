@@ -180,14 +180,18 @@ export async function handleReactionConfirmJoinGroup(api, reaction) {
 
 export async function handleLeaveGroup(api, message) {
   const threadId = message.threadId;
-  await sendMessageComplete(
+
+  await sendMessageFromSQL(
     api,
     message,
     {
-      caption: `Bai Mấy Em, Ta Đi Đây.`,
+      success: true,
+      message: "Tạm biệt mọi người",
     },
-    5000
+    true,
+    30000
   );
+
   await api.leaveGroup(threadId);
 }
 
