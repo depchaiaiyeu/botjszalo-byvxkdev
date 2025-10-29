@@ -4,7 +4,6 @@ import { getGroupInfoData } from "../service-hahuyhoang/info-service/group-info.
 import * as cv from "../utils/canvas/index.js";
 import { readGroupSettings } from "../utils/io-json.js";
 import { getBotId, isAdmin } from "../index.js";
-import { handleCheckBlackList } from "../service-hahuyhoang/anti-service/black-list.js";
 
 const blockedMembers = new Map();
 const BLOCK_CHECK_TIMEOUT = 300;
@@ -43,13 +42,30 @@ export async function groupEvents(api, event) {
   }
 
   if (updateMembers) {
-    if (type === GroupEventType.JOIN) {
-      await handleCheckBlackList(api, threadId, updateMembers, groupSettings);
-    }
-
     if (updateMembers.length === 1) {
       const user = updateMembers[0];
       const userId = user.id;
+
+      const blackList = threadSettings.blackList || {};
+      if (Object.keys(blackList).length > 0 && blackList[userId]) {
+        if (type === GroupEventType.JOIN || type === GroupEventType.ADD_MEMBER) {
+          try {
+            await api.removeUserFromGroup(threadId, userId);
+            const userName = blackList[userId].name || user.dName || "Người dùng";
+            await api.sendMessage(
+              {
+                msg: `Người dùng ${userName} đã bị kick do nằm trong danh sách đen của nhóm.`,
+              },
+              threadId,
+              MessageType.MessageGroup
+            );
+          } catch (error) {
+            console.error("Không thể kick người dùng trong blacklist:", error);
+          }
+          return;
+        }
+      }
+
       const userInfo = await getUserInfoData(api, userId);
       const userActionInfo = await getUserInfoData(api, idAction);
       const idBot = getBotId();
@@ -111,12 +127,33 @@ export async function groupEvents(api, event) {
         await cv.clearImagePath(imagePath);
       }
     } else if (type === GroupEventType.JOIN && updateMembers.length > 1 && threadSettings.welcomeGroup) {
-      const userActionInfo = await getUserInfoData(api, idAction);
-      const userActionName = userActionInfo.name;
+      const blackList = threadSettings.blackList || {};
+      const hasBlackList = Object.keys(blackList).length > 0;
+
       for (const user of updateMembers) {
         const userId = user.id;
+
+        if (hasBlackList && blackList[userId]) {
+          try {
+            await api.removeUserFromGroup(threadId, userId);
+            const userName = blackList[userId].name || user.dName || "Người dùng";
+            await api.sendMessage(
+              {
+                msg: `Người dùng ${userName} đã bị kick do nằm trong danh sách đen của nhóm.`,
+              },
+              threadId,
+              MessageType.MessageGroup
+            );
+          } catch (error) {
+            console.error("Không thể kick người dùng trong blacklist:", error);
+          }
+          continue;
+        }
+
         const userInfo = await getUserInfoData(api, userId);
         const isAdminUser = isAdmin(userId, threadId);
+        const userActionInfo = await getUserInfoData(api, idAction);
+        const userActionName = userActionInfo.name;
 
         const imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminUser);
         await sendGroupMessage(api, threadId, imagePath, "");
