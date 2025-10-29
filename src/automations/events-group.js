@@ -36,11 +36,6 @@ export async function groupEvents(api, event) {
   const threadSettings = groupSettings[threadId] || {};
   const isEventEnabled = threadSettings.welcomeGroup && threadSettings.byeGroup;
 
-  if ((type === GroupEventType.JOIN && !threadSettings.welcomeGroup) 
-    || (type === GroupEventType.LEAVE && !threadSettings.byeGroup)) {
-    return;
-  }
-
   if (updateMembers) {
     if (updateMembers.length === 1) {
       const user = updateMembers[0];
@@ -120,6 +115,9 @@ export async function groupEvents(api, event) {
         await cv.clearImagePath(imagePath);
       }
     } else if (type === GroupEventType.JOIN && updateMembers.length > 1) {
+      const userActionInfo = await getUserInfoData(api, idAction);
+      const userActionName = userActionInfo.name;
+      
       for (const user of updateMembers) {
         const userId = user.id;
         
@@ -138,8 +136,6 @@ export async function groupEvents(api, event) {
         
         if (threadSettings.welcomeGroup) {
           const userInfo = await getUserInfoData(api, userId);
-          const userActionInfo = await getUserInfoData(api, idAction);
-          const userActionName = userActionInfo.name;
           const isAdminUser = isAdmin(userId, threadId);
 
           const imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminUser);
@@ -176,7 +172,7 @@ export async function groupEvents(api, event) {
       break;
 
     case GroupEventType.UPDATE:
-      imagePath = await cv.createUpdateDescImage(actorInfo, actorName, groupName, groupType);
+      imagePath = await cv.createUpdateDescImage(actorInfo, actorName, groupType);
       break;
 
     case GroupEventType.NEW_LINK:
