@@ -178,7 +178,7 @@ export function isInBlackList(groupSettings, threadId, senderId) {
 
 export async function handleCheckBlackList(api, event, groupSettings) {
   const groupEvent = initializeGroupEvent(event.data, event.type);
-  if (groupEvent.type !== GroupEventType.JOIN) return;
+  if (groupEvent.type !== GroupEventType.JOIN && groupEvent.type !== GroupEventType.ADD_MEMBER) return;
 
   const threadId = groupEvent.threadId;
   const members = event.data?.updateMembers || [];
