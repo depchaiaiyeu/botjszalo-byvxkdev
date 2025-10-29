@@ -1,4 +1,5 @@
-import { ZingMp3 } from "zingmp3-api-full";
+import axios from "axios";
+import crypto from "crypto";
 import path from "path";
 import fs from "fs";
 import { LRUCache } from "lru-cache";
@@ -19,15 +20,210 @@ import { deleteFile } from "../../../utils/util.js";
 import { getBotId } from "../../../index.js";
 
 const PLATFORM = "zingmp3";
-const TIME_TO_SELECT = 60000;
+const URL = "https://zingmp3.vn";
+let API_KEY = "Có Trình Mới Lấy Được API";
+let SECRET_KEY = "Có Trình Mới Lấy Được SECRET_KEY";
+
+let VERSION = "1.11.11";
+let CTIME = String(Math.floor(Date.now() / 1000));
+const p = ["ctime", "id", "type", "page", "count", "version"];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(__dirname, "../config.json");
+
+(async () => {
+  const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  if (config) {
+    SECRET_KEY = config.zingmp3.secretKey;
+    API_KEY = config.zingmp3.apiKey;
+    VERSION = config.zingmp3.version;
+  }
+})();
+
+const TIME_TO_SELECT = 60000;
 
 const musicSelectionsMap = new LRUCache({
   max: 500,
   ttl: TIME_TO_SELECT
 });
+
+function getHash256(str) {
+  return crypto.createHash("sha256").update(str).digest("hex");
+}
+
+function getHmac512(str, key) {
+  return crypto
+    .createHmac("sha512", key)
+    .update(Buffer.from(str, "utf8"))
+    .digest("hex");
+}
+
+function sortParams(params) {
+  const sorted = {};
+  Object.keys(params)
+    .sort()
+    .forEach((key) => {
+      sorted[key] = params[key];
+    });
+  return sorted;
+}
+
+function encodeParamsToString(params, separator = "") {
+  const encode = encodeURIComponent;
+  return Object.keys(params)
+    .map((key) => {
+      const value = encode(params[key]);
+      return value.length > 5000 ? "" : `${encode(key)}=${value}`;
+    })
+    .filter((param) => param !== "")
+    .join(separator);
+}
+
+function getStringParams(params) {
+  const sortedParams = sortParams(params);
+  const filteredParams = {};
+
+  for (const key in sortedParams) {
+    if (
+      p.includes(key) &&
+      params[key] !== null &&
+      params[key] !== undefined &&
+      params[key] !== ""
+    ) {
+      filteredParams[key] = sortedParams[key];
+    }
+  }
+
+  return encodeParamsToString(filteredParams, "");
+}
+
+function getSig(path, params) {
+  const stringParams = getStringParams(params);
+  return getHmac512(path + getHash256(stringParams), SECRET_KEY);
+}
+
+async function getCookie() {
+  try {
+    const res = await axios.get(URL);
+    if (res.headers["set-cookie"]) {
+      return res.headers["set-cookie"][1];
+    }
+    return null;
+  } catch (error) {
+    console.error("Lỗi khi lấy cookie:", error);
+    throw error;
+  }
+}
+//async function requestZingMp3(path, params = {}) {
+ // try {
+//  let cookie = await getCookie();
+ // if (path == "/api/v2/song/get/streaming") {
+ //     cookie = "za_oauth_v4=7414f6a38828155949bfd1624a18ea18ccea437e0ca75e6159daee089bd024fb;" + cookie;
+ // }
+//    const response = await axios.get(`${URL}${path}`, {
+ //     headers: {
+ //       Cookie: cookie,
+ //     },
+ //     params,
+ //   });
+//    return response.data;
+//  } catch (error) {
+ //   console.error("Lỗi request Zing MP3:", error);
+ //   throw error;
+ // }
+//}
+async function requestZingMp3(path, params = {}) {
+  try {
+    const cookie = await getCookie();
+    const response = await axios.get(`${URL}${path}`, {
+      headers: {
+        Cookie: cookie,
+      },
+      params,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi request Zing MP3:", error);
+    throw error;
+  }
+}
+
+export async function chartHomeZingMp3() {
+  CTIME = String(Math.floor(Date.now() / 1000));
+  const pathChart = "/api/v2/page/get/chart-home";
+  const params = {
+    ctime: CTIME,
+    version: VERSION,
+    apiKey: API_KEY,
+  };
+  return requestZingMp3(pathChart, {
+    ...params,
+    sig: getSig(pathChart, params),
+  });
+}
+
+export async function searchMusicZingMp3(keyword, numberMusic) {
+  CTIME = String(Math.floor(Date.now() / 1000));
+  const pathSearch = "/api/v2/search";
+  const params = {
+    q: keyword,
+    type: "song",
+    count: numberMusic || 10,
+    allowCorrect: 1,
+    ctime: CTIME,
+    version: VERSION,
+    apiKey: API_KEY,
+  };
+  return requestZingMp3(pathSearch, {
+    ...params,
+    sig: getSig(pathSearch, params),
+  });
+}
+
+export async function getSong(songId) {
+  CTIME = String(Math.floor(Date.now() / 1000));
+  const pathSong = "/api/v2/page/get/song";
+  const params = {
+    id: songId,
+    ctime: CTIME,
+    version: VERSION,
+    apiKey: API_KEY,
+  };
+  return requestZingMp3(pathSong, {
+    ...params,
+    sig: getSig(pathSong, params),
+  });
+}
+
+export async function getStreamingSong(songId) {
+  CTIME = String(Math.floor(Date.now() / 1000));
+  const pathStreaming = "/api/v2/song/get/streaming";
+  const params = {
+    id: songId,
+    ctime: CTIME,
+    version: VERSION,
+    apiKey: API_KEY,
+  };
+  return requestZingMp3(pathStreaming, {
+    ...params,
+    sig: getSig(pathStreaming, params),
+  });
+}
+export async function getLyric(songId) {
+  CTIME = String(Math.floor(Date.now() / 1000));
+  const pathLyric = "/api/v2/lyric/get/lyric";
+  const params = {
+    id: songId,
+    BGId: 0,
+    ctime: CTIME,
+    version: VERSION,
+    apiKey: API_KEY,
+  };
+  return requestZingMp3(pathLyric, {
+    ...params,
+    sig: getSig(pathLyric, params),
+  });
+}
 
 function extractZingMp3Url(keyword) {
   const urlPattern = /https?:\/\/zingmp3\.vn\/[^\s]+/;
@@ -37,34 +233,45 @@ function extractZingMp3Url(keyword) {
 
 async function processSongData(songId, songData) {
   const [songInfo, streamingInfo] = await Promise.all([
-    songData ? songData : ZingMp3.getFullInfo(songId),
-    ZingMp3.getSong(songId)
+    songData ? songData : getSong(songId),
+    getStreamingSong(songId)
   ]);
 
-  if (!songInfo) {
-    throw new Error("Không thể lấy thông tin bài hát");
+  if (songInfo.err === -1023) {
+    throw new Error(songInfo.msg);
   }
 
-  if (!streamingInfo?.data || !streamingInfo.data[320] && !streamingInfo.data[128]) {
-    throw new Error("Không thể lấy stream của bài hát");
+  if (!streamingInfo.data) {
+    throw new Error(streamingInfo.msg);
   }
 
   let linkMusic = streamingInfo.data["320"];
   let quality = "320kbps";
-  if (!linkMusic) {
+  if (!linkMusic || !linkMusic.toUpperCase().includes("vip")) {
     linkMusic = streamingInfo.data["128"];
     quality = "128kbps";
   }
 
   return {
-    songData: songInfo,
+    songData: songInfo.data,
     linkMusic,
     quality
   };
 }
 
-async function getChartRankInfo(encodeId, chartData) {
+async function getChartRankInfo(encodeId) {
   try {
+    const resultChart = await chartHomeZingMp3();
+    let chartData = new Map();
+
+    if (resultChart?.data?.RTChart?.items) {
+      resultChart.data.RTChart.items.forEach((item, index) => {
+        chartData.set(item.encodeId, {
+          rank: index + 1,
+          score: item.score
+        });
+      });
+    }
     return chartData.get(encodeId);
   } catch (error) {
     console.error("Lỗi lấy thông tin chart:", error);
@@ -142,6 +349,14 @@ export async function handleZingMp3Command(api, message, aliasCommand) {
       const encodeId = url.split("/").pop().split(".")[0];
       try {
         const { songData, linkMusic, quality } = await processSongData(encodeId);
+
+        const chartInfo = await getChartRankInfo(encodeId);
+
+        if (chartInfo) {
+          songData.rank = chartInfo.rank;
+          songData.score = chartInfo.score;
+        }
+
         await prepareAndSendMusic(api, message, songData, linkMusic, quality);
       } catch (error) {
         const object = {
@@ -153,8 +368,8 @@ export async function handleZingMp3Command(api, message, aliasCommand) {
       return;
     }
 
-    const result = await ZingMp3.search(keyword, "song", numberMusic || 10);
-    if (!result || !result.length) {
+    const result = await searchMusicZingMp3(keyword, numberMusic);
+    if (!result.data || !result.data.items || result.data.items.length === 0) {
       const object = {
         caption: `Không tìm thấy bài hát nào với từ khóa: ${keyword}`,
       };
@@ -162,13 +377,13 @@ export async function handleZingMp3Command(api, message, aliasCommand) {
       return;
     }
 
-    const songs = result.slice(0, numberMusic || 10);
-    const chartData = await ZingMp3.getChartHome();
-    let chartMap = new Map();
+    const songs = result.data.items;
+    const resultChart = await chartHomeZingMp3();
+    let chartData = new Map();
 
-    if (chartData?.items) {
-      chartData.items.forEach((item, index) => {
-        chartMap.set(item.encodeId, {
+    if (resultChart?.data?.RTChart?.items) {
+      resultChart.data.RTChart.items.forEach((item, index) => {
+        chartData.set(item.encodeId, {
           rank: index + 1,
           score: item.score
         });
@@ -177,11 +392,11 @@ export async function handleZingMp3Command(api, message, aliasCommand) {
 
     const songsWithInfo = await Promise.all(
       songs.map(async (song) => {
-        const songInfo = await ZingMp3.getFullInfo(song.encodeId);
-        const chartInfo = chartMap.get(song.encodeId);
+        const songInfo = await getSong(song.encodeId);
+        const chartInfo = chartData.get(song.encodeId);
         return {
           ...song,
-          ...songInfo,
+          ...songInfo.data,
           rank: chartInfo?.rank
         };
       })
@@ -199,7 +414,7 @@ export async function handleZingMp3Command(api, message, aliasCommand) {
       like: song.like,
       rankChart: song.rank,
       comment: song.comment,
-      isPremium: false
+      isPremium: song.streamingStatus == 2
     }));
 
     imagePath = await createSearchResultImage(formattedSongs);
@@ -255,17 +470,17 @@ export async function handleTopChartZingMp3(api, message, aliasCommand) {
   let imagePath = null;
 
   try {
-    const result = await ZingMp3.getChartHome();
-    if (!result || !result.items) {
+    const result = await chartHomeZingMp3();
+    if (!result.data || !result.data.RTChart || !result.data.RTChart.items) {
       throw new Error("Không thể lấy được danh sách bài hát từ ZingMP3");
     }
 
-    const top20Songs = result.items.slice(0, numberMusic);
+    const top20Songs = result.data.RTChart.items.slice(0, numberMusic);
     const songsWithRank = await Promise.all(top20Songs.map(async (song, index) => {
-      const songInfo = await ZingMp3.getFullInfo(song.encodeId);
+      const songInfo = await getSong(song.encodeId);
       return {
         ...song,
-        ...songInfo,
+        ...songInfo.data,
         rankChart: index + 1,
         score: song.score
       };
@@ -370,6 +585,7 @@ export async function handleZingMp3Reply(api, message) {
       },
     };
     await api.deleteMessage(msgDel, false);
+    // await api.undoMessage(message);
     musicSelectionsMap.delete(quotedMsgId);
     deleteSelectionsMapData(senderId);
 
@@ -395,30 +611,34 @@ export async function handleSendTrackZingMp3(api, message, track, subCommand) {
   const { linkMusic, quality } = await processSongData(track.encodeId, track);
   await prepareAndSendMusic(api, message, track, linkMusic, quality);
 
-  if (subCommand === "lyric") {
-    const lyric = await ZingMp3.getLyric(track.encodeId);
-    if (lyric?.sentences && lyric.sentences.length > 0) {
-      let formattedLyric = "Lời bài hát:\n\n";
-      lyric.sentences.forEach((sentence) => {
-        const line = sentence.words.map((word) => word.data).join(" ");
-        if (line.trim()) {
-          formattedLyric += line + "\n";
+  const lyric = subCommand === "lyric" ? await getLyric(track.encodeId) : null;
+  if (subCommand) {
+    switch (subCommand) {
+      case "lyric":
+        if (lyric.data && lyric.data.sentences) {
+          let formattedLyric = "Lời bài hát:\n\n";
+          lyric.data.sentences.forEach((sentence) => {
+            const line = sentence.words.map((word) => word.data).join(" ");
+            if (line.trim()) {
+              formattedLyric += line + "\n";
+            }
+          });
+          await api.sendMessage(
+            { msg: formattedLyric, ttl: 1800000 },
+            message.threadId,
+            message.type
+          );
+        } else {
+          await api.sendMessage(
+            {
+              msg: "Không tìm thấy lời cho bài hát này.",
+              ttl: 30000,
+            },
+            message.threadId,
+            message.type
+          );
         }
-      });
-      await api.sendMessage(
-        { msg: formattedLyric, ttl: 1800000 },
-        message.threadId,
-        message.type
-      );
-    } else {
-      await api.sendMessage(
-        {
-          msg: "Không tìm thấy lời cho bài hát này.",
-          ttl: 30000,
-        },
-        message.threadId,
-        message.type
-      );
+        break;
     }
   }
   return true;
@@ -431,12 +651,12 @@ export async function handleRandomChartZingMp3(
   timeToLive = 1800000
 ) {
   try {
-    const result = await ZingMp3.getChartHome();
-    const songsWithRank = await Promise.all(result.items.map(async (song, index) => {
-      const songInfo = await ZingMp3.getFullInfo(song.encodeId);
+    const result = await chartHomeZingMp3();
+    const songsWithRank = await Promise.all(result.data.RTChart.items.map(async (song, index) => {
+      const songInfo = await getSong(song.encodeId);
       return {
         ...song,
-        ...songInfo,
+        ...songInfo.data,
         rankChart: index + 1,
         score: song.score
       };
@@ -444,12 +664,15 @@ export async function handleRandomChartZingMp3(
     const randomIndex = Math.floor(Math.random() * 20);
     const randomSong = songsWithRank[randomIndex];
     let captionFinal = caption || `[ Zing MP3 Chart ]\nChào buổi sáng!\n\n`;
-    const streamingInfo = await ZingMp3.getSong(randomSong.encodeId);
-    if (!streamingInfo?.data || !streamingInfo.data[320] && !streamingInfo.data[128]) {
-      throw new Error("Không thể lấy stream của bài hát");
+    const streamingInfo = await getStreamingSong(randomSong.encodeId);
+    if (!streamingInfo.data) {
+      throw new Error(streamingInfo.msg);
     }
 
-    let linkMusic = streamingInfo.data["320"] || streamingInfo.data["128"];
+    let linkMusic = streamingInfo.data["320"];
+    if (!linkMusic || !linkMusic.toUpperCase().includes("vip")) {
+      linkMusic = streamingInfo.data["128"];
+    }
     const thumbnailUrl = randomSong.thumbnailM.replace(/w\d+_/i, 'w1200_');
     const voiceUrl = await downloadAndConvertAudio(linkMusic, api, message);
 
