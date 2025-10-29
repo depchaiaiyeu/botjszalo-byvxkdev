@@ -42,7 +42,7 @@ export async function handleWhiteList(api, message, groupSettings, groupAdmins) 
 
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `whitelist_${threadId}.png`);
     
-    await createWhiteListImage(whiteListData, imagePath);
+    await createListImage(whiteListData, imagePath);
 
     await api.sendMessage(
       {
