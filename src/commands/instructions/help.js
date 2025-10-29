@@ -209,9 +209,14 @@ export async function adminCommand(api, message) {
         description: "Chặn gửi liên kết",
         icon: "🔗",
       },
-      antistag: {
+      whitelist: {
         command: `${prefix}whitelist add/remove [@người dùng]`,
         description: "Thêm người dùng vào whitelist",
+        icon: "👤",
+      }, 
+      blacklist: {
+        command: `${prefix}blacklist add/remove [@người dùng]`,
+        description: "Thêm người dùng vào blacklist",
         icon: "👤",
       },  
       antisetup: {
