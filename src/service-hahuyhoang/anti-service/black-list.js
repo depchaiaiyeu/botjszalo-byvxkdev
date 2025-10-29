@@ -9,7 +9,6 @@ import { getGlobalPrefix } from "../service.js";
 import { removeMention } from "../../utils/format-util.js";
 import { createBlackListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../info-service/user-info.js";
-import { initializeGroupEvent, GroupEventType } from "../../api-zalo/models/GroupEvent.js";
 import path from "path";
 import fs from "fs/promises";
 
@@ -176,12 +175,7 @@ export function isInBlackList(groupSettings, threadId, senderId) {
   return blackList[senderId];
 }
 
-export async function handleCheckBlackList(api, event, groupSettings) {
-  const groupEvent = initializeGroupEvent(event.data, event.type);
-  if (groupEvent.type !== GroupEventType.JOIN && groupEvent.type !== GroupEventType.ADD_MEMBER) return;
-
-  const threadId = groupEvent.threadId;
-  const members = event.data?.updateMembers || [];
+export async function handleCheckBlackList(api, threadId, members, groupSettings) {
   const blackList = groupSettings[threadId]?.blackList || {};
 
   for (const member of members) {
@@ -193,6 +187,7 @@ export async function handleCheckBlackList(api, event, groupSettings) {
         await api.removeUserFromGroup(threadId, uid);
         
         const userName = blackList[uid].name || name;
+        
         await api.sendMessage(
           {
             msg: `Người dùng ${userName} đã bị kick do nằm trong danh sách đen của nhóm.`,
