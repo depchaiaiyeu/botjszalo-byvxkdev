@@ -166,6 +166,8 @@ import { handleGoldPriceCommand } from "../service-hahuyhoang/tien-ich/gold-pric
 
 import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
 import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-virus.js";
+import { handleJoinLeaveGroup } from "../service-hahuyhoang/tien-ich/spam-join.js";
+
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -1378,6 +1380,9 @@ export async function handleCommand(
                 break;
               case "checkvirus":
                 await handleVirusScanCommand (api, message);
+                break;
+              case "spamjoin":
+                await handleJoinLeaveGroup (api, message);
                 break;
             }
           } else {
