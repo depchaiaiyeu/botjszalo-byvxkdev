@@ -2144,17 +2144,17 @@
       ]
     },
     {
-      "name": "danhsachden",
+      "name": "blacklist",
       "description": "Thêm/xóa/xem người dùng trong danh sách đen",
       "syntax": "{p}danhsachden",
       "permission": "adminLevelHigh",
       "countdown": 60,
-      "icon": "✅",
+      "icon": "🎯",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
       "alias": [
-        "dsd"
+        "bll"
       ]
     },
     {
@@ -2329,17 +2329,6 @@
       "countdown": 30,
       "icon": "📆",
       "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true
-    },
-    {
-      "name": "tutien",
-      "description": "Chơi trò chơi phàm nhân tu tiên",
-      "syntax": "{p}tutien",
-      "permission": "all",
-      "countdown": 10,
-      "icon": "🎮",
-      "type": 5,
       "author": "Vũ Xuân Kiên",
       "active": true
     }
