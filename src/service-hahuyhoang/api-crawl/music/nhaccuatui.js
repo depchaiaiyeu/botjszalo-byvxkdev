@@ -24,7 +24,7 @@ const TIME_TO_SELECT = 60000;
 const searchMusic = async (keyword) => {
   try {
     const encodedKeyword = encodeURIComponent(keyword);
-    const url = `https://www.nhaccuatui.com/tim-kiem/bai-hat?q=${encodedKeyword}&b=keyword&l=tat-ca&s=default`;
+    const url = `https://www.nhaccuatui.com/tim-kiem?q=${encodedKeyword}`;
 
     const response = await axios.get(url, {
       headers: {
@@ -41,31 +41,38 @@ const searchMusic = async (keyword) => {
       },
     };
 
-    $(".sn_search_returns_list_song .sn_search_single_song").each((i, el) => {
+    $(".sn_search_single_song").each((i, el) => {
       const songElement = $(el);
-      const songLink = songElement.find("a").first();
-      const title = songLink.attr("title")?.trim() || "";
-      const key = songLink.attr("key") || "";
-      const songLinkHref = songLink.attr("href") || "";
-      const artist = songElement.find(".name_singer").text().trim();
-      const isOfficial = songElement.find(".icon_tag_official").length > 0;
-      const isHD = songElement.find(".icon_tag_hd").length > 0;
-      let thumbnail =
-        songLink.find(".thumb").attr("data-src") ||
-        songLink.find(".thumb").attr("src") ||
-        "";
-      if (thumbnail) thumbnail = thumbnail.replace(".jpg", "_600.jpg");
+      const info = songElement.find(".box_info .title_song a");
+      const coverImg = songElement.find("a img");
+      const artistElement = songElement.find(".box_info .singer_song");
+      
+      if (info.length > 0) {
+        const title = info.attr("title")?.trim() || "";
+        const songLinkHref = info.attr("href") || "";
+        const key = info.attr("key") || songLinkHref.split('/').pop().split('.')[0] || "";
+        let thumbnail = coverImg.attr("src") || "";
+        
+        const artists = [];
+        artistElement.find("a").each((j, artistEl) => {
+          const artistName = $(artistEl).text().trim();
+          if (artistName) artists.push(artistName);
+        });
 
-      results.data.items.push({
-        id: key,
-        songLink: songLinkHref,
-        title,
-        artistsNames: artist,
-        thumbnail,
-        streamingStatus: isOfficial ? 1 : 2,
-        isOfficial,
-        isHD,
-      });
+        const isOfficial = songElement.find(".icon_tag_official").length > 0;
+        const isHD = songElement.find(".icon_tag_hd").length > 0;
+
+        results.data.items.push({
+          id: key,
+          songLink: songLinkHref,
+          title,
+          artistsNames: artists.join(", "),
+          thumbnail,
+          streamingStatus: isOfficial ? 1 : 2,
+          isOfficial,
+          isHD,
+        });
+      }
     });
 
     return results;
@@ -271,17 +278,6 @@ export async function handleNhacCuaTuiCommand(api, message, aliasCommand) {
     let musicListTxt = "Đây là danh sách bài hát trên NhacCuaTui mà tôi tìm thấy:\n";
     musicListTxt +=
       "Hãy trả lời tin nhắn này với số index của bài hát bạn muốn nghe!\n\n";
-    // musicListTxt += songs
-    //   .map((song, index) => {
-    //     const tag = [song.isOfficial && "Official", song.isHD && "HD"]
-    //       .filter(Boolean)
-    //       .join(" | ");
-
-    //     const displayTag = tag ? ` [${tag}]` : "";
-    //     return `${index + 1}. ${song.title} - ${song.artistsNames
-    //       } ${displayTag}`;
-    //   })
-    //   .join("\n\n");
 
     const songsCustom = songs.map(song => ({
       title: song.title,
@@ -376,7 +372,6 @@ export async function handleNhacCuaTuiReply(api, message) {
       },
     };
     await api.deleteMessage(msgDel, false);
-    // await api.undoMessage(message);
     musicSelectionsMap.delete(quotedMsgId);
 
     return await handleSendTrackNhacCuaTui(api, message, track);
