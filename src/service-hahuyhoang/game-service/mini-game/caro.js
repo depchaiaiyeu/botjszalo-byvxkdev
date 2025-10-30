@@ -111,7 +111,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
       ctx.font = "10px 'BeVietnamPro'";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "#999999";
+      ctx.fillStyle = "#000000";
       ctx.fillText((i + 1).toString(), x, y);
     } else {
       ctx.font = "bold 26px 'BeVietnamPro'";
