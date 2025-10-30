@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -15,57 +15,63 @@ const genAI = new GoogleGenerativeAI("AIzaSyANli4dZGQGSF2UEjG9V-X0u8z56Zm8Qmc");
 const activeCaroGames = new Map();
 const turnTimers = new Map();
 
-const SYSTEM_INSTRUCTION = `You are an expert Gomoku/Caro AI player.
+const SYSTEM_INSTRUCTION = `Bạn là một trí tuệ nhân tạo chơi Gomoku/Caro siêu mạnh.
 
-GAME RULES:
-- 16x16 board with positions numbered 1-256
-- Win condition: 5 consecutive pieces (horizontal, vertical, or diagonal)
-- You must output ONLY a single number (1-256) representing your move
-- The number must correspond to an EMPTY position marked with "."
+LUẬT CHƠI:
+- Bàn cờ 16x16 với 256 vị trí được đánh số từ 1-256
+- Thắng khi có 5 quân liên tiếp (ngang, dọc, chéo)
+- CHỈ OUTPUT MỘT SỐ DUY NHẤT từ 1-256
+- Số đó PHẢI là vị trí TRỐNG (không có X hoặc O)
 
-BOARD FORMAT:
-You will receive the board in this format:
-Position 1: X | Position 2: . | Position 3: O | ... | Position 16: .
-Position 17: . | Position 18: X | ... | Position 32: .
-...
+ĐỌC BẢNG CỜ:
+Bàn cờ được hiển thị dưới dạng 16 dòng, mỗi dòng 16 ô.
+- Nếu ô có X hoặc O, hiển thị ký tự đó
+- Nếu ô trống, hiển thị số từ 1-256
+- Các số được sắp xếp từ trái sang phải, từ trên xuống dưới
 
-Where:
-- "X" represents one player's pieces
-- "O" represents the other player's pieces  
-- "." represents empty positions
-- Each position is clearly numbered 1-256
+VÍ DỤ:
+  1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16
+ 17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32
+ 33   34   35   36   37   38   39   40   41   42   43   44   45   46   47   48
+ 49   50   51   52   53   54   55   56   57   58   59   60   61   62   63   64
+ 65   66   67   68   69   70   71   72   73   74   75   76   77   78   79   80
+ 81   82   83   84   85   86   87   88   89   90   91   92   93   94   95   96
+ 97   98   99  100  101  102  103  104  105  106  107  108  109  110  111  112
+113  114  115  116  117  118  119  120  121  122  123  124  125  126  127  128
+129  130  131  132  133  134  135  136  137  138  139  140  141  142  143  144
+145  146  147  148  149  150  151  152  153  154  155  156  157  158  159  160
+161  162  163  164  165  166  167  168  169  170  171  172  173  174  175  176
+177  178  179  180  181  182  183  184  185  186  187  188  189  190  191  192
+193  194  195  196  197  198  199  200  201  202  203  204  205  206  207  208
+209  210  211  212  213  214  215  216  217  218  219  220  221  222  223  224
+225  226  227  228  229  230  231  232  233  234  235  236  237  238  239  240
+241  242  243  244  245  246  247  248  249  250  251  252  253  254  255  256
 
-STRATEGY PRIORITIES (in order):
-1. WIN IMMEDIATELY: If you can make 5 in a row, choose that position
-2. BLOCK OPPONENT WIN: If opponent can make 5 in a row next turn, block it
-3. CREATE DOUBLE THREAT: Create two potential winning lines simultaneously
-4. MAKE OPEN FOUR: Create 4 in a row with both ends open (e.g., . X X X X .)
-5. BLOCK OPEN FOUR: Prevent opponent's open four
-6. MAKE OPEN THREE: Create 3 in a row with both ends open (e.g., . X X X .)
-7. BLOCK OPEN THREE: Prevent opponent's open three
-8. EXTEND YOUR CHAINS: Extend existing 2-3 piece sequences
-9. CONTROL CENTER: Prioritize central positions (113-144)
-10. STAY CONNECTED: Place pieces near existing ones (within 2 squares)
+Khi người chơi đánh vị trí nào, số đó sẽ được thay bằng X hoặc O tương ứng.
 
-ANALYSIS METHOD:
-For each empty position, evaluate:
-- Can this move create 5 in a row? → HIGHEST PRIORITY
-- Can this move block opponent's 5? → SECOND HIGHEST
-- How many directions does this strengthen?
-- Does this create multiple threats?
-- Is this near the center and existing pieces?
+CHIẾN LƯỢC ƯU TIÊN:
+1. THẮNG NGAY: Nếu có thể tạo 5 liên tiếp, đánh vị trí đó
+2. CHẶN THẮNG: Nếu đối thủ có thể thắng ở lượt sau, chặn ngay
+3. TẠO HAI MỐI ĐE DỌA: Tạo 2 đường thắng tiềm năng
+4. TẠO 4 MỞ: Tạo 4 liên tiếp với cả 2 đầu trống
+5. CHẶN 4 MỞ: Chặn 4 mở của đối thủ
+6. TẠO 3 MỞ: Tạo 3 liên tiếp với cả 2 đầu trống
+7. CHẶN 3 MỞ: Chặn 3 mở của đối thủ
+8. MỞ RỘNG CHUỖI: Kéo dài chuỗi 2-3 quân
+9. KIỂM SOÁT TÂM: Ưu tiên vị trí 113-144
+10. GẦN NHAU: Đặt gần quân đã có
+
+PHÂN TÍCH CHI TIẾT MỖI VỊ TRỊ TRỐNG VÀ ĐƯA RA QUYẾT ĐỊNH TỐT NHẤT.
 
 OUTPUT RULES:
-- Output ONLY a number from 1 to 256
-- NO explanations, NO text, NO reasoning
-- The number must be a valid empty position
-- Example valid outputs: "137" or "89" or "201"
-- Invalid outputs: "Let me think..." or "Position 137" or "137 because..."`;
+- CHỈ OUTPUT MỘT SỐ
+- KHÔNG có text, KHÔNG có giải thích
+- Ví dụ: "121" hoặc "89"`;
 
 const DIFFICULTY_PROMPTS = {
-  easy: "Play at EASY level: Focus on basic defense, block obvious winning moves, prefer center positions.",
-  hard: "Play at HARD level: Balance offense and defense, create 3-4 piece chains, control key positions, think 3-4 moves ahead.",
-  super: "Play at SUPER level: AGGRESSIVE STRATEGY - prioritize creating double threats and forcing sequences, think 5-7 moves ahead, create multiple simultaneous attacks."
+  easy: "Chơi ở mức EASY: Tập trung phòng thủ cơ bản, chặn thắng rõ ràng, ưu tiên tâm bàn.",
+  hard: "Chơi ở mức HARD: Cân bằng tấn công phòng thủ, tạo chuỗi 3-4, kiểm soát vị trí chính, suy nghĩ 3-4 nước trước.",
+  super: "Chơi ở mức SUPER: TẤN CÔNG - Tạo 2 mối đe dọa, buộc đối thủ, suy nghĩ 5-7 nước, tấn công đa chiều."
 };
 
 function clearTurnTimer(threadId) {
@@ -120,6 +126,24 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
   }, 60000);
   
   turnTimers.set(threadId, timer);
+}
+
+function createBoardString(board, size = 16) {
+  let result = "";
+  for (let row = 0; row < size; row++) {
+    const rowContent = [];
+    for (let col = 0; col < size; col++) {
+      const idx = row * size + col;
+      const cell = board[idx];
+      if (cell === ".") {
+        rowContent.push((idx + 1).toString().padStart(3, " "));
+      } else {
+        rowContent.push(cell.padStart(3, " "));
+      }
+    }
+    result += rowContent.join(" ") + "\n";
+  }
+  return result;
 }
 
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", mode = "super", playerName = "Player") {
@@ -180,23 +204,6 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     ctx.stroke();
   }
   
-  ctx.fillStyle = "#000000";
-  ctx.font = "9px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      const num = row * size + col + 1;
-      const x = padding + col * cellSize + cellSize / 2;
-      const y = boardTop + padding + row * cellSize + cellSize / 2;
-      
-      if (board[row * size + col] === ".") {
-        ctx.fillText(num.toString(), x, y);
-      }
-    }
-  }
-  
   for (let i = 0; i < board.length; i++) {
     if (board[i] !== ".") {
       const row = Math.floor(i / size);
@@ -230,22 +237,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
 
 async function getAIMove(board, playerMark, mode) {
   const botMark = playerMark === "X" ? "O" : "X";
-  
-  const boardParts = [];
-  for (let i = 0; i < 256; i++) {
-    boardParts.push(`Position ${i + 1}: ${board[i]}`);
-  }
-  
-  const boardStr = boardParts.join(" | ");
-  
-  const chunkSize = 16;
-  const visualBoard = [];
-  for (let i = 0; i < 16; i++) {
-    const rowStart = i * 16;
-    const rowEnd = rowStart + 16;
-    const rowData = boardParts.slice(rowStart, rowEnd).join(" | ");
-    visualBoard.push(`Row ${i + 1}: ${rowData}`);
-  }
+  const boardStr = createBoardString(board);
   
   const emptyPositions = [];
   for (let i = 0; i < 256; i++) {
@@ -254,34 +246,26 @@ async function getAIMove(board, playerMark, mode) {
     }
   }
   
-  const prompt = `CURRENT BOARD STATE:
-${visualBoard.join("\n")}
+  const prompt = `BẢNG CỜ HIỆN TẠI:
+${boardStr}
+THÔNG TIN TRẬN:
+- Quân của Bot (Bạn): ${botMark}
+- Quân của đối thủ: ${playerMark}
+- Tổng vị trí trống: ${emptyPositions.length}
 
-GAME INFORMATION:
-- YOUR pieces (Bot): ${botMark}
-- OPPONENT pieces: ${playerMark}
-- Empty positions available: ${emptyPositions.slice(0, 30).join(", ")}${emptyPositions.length > 30 ? "..." : ""}
+${DIFFICULTY_PROMPTS[mode]}
 
-DIFFICULTY: ${DIFFICULTY_PROMPTS[mode]}
-
-CRITICAL REMINDERS:
-1. Analyze the board for immediate winning moves (5 in a row)
-2. Check if opponent can win next turn and BLOCK it
-3. Look for positions that create multiple threats
-4. Consider positions that extend your existing chains
-5. Output ONLY a number (1-256), nothing else
-
-YOUR MOVE (single number only):`;
+PHÂN TÍCH KỸ LƯỡNG VÀ ĐƯA RA QUYẾT ĐỊNH TỐT NHẤT. CHỈ OUTPUT MỘT SỐ.`;
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
       generationConfig: {
-        temperature: mode === "easy" ? 0.3 : mode === "hard" ? 0.15 : 0.05,
+        temperature: mode === "easy" ? 0.4 : mode === "hard" ? 0.2 : 0.1,
         topP: mode === "easy" ? 0.9 : mode === "hard" ? 0.85 : 0.8,
-        topK: mode === "easy" ? 20 : mode === "hard" ? 10 : 5,
-        maxOutputTokens: 10,
+        topK: mode === "easy" ? 30 : mode === "hard" ? 15 : 5,
+        maxOutputTokens: 5,
       }
     });
     
@@ -358,11 +342,12 @@ export async function handleCaroCommand(api, message) {
   
   if (!content.includes(`${prefix}caro`)) return;
   
-  if (args.length < 3) {
+  if (args.length < 2) {
     await sendMessageComplete(api, message, 
       `🎮 Hướng dẫn chơi cờ Caro:\n\n` +
       `📌 ${prefix}caro [easy/hard/super] [x/o]\n` +
-      `   - Chọn độ khó và quân cờ của bạn\n` +
+      `   - ${prefix}caro easy (random x hoặc o)\n` +
+      `   - ${prefix}caro hard x (chọn x)\n` +
       `   - X luôn đi trước\n` +
       `   - Nhập số ô (1-256) để đánh\n` +
       `   - 5 quân liên tiếp thắng!\n` +
@@ -388,7 +373,7 @@ export async function handleCaroCommand(api, message) {
   }
   
   const mode = args[1].toLowerCase();
-  const playerMark = args[2].toUpperCase();
+  let playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
   
   if (!["easy", "hard", "super"].includes(mode)) {
     await sendMessageWarning(api, message, "Chế độ không hợp lệ! Chọn: easy, hard, hoặc super");
