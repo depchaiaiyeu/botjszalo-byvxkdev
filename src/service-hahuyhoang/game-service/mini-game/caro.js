@@ -28,7 +28,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     if (!game) return;
     
     if (isPlayerTurn) {
-      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh nước tiếp theo trong 60 giây\n🏆 Bot đã dành chiến thắng ván cờ này`;
+      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh nước tiếp theo trong 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này`;
       await sendMessageTag(api, message, {
         caption,
         mentions: [{
@@ -38,7 +38,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         }]
       });
     } else {
-      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này`;
+      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ BOT thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này`;
       await sendMessageTag(api, message, {
         caption,
         mentions: [{
@@ -664,7 +664,7 @@ export async function handleCaroMessage(api, message) {
   
   if (content.trim().toLowerCase() === "lose") {
     clearTurnTimer(threadId);
-    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đã nhận thua\n🏆 Bot đã dành chiến thắng ván cờ này`;
+    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 Người chơi ${game.playerName} đã nhận thua\n🏆 BOT đã dành chiến thắng ván cờ này`;
     await sendMessageTag(api, message, {
       caption,
       mentions: [{
