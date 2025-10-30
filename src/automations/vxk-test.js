@@ -23,8 +23,9 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
 
   const mention = mentions.find(m => m.uid === botUid);
   const userMessage = mention && message.data?.content
-    ? message.data.content.slice(mention.len).trim()
+    ? String(message.data.content ?? "").slice(mention.len).trim()
     : "";
+
 
   const now = Date.now();
   if (!lastAutoReplyMap.has(threadId)) lastAutoReplyMap.set(threadId, new Map());
