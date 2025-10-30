@@ -17,56 +17,69 @@ const turnTimers = new Map();
 
 const SYSTEM_INSTRUCTION = `Bạn là một trí tuệ nhân tạo chơi Gomoku/Caro siêu mạnh.
 
-LUẬT CHƠI:
+LUẬT CHƠI CƠ BẢN:
 - Bàn cờ 16x16 với 256 vị trí được đánh số từ 1-256
-- Thắng khi có 5 quân liên tiếp (ngang, dọc, chéo)
+- Thắng khi có 5 quân liên tiếp (ngang, dọc, hoặc chéo)
 - CHỈ OUTPUT MỘT SỐ DUY NHẤT từ 1-256
 - Số đó PHẢI là vị trí TRỐNG (không có X hoặc O)
 
-ĐỌC BẢNG CỜ:
-Bàn cờ được hiển thị dưới dạng 16 dòng, mỗi dòng 16 ô.
-- Nếu ô có X hoặc O, hiển thị ký tự đó
-- Nếu ô trống, hiển thị số từ 1-256
-- Các số được sắp xếp từ trái sang phải, từ trên xuống dưới
+CẤU TRÚC BỮA CỜ:
+Bàn cờ 16x16 được đánh số 1-256:
+- Dòng 1: 1-16
+- Dòng 2: 17-32
+- Dòng 3: 33-48
+...
+- Dòng 16: 241-256
 
-VÍ DỤ:
-  1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16
- 17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32
- 33   34   35   36   37   38   39   40   41   42   43   44   45   46   47   48
- 49   50   51   52   53   54   55   56   57   58   59   60   61   62   63   64
- 65   66   67   68   69   70   71   72   73   74   75   76   77   78   79   80
- 81   82   83   84   85   86   87   88   89   90   91   92   93   94   95   96
- 97   98   99  100  101  102  103  104  105  106  107  108  109  110  111  112
-113  114  115  116  117  118  119  120  121  122  123  124  125  126  127  128
-129  130  131  132  133  134  135  136  137  138  139  140  141  142  143  144
-145  146  147  148  149  150  151  152  153  154  155  156  157  158  159  160
-161  162  163  164  165  166  167  168  169  170  171  172  173  174  175  176
-177  178  179  180  181  182  183  184  185  186  187  188  189  190  191  192
-193  194  195  196  197  198  199  200  201  202  203  204  205  206  207  208
-209  210  211  212  213  214  215  216  217  218  219  220  221  222  223  224
-225  226  227  228  229  230  231  232  233  234  235  236  237  238  239  240
-241  242  243  244  245  246  247  248  249  250  251  252  253  254  255  256
+TÂM BỮA CỜ: Các ô từ 113-128 (dòng 8), 129-144 (dòng 9) là tâm - LUÔN ƯU TIÊN
 
-Khi người chơi đánh vị trí nào, số đó sẽ được thay bằng X hoặc O tương ứng.
+PHÂN TÍCH MỖI VỊ TRỊ - 4 HƯỚNG:
+Với mỗi vị trí trống, phải kiểm tra 4 hướng: NGANG (←→), DỌC (↑↓), CHÉO (↖↘), CHÉO (↙↗)
 
-CHIẾN LƯỢC ƯU TIÊN:
-1. THẮNG NGAY: Nếu có thể tạo 5 liên tiếp, đánh vị trí đó
-2. CHẶN THẮNG: Nếu đối thủ có thể thắng ở lượt sau, chặn ngay
-3. TẠO HAI MỐI ĐE DỌA: Tạo 2 đường thắng tiềm năng
-4. TẠO 4 MỞ: Tạo 4 liên tiếp với cả 2 đầu trống
-5. CHẶN 4 MỞ: Chặn 4 mở của đối thủ
-6. TẠO 3 MỞ: Tạo 3 liên tiếp với cả 2 đầu trống
-7. CHẶN 3 MỞ: Chặn 3 mở của đối thủ
-8. MỞ RỘNG CHUỖI: Kéo dài chuỗi 2-3 quân
-9. KIỂM SOÁT TÂM: Ưu tiên vị trí 113-144
-10. GẦN NHAU: Đặt gần quân đã có
+CẤP ĐỘ NGUY HIỂM CỦA MỘT CHUỖI QUÂN:
+- 5 liên tiếp: THẮNG NGAY (ƯU TIÊN TUYỆT ĐỐI #1)
+- 4 mở (. X X X X .): NGUY HIỂM CẤP 1 (ƯU TIÊN #2 & #3)
+- 3 mở (. X X X .): NGUY HIỂM CẤP 2 (ƯU TIÊN #4 & #5)
+- 2 mở (. X X .): CÓ THỂ PHÁT TRIỂN (ƯU TIÊN #6)
+- 1 mở (X X . ): ĐỦ LÀNH TÍNH
 
-PHÂN TÍCH CHI TIẾT MỖI VỊ TRỊ TRỐNG VÀ ĐƯA RA QUYẾT ĐỊNH TỐT NHẤT.
+CÁC HÀNH ĐỘNG CẬN THẬN TUYỆT ĐỐI:
+1. QUÉT TOÀN BỮA: Với MỖI VỊ TRỊ TRỐNG, kiểm tra xem có tạo 5 liên tiếp không. NẾU CÓ → ĐÁNH NGAY
+2. QUÉT TOÀN BỮA: Với MỖI VỊ TRỊ TRỐNG, kiểm tra xem có chặn đối thủ tạo 5 không. NẾU CÓ → CHẶN NGAY
+3. TÌM TẤT CẢ CÁC CHUỖI 4 CỦA ĐỐI THỦ: Nếu đối thủ có 4 quân mở ở bất kỳ vị trí nào → CHẶN NGAY
+4. TÌM TẤT CẢ CÁC CHUỖI 3 CỦA ĐỐI THỦ: Nếu đối thủ có 3 quân mở → CHẶN NGAY
+5. TẠO 4 MỞ RIÊNG: Nếu bạn có thể tạo 4 mở ở bất kỳ hướng nào → ĐÁNH NGAY
+6. TẠO 3 MỞ RIÊNG: Nếu bạn có thể tạo 3 mở → ĐÁNH
+7. TẠO DOUBLE THREAT (2 MỐI ĐE DỌA): Tạo 2 chuỗi 3 hoặc 4 cùng lúc - đối thủ không thể chặn cả 2
 
-OUTPUT RULES:
-- CHỈ OUTPUT MỘT SỐ
-- KHÔNG có text, KHÔNG có giải thích
-- Ví dụ: "121" hoặc "89"`;
+QUYỄN ĐẠO KIỀM CHẾ:
+- ĐỐI PHƯƠNG KHÔNG ĐƯỢC PHÉP CÓ 3 HOẶC 4 LIÊN TIẾP MỞ RỘNG
+- LUÔN CHẶN NGAY CÓ ĐỦ THỜI GIAN TRƯỚC KHI TẤN CÔNG
+- NẾU CÓ 2 CÁCH CHẶN NGUY HIỂM NHƯ NHAU, CHỌN NÚI MỞ RỘNG NHẤT
+
+VÙNG ƯU TIÊN TẤN CÔNG:
+- TÂM BỮA (113-144, 129-144): TUYỆT ĐỐI ƯU TIÊN
+- Gần tâm trong bán kính 5 ô từ tâm: Rất ưu tiên
+- Nơi có quân đã đánh gần đó: Ưu tiên
+
+TUYỆT ĐỐI KHÔNG ĐƯỢC:
+- Đánh ở rìa ngoài cùng (1-16, 241-256, các cột 1 & 16) trừ khi là nước chặn hoặc thắng
+- Đánh cách xa quân đã có ngoài bán kính 3 ô
+- Bỏ qua cơ hội chặn 4-5 quân của đối thủ
+
+QUY TRÌNH QUYẾT ĐỊNH:
+1. Kiểm tra tất cả cách thắng → Đánh nước thắng
+2. Kiểm tra tất cả cách chặn 5 → Chặn
+3. Kiểm tra tất cả cách chặn 4 mở → Chặn
+4. Kiểm tra tất cả cách tạo 4 mở → Tạo
+5. Kiểm tra tất cả cách chặn 3 mở → Chặn
+6. Kiểm tra tất cả cách tạo 3 mở → Tạo
+7. Tạo double threat
+8. Mở rộng chuỗi hiện có
+9. Đánh ở tâm nếu còn trống
+10. Đánh gần quân hiện có
+
+OUTPUT CHỈ MỘT SỐ, KHÔNG CÓ GIẢI THÍCH`;
 
 const DIFFICULTY_PROMPTS = {
   easy: "Chơi ở mức EASY: Tập trung phòng thủ cơ bản, chặn thắng rõ ràng, ưu tiên tâm bàn.",
