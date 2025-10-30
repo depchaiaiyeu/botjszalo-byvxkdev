@@ -646,8 +646,8 @@ export async function handleCaroMessage(api, message) {
   
   if (message.data.mentions && message.data.mentions.length > 0) return;
   
-  if (!/^\d+$/.test(content.trim())) return;
-  
+  if (!/^\d+$/.test(String(content).trim())) return;
+
   clearTurnTimer(threadId);
   
   const pos = parseInt(content.trim(), 10) - 1;
