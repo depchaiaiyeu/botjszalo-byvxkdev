@@ -1,26 +1,20 @@
 import gtts from "gtts";
 import fs from "fs";
 import path from "path";
-import axios from "axios";
 import { getGlobalPrefix } from "../../../service.js";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import { convertToM4A, extractAudioFromVideo, uploadAudioFile, convertToAAC, downloadAndConvertAudio  } from "./process-audio.js";
-import { sendMessageCompleteRequest, sendMessageFromSQL, sendMessageImageNotQuote, sendMessageState, sendMessageStateQuote } from "../../chat-style/chat-style.js";
+import { extractAudioFromVideo, uploadAudioFile } from "./process-audio.js";
+import { sendMessageCompleteRequest, sendMessageFromSQL, sendMessageImageNotQuote, sendMessageStateQuote } from "../../chat-style/chat-style.js";
 import { checkExstentionFileRemote, deleteFile, downloadFile, execAsync } from "../../../../utils/util.js";
 import { tempDir } from "../../../../utils/io-json.js";
-import { createSpinningDiscGif } from "../send-gif/create-gif.js";
-import { normalizeSymbolName, removeMention } from "../../../../utils/format-util.js";
-import { createCircleWebp, createImageWebp } from "../send-sticker/create-webp.js";
+import { removeMention } from "../../../../utils/format-util.js";
 import { createMusicCard } from "../../../../utils/canvas/music-canvas.js";
 import { getUserInfoData } from "../../../info-service/user-info.js";
 
-
-async function textToSpeech(text, api, message, lang = "vi") {
+async function textToSpeechAAC(text, api, message, lang = "vi") {
   return new Promise((resolve, reject) => {
     try {
       const tts = new gtts(text, lang);
-      const fileName = `voice_${Date.now()}.mp3`;
+      const fileName = `voice_${Date.now()}.aac`;
       const filePath = path.join(tempDir, fileName);
 
       tts.save(filePath, async (err) => {
@@ -43,12 +37,9 @@ async function textToSpeech(text, api, message, lang = "vi") {
   });
 }
 
-/**
- * Nhận diện ngôn ngữ từ text dựa trên bộ ký tự
- */
 function detectLanguage(text) {
   const patterns = {
-    vi: /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i,
+    vi: /[àáạảãâầấấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i,
     zh: /[\u4E00-\u9FFF]/,
     ja: /[\u3040-\u309F\u30A0-\u30FF]/,
     ko: /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/,
@@ -75,9 +66,6 @@ function detectLanguage(text) {
   return maxLang.count > 0 ? maxLang.lang : "vi";
 }
 
-/**
- * Tách văn bản thành các phần theo ngôn ngữ
- */
 function splitByLanguage(text) {
   const words = text.split(" ");
   const parts = [];
@@ -104,11 +92,8 @@ function splitByLanguage(text) {
   return parts;
 }
 
-/**
- * Ghép các file audio
- */
 async function concatenateAudios(audioPaths) {
-  const outputPath = path.join(tempDir, `combined_${Date.now()}.mp3`);
+  const outputPath = path.join(tempDir, `combined_${Date.now()}.aac`);
 
   const ffmpegCommand = [
     "ffmpeg",
@@ -119,7 +104,7 @@ async function concatenateAudios(audioPaths) {
     "-map",
     "[out]",
     "-c:a",
-    "libmp3lame",
+    "aac",
     "-q:a",
     "2",
     outputPath,
@@ -129,17 +114,14 @@ async function concatenateAudios(audioPaths) {
   return outputPath;
 }
 
-/**
- * Chuyển văn bản đa ngôn ngữ thành giọng nói
- */
-async function multilingualTextToSpeech(text, api, message) {
+async function multilingualTextToSpeechAAC(text, api, message) {
   let finalAudioPath = null;
   const audioFiles = [];
   try {
     const parts = splitByLanguage(text);
 
     for (const part of parts) {
-      const fileName = `voice_${Date.now()}_${part.lang}.mp3`;
+      const fileName = `voice_${Date.now()}_${part.lang}.aac`;
       const filePath = path.join(tempDir, fileName);
 
       const tts = new gtts(part.text, part.lang);
@@ -154,7 +136,6 @@ async function multilingualTextToSpeech(text, api, message) {
     }
 
     finalAudioPath = await concatenateAudios(audioFiles);
-
     const voiceUrl = await uploadAudioFile(finalAudioPath, api, message);
 
     return voiceUrl;
@@ -168,55 +149,6 @@ async function multilingualTextToSpeech(text, api, message) {
     await deleteFile(finalAudioPath);
   }
 }
-
-/**
- * Xử lý lệnh chuyển văn bản thành giọng nói
- */
-/*export async function handleVoiceCommand(api, message, command) {
-  try {
-    const prefix = getGlobalPrefix();
-    const content = removeMention(message);
-    const text = content.slice(prefix.length + command.length).trim();
-
-    if (!text) {
-      await api.sendMessage(
-        {
-          msg: `Vui lòng nhập nội dung cần chuyển thành giọng nói.\nVí dụ: 
-${prefix}${command} Nội dung cần send Voice bất kỳ`,
-          quote: message,
-          ttl: 600000,
-        },
-        message.threadId,
-        message.type
-      );
-      return;
-    }
-
-    const voiceUrl = await multilingualTextToSpeech(text, api, message);
-
-    if (!voiceUrl) {
-      throw new Error("Không thể tạo file âm thanh");
-    }
-
-    await api.sendVoice(
-      message,
-      voiceUrl,
-      600000
-    );
-  } catch (error) {
-    console.error("Lỗi khi xử lý lệnh voice:", error);
-    await api.sendMessage(
-      {
-        msg: "Đã xảy ra lỗi khi chuyển văn bản thành giọng nói. Vui lòng thử lại sau.",
-        quote: message,
-        ttl: 600000,
-      },
-      message.threadId,
-      message.type
-    );
-  }
-}
-  */
 
 export async function handleVoiceCommand(api, message, command) {
   try {
@@ -237,7 +169,6 @@ export async function handleVoiceCommand(api, message, command) {
       return;
     }
 
-    // Giới hạn từ
     const wordLimit = 100;
     const wordCount = text.split(/\s+/).length;
     if (wordCount > wordLimit) {
@@ -253,32 +184,11 @@ export async function handleVoiceCommand(api, message, command) {
       return;
     }
 
-    // Gọi API voice
-    const response = await axios.post(
-      "https://hungdev.id.vn/ai/text-to-speech?apikey=0c590fbeeb556d3cd29f419181c4a2",
-      {
-        text: text,
-        voice: "hn-thanhphuong",
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-      }
-    );
+    const voiceUrl = await multilingualTextToSpeechAAC(text, api, message);
 
-    const base64Data = response.data?.data;
-    const match = base64Data.match(/^data:audio\/\w+;base64,(.+)$/);
-    if (!match) throw new Error("Dữ liệu base64 không hợp lệ.");
-    const buffer = Buffer.from(match[1], "base64");
-    const filePath = path.join(process.cwd(), `voice_${Date.now()}.mp3`);
-    fs.writeFileSync(filePath, buffer);
-
-    const voiceUrl = await uploadAudioFile(filePath, api, message);
-    fs.unlinkSync(filePath);
-
-    if (!voiceUrl) throw new Error("Không thể upload audio file");
+    if (!voiceUrl) {
+      throw new Error("Không thể tạo file âm thanh");
+    }
 
     await api.sendVoice(message, voiceUrl, 600000);
 
@@ -311,7 +221,7 @@ export async function handleStoryCommand(api, message) {
     }
 
     randomStory = randomStory.replaceAll("\\n", "\n");
-    const voiceUrl = await textToSpeech(randomStory, api, message);
+    const voiceUrl = await textToSpeechAAC(randomStory, api, message);
 
     if (!voiceUrl) {
       throw new Error("Không thể tạo file âm thanh");
@@ -363,7 +273,7 @@ export async function handleTarrotCommand(api, message) {
       .replaceAll("♥", "Cơ")
       .replaceAll("♣", "Chuồn")
       .replaceAll("♦", "Rô");
-    const voiceUrl = await textToSpeech(tarotText, api, message);
+    const voiceUrl = await textToSpeechAAC(tarotText, api, message);
 
     await Promise.all([
       api.sendMessage(
@@ -389,7 +299,7 @@ export async function handleTarrotCommand(api, message) {
 
 export async function sendVoiceMusic(api, message, object, ttl) {
   let thumbnailPath = path.resolve(tempDir, `${Date.now()}.jpg`);
-  let spinningWebp = null;
+  let imagePath = null;
   try {
     if (message?.data?.uidFrom) {
       let senderId = message.data.uidFrom;
@@ -399,7 +309,7 @@ export async function sendVoiceMusic(api, message, object, ttl) {
   } catch (error) {
     console.error("Lỗi khi lấy thông tin người dùng:", error);
   }
-  let imagePath = null;
+
   try {
     const voiceUrl = object.voiceUrl;
     if (object.imageUrl) {
@@ -411,7 +321,6 @@ export async function sendVoiceMusic(api, message, object, ttl) {
         console.error("Lỗi khi tạo music card:", error);
         imagePath = null;
       }
-   //    spinningWebp = await createCircleWebp(api, message, object.imageUrl, object.trackId);
     }
 
     await sendMessageCompleteRequest(api, message, object, 180000);
@@ -426,23 +335,8 @@ export async function sendVoiceMusic(api, message, object, ttl) {
         message.type
       );
     }
-   //  if (spinningWebp) {
-    //   await api.sendCustomSticker(
-    //     message,
-     //    spinningWebp.url,
-     //    spinningWebp.url,
-     //    spinningWebp.stickerData.width,
-     //    spinningWebp.stickerData.height
-    //   );
- //    }
 
-    // Thêm hậu tố /nguyenphihoang.aac nếu voiceUrl chưa có đuôi .aac
-    let finalVoiceUrl = voiceUrl;
-    if (!voiceUrl.endsWith(".aac")) {
-      finalVoiceUrl = voiceUrl.replace(/\/?$/, "/Vu-Xuan-Kien-Service-Bot.aac");
-    }
-
-    await api.sendVoice(message, finalVoiceUrl, ttl);
+    await api.sendVoice(message, voiceUrl, ttl);
   } catch (error) {
     console.error("Lỗi khi gửi voice music:", error);
   } finally {
@@ -473,12 +367,8 @@ export async function sendVoiceMusicNotQuote(api, message, object, ttl) {
     };
 
     await sendMessageImageNotQuote(api, result, message.threadId, imagePath, ttl, false);
-    let finalVoiceUrl = voiceUrl;
-    if (!voiceUrl.endsWith(".aac")) {
-      finalVoiceUrl = voiceUrl.replace(/\/?$/, "/Vu-Xuan-Kien-Service-Bot.aac");
-    }
 
-    await api.sendVoice(message, finalVoiceUrl, ttl);
+    await api.sendVoice(message, voiceUrl, ttl);
   } catch (error) {
     console.error("Lỗi khi gửi voice music:", error);
   } finally {
@@ -486,7 +376,7 @@ export async function sendVoiceMusicNotQuote(api, message, object, ttl) {
     if (imagePath && imagePath !== thumbnailPath) await deleteFile(imagePath);
   }
 }
-// NPH code
+
 export async function sendImageNPH(api, message, object, ttl) {
   try {
     await sendMessageCompleteRequest(api, message, object, 180000);
@@ -498,8 +388,6 @@ export async function sendImageNPH(api, message, object, ttl) {
     console.error("Lỗi khi gửi ảnh:", error.message);
   }
 }
-
-
 
 export async function sendVideoNPH(api, message, object, ttl) {
   try {
@@ -529,13 +417,14 @@ export async function sendVideoNPH(api, message, object, ttl) {
             },
           ],
         },
-        ttl:ttl,
+        ttl: ttl,
       });
     }
   } catch (error) {
     console.error("Lỗi khi gửi video NPH:", error);
   }
 }
+
 export async function sendGifNPH(api, message, object, ttl) {
   try {
     try {
@@ -568,104 +457,80 @@ export async function sendGifNPH(api, message, object, ttl) {
     console.error("Lỗi khi gửi GIF NPH:", error);
   }
 }
-//
+
 export async function handleGetVoiceCommand(api, message, aliasCommand) {
   const quote = message.data.quote;
   const prefix = getGlobalPrefix();
-  const content = removeMention(message);
-  let voiceUrl = null;
-  let videoUrl = null;
-  let keyContent = content.replace(`${prefix}${aliasCommand}`, "").trim();
 
-  if (!quote && !keyContent) {
-    const object = {
-      caption: `Nhập link video hoặc reply nội dung video cần tách âm thanh và dùng lại lệnh ${prefix}${aliasCommand}.`,
-      state: false,
-      ttl: 30000,
-    };
-    await sendMessageStateQuote(api, message, object.caption, object.state, object.ttl);
+  if (!quote) {
+    await sendMessageStateQuote(api, message, `Vui lòng reply một video hoặc voice`, false, 30000);
     return;
   }
 
-  if (keyContent) {
-    const ext = await checkExstentionFileRemote(keyContent);
-    if (ext === 'mp4') {
-      videoUrl = keyContent;
-    } else if (ext === 'aac' || ext === 'm4a') {
-      voiceUrl = keyContent;
+  const cliMsgType = quote.cliMsgType;
+
+  if (cliMsgType === 31) {
+    const attachData = quote.attach ? JSON.parse(quote.attach) : null;
+    if (attachData?.href) {
+      await api.sendVoice(message, attachData.href, 1800000);
     } else {
       await sendMessageFromSQL(
         api,
         message,
         {
           success: false,
-          message: `Chỉ hỗ trợ get voice cho định dạng video`,
+          message: `Không tìm thấy link voice`,
         },
         false,
         30000
       );
-      return;
     }
+    return;
   }
 
-  if (quote) {
-    const attachData = quote.attach ? JSON.parse(quote.attach) : null;
-    if (attachData?.href) {
-      const ext = await checkExstentionFileRemote(attachData.href);
-      if (ext === 'mp4') {
-        videoUrl = attachData.href;
-      } else if (ext === 'aac' || ext === 'm4a') {
-        voiceUrl = attachData.href;
-      } else {
+  if (cliMsgType === 44) {
+    try {
+      const attachData = quote.attach ? JSON.parse(quote.attach) : null;
+      if (!attachData?.href) {
         await sendMessageFromSQL(
           api,
           message,
           {
             success: false,
-            message: `Chỉ hỗ trợ get voice cho định dạng video`,
+            message: `Không tìm thấy link video`,
           },
           false,
           30000
         );
         return;
       }
-    } else {
+
+      const voiceUrl = await extractAudioFromVideo(attachData.href, api, message);
+      await sendVoiceMusic(api, message, { voiceUrl, caption: "Voice Của Cậu đây !!!" }, 1800000);
+    } catch (error) {
+      console.error("Lỗi khi tách âm thanh:", error);
       await sendMessageFromSQL(
         api,
         message,
         {
           success: false,
-          message: `Không tìm thấy link đính kèm trong tin nhắn được reply!`,
+          message: `Đã xảy ra lỗi khi get voice, vui lòng thử lại với link khác.`,
         },
         false,
         30000
       );
-      return;
     }
+    return;
   }
 
-  if (voiceUrl) {
-    await sendVoiceMusic(api, message, { voiceUrl, caption: "Cái Này là Voice Rồi Get Cái Con 🖕 !!!" }, 1800000);
-    return;
-  } else {
-    if (videoUrl) {
-      try {
-        const voiceUrl = await extractAudioFromVideo(videoUrl, api, message);
-        await sendVoiceMusic(api, message, { voiceUrl, caption: "Voice Của Cậu đây !!!" }, 1800000);
-      } catch (error) {
-        console.error("Lỗi khi tách âm thanh:", error);
-        await sendMessageFromSQL(
-          api,
-          message,
-          {
-            success: false,
-            message: `Đã xảy ra lỗi khi get voice, vui lòng thử lại với link khác.`,
-          },
-          false,
-          30000
-        );
-      }
-      return;
-    }
-  }
+  await sendMessageFromSQL(
+    api,
+    message,
+    {
+      success: false,
+      message: `Chỉ hỗ trợ get voice cho video hoặc voice`,
+    },
+    false,
+    30000
+  );
 }
