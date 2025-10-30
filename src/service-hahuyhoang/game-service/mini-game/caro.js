@@ -135,15 +135,25 @@ function createBoardString(board, size = 16) {
     for (let col = 0; col < size; col++) {
       const idx = row * size + col;
       const cell = board[idx];
-      if (cell === ".") {
-        rowContent.push((idx + 1).toString().padStart(3, " "));
-      } else {
-        rowContent.push(cell.padStart(3, " "));
-      }
+      rowContent.push(cell.padStart(3, " "));
     }
     result += rowContent.join(" ") + "\n";
   }
   return result;
+}
+
+function getMoveHistory(board, size = 16) {
+  const moves = [];
+  let moveNum = 0;
+  
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== ".") {
+      moveNum++;
+      moves.push(`Nước ${moveNum}: ${board[i]} đánh ô ${i + 1}`);
+    }
+  }
+  
+  return moves.slice(-15).join("\n");
 }
 
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", mode = "super", playerName = "Player") {
@@ -204,6 +214,21 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     ctx.stroke();
   }
   
+  ctx.font = "10px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#999999";
+  
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] === ".") {
+      const row = Math.floor(i / size);
+      const col = i % size;
+      const x = padding + col * cellSize + cellSize / 2;
+      const y = boardTop + padding + row * cellSize + cellSize / 2;
+      ctx.fillText((i + 1).toString(), x, y);
+    }
+  }
+  
   for (let i = 0; i < board.length; i++) {
     if (board[i] !== ".") {
       const row = Math.floor(i / size);
@@ -238,6 +263,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
 async function getAIMove(board, playerMark, mode) {
   const botMark = playerMark === "X" ? "O" : "X";
   const boardStr = createBoardString(board);
+  const moveHistory = getMoveHistory(board);
   
   const emptyPositions = [];
   for (let i = 0; i < 256; i++) {
@@ -248,6 +274,10 @@ async function getAIMove(board, playerMark, mode) {
   
   const prompt = `BẢNG CỜ HIỆN TẠI:
 ${boardStr}
+
+LỊCH SỬ CÁC NƯỚC ĐI:
+${moveHistory}
+
 THÔNG TIN TRẬN:
 - Quân của Bot (Bạn): ${botMark}
 - Quân của đối thủ: ${playerMark}
