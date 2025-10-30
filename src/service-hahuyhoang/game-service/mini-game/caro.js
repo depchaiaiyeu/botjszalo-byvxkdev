@@ -2,7 +2,7 @@ import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-zalo/chat-style/chat-style.js";
+import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
 
@@ -28,9 +28,25 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     if (!game) return;
     
     if (isPlayerTurn) {
-      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh nước tiếp theo trong 60 giây\n🏆 Bot đã chiến thắng ván cờ này`);
+      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh nước tiếp theo trong 60 giây\n🏆 Bot đã dành chiến thắng ván cờ này`;
+      await sendMessageTag(api, message, {
+        caption,
+        mentions: [{
+          pos: caption.indexOf(game.playerName),
+          uid: game.playerId,
+          len: game.playerName.length
+        }]
+      });
     } else {
-      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã chiến thắng ván cờ này`);
+      const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này`;
+      await sendMessageTag(api, message, {
+        caption,
+        mentions: [{
+          pos: caption.indexOf(game.playerName),
+          uid: game.playerId,
+          len: game.playerName.length
+        }]
+      });
     }
     
     activeCaroGames.delete(threadId);
@@ -447,7 +463,6 @@ function getAIMove(board, playerMark, mode, size = 16) {
   return bestMove;
 }
 
-
 export async function handleCaroCommand(api, message) {
   const threadId = message.threadId;
   const content = removeMention(message);
@@ -469,25 +484,13 @@ export async function handleCaroCommand(api, message) {
       `Quân X đi trước\n` +
       `Nhập số ô (1-256) để đánh quân\n` +
       `5 quân liên tiếp sẽ giành chiến thắng\n` +
-      `Mỗi lượt có 60 giây\n\n` +
-      `🚪 ${prefix}caro leave - Rời khỏi trò chơi`
+      `Mỗi lượt có 60 giây`
     );
-    return;
-  }
-  
-  if (args[1].toLowerCase() === "leave") {
-    if (activeCaroGames.has(threadId)) {
-      clearTurnTimer(threadId);
-      activeCaroGames.delete(threadId);
-      await sendMessageComplete(api, message, "Trò chơi Caro đã kết thúc do không còn người chơi");
-    } else {
-      await sendMessageWarning(api, message, "Không có trò chơi Caro nào đang diễn ra trong nhóm này", 60000);
-    }
     return;
   }
 
   if (activeCaroGames.has(threadId)) {
-    await sendMessageWarning(api, message, `Đã có 1 ván cờ đang diễn ra trong nhóm này.\nDùng ${prefix}caro leave để kết thúc ván cũ trước khi bắt đầu 1 ván mới.`, 60000);
+    await sendMessageWarning(api, message, `Đã có 1 ván cờ đang diễn ra trong nhóm này.`, 60000);
     return;
   }
   
@@ -527,19 +530,29 @@ export async function handleCaroCommand(api, message) {
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
-  const turnMsg = playerMark === "X" 
-    ? `\n🎯 Đến lượt bạn\n\n👉 Hãy chọn số từ 1-256 để đánh quân cờ` 
-    : `\n🤖 Bot đi trước`;
-  
-  await api.sendMessage(
-    {
-      msg: `🌟 ${message.data.dName} 🌟\n\n🎮 BẮT ĐẦU TRÒ CHƠI${turnMsg}`,
-      attachments: [imagePath],
-      ttl: 60000
-    },
-    threadId,
-    message.type
-  );
+  if (playerMark === "X") {
+    const caption = `🎮 BẮT ĐẦU TRÒ CHƠI\n\n🎯 Đến lượt ${message.data.dName}\n\n👉 Hãy chọn số từ 1-256 để đánh quân cờ\n\n⏰ Bạn có 60 giây để đánh`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf(message.data.dName),
+        uid: message.data.uidFrom,
+        len: message.data.dName.length
+      }]
+    }, 60000);
+  } else {
+    const caption = `🎮 BẮT ĐẦU TRÒ CHƠI\n\n🤖 Bot đi trước\n\n🎯 Đến lượt ${message.data.dName}`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf(message.data.dName),
+        uid: message.data.uidFrom,
+        len: message.data.dName.length
+      }]
+    });
+  }
   
   try {
     await fs.unlink(imagePath);
@@ -573,15 +586,16 @@ async function handleBotTurn(api, message) {
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    await api.sendMessage(
-      {
-        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤝 Hòa cờ vì không còn nước đi (256/256)`,
-        attachments: [imagePath],
-        ttl: 60000
-      },
-      threadId,
-      message.type
-    );
+    const caption = `🎮 TRÒ CHƠI KẾT THÚC\n\n🤝 Hòa cờ do không còn nước đi (256/256)`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf(game.playerName),
+        uid: game.playerId,
+        len: game.playerName.length
+      }]
+    }, 86400000);
     
     try {
       await fs.unlink(imagePath);
@@ -603,27 +617,29 @@ async function handleBotTurn(api, message) {
   await fs.writeFile(imagePath, imageBuffer);
   
   if (winner) {
-    await api.sendMessage(
-      {
-        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã chiến thắng với 5 quân liên tiếp`,
-        attachments: [imagePath],
-        ttl: 60000
-      },
-      threadId,
-      message.type
-    );
+    const caption = `🎮 TRÒ CHƠI KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã dành chiến thắng với 5 quân liên tiếp`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf("Bot đánh"),
+        uid: game.playerId,
+        len: game.playerName.length
+      }]
+    }, 86400000);
     activeCaroGames.delete(threadId);
     clearTurnTimer(threadId);
   } else {
-    await api.sendMessage(
-      {
-        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\n👉 Chọn ô từ 1-256 để đánh quân cờ\n🧭 Bạn có 60 giây để đánh`,
-        attachments: [imagePath],
-        ttl: 60000
-      },
-      threadId,
-      message.type
-    );
+    const caption = `🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt ${game.playerName}\n\n👉 Chọn ô từ 1-256 để đánh quân cờ\n\n⏰ Bạn có 60 giây để đánh`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf(game.playerName),
+        uid: game.playerId,
+        len: game.playerName.length
+      }]
+    }, 60000);
     game.isProcessing = false;
     startTurnTimer(api, message, threadId, true);
   }
@@ -645,6 +661,21 @@ export async function handleCaroMessage(api, message) {
   const content = message.data.content || "";
   
   if (message.data.mentions && message.data.mentions.length > 0) return;
+  
+  if (content.trim().toLowerCase() === "lose") {
+    clearTurnTimer(threadId);
+    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n🏳️ ${game.playerName} đã nhận thua\n🏆 Bot đã dành chiến thắng`;
+    await sendMessageTag(api, message, {
+      caption,
+      mentions: [{
+        pos: caption.indexOf(game.playerName),
+        uid: game.playerId,
+        len: game.playerName.length
+      }]
+    });
+    activeCaroGames.delete(threadId);
+    return;
+  }
   
   if (!/^\d+$/.test(String(content).trim())) return;
 
@@ -676,15 +707,16 @@ export async function handleCaroMessage(api, message) {
   await fs.writeFile(imagePath, imageBuffer);
   
   if (winner) {
-    await api.sendMessage(
-      {
-        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 Bạn đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`,
-        attachments: [imagePath],
-        ttl: 60000
-      },
-      threadId,
-      message.type
-    );
+    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`;
+    await sendMessageTag(api, message, {
+      caption,
+      imagePath,
+      mentions: [{
+        pos: caption.indexOf(game.playerName),
+        uid: game.playerId,
+        len: game.playerName.length
+      }]
+    }, 300000);
     activeCaroGames.delete(threadId);
     clearTurnTimer(threadId);
     try {
