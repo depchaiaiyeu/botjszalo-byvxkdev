@@ -28,7 +28,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     if (!game) return;
     
     if (isPlayerTurn) {
-      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh trong 60 giây\n🏆 Bot đã chiến thắng ván cờ này`);
+      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh nước tiếp theo trong 60 giây\n🏆 Bot đã chiến thắng ván cờ này`);
     } else {
       await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã chiến thắng ván cờ này`);
     }
@@ -162,7 +162,6 @@ function countInDirection(board, pos, dr, dc, mark, size = 16) {
 }
 
 function getLineStats(board, pos, dr, dc, mark, size = 16) {
-  const oppMark = mark === "X" ? "O" : "X";
   let r = Math.floor(pos / size);
   let c = pos % size;
 
@@ -276,7 +275,6 @@ function evaluateMove(board, pos, mark, oppMark, size = 16) {
   return score;
 }
 
-
 function checkWinAt(board, pos, mark, size = 16) {
   const directions = [[0,1], [1,0], [1,1], [1,-1]];
   
@@ -319,51 +317,25 @@ function checkWin(board, size = 16) {
   return null;
 }
 
-function getAIMove(board, playerMark, mode) {
-  const botMark = playerMark === "X" ? "O" : "X";
-  const size = 16;
-  const moves = [];
-
+function findCandidateMoves(board, size = 16, radius = 2) {
+  const candidateMoves = new Set();
   const isEmptyBoard = board.every(cell => cell === ".");
+  const centerMin = 6;
+  const centerMax = 9;
+
   if (isEmptyBoard) {
-    const centerMin = 6;
-    const centerMax = 9;
     const randRow = Math.floor(Math.random() * (centerMax - centerMin + 1)) + centerMin;
     const randCol = Math.floor(Math.random() * (centerMax - centerMin + 1)) + centerMin;
-    return randRow * size + randCol;
+    candidateMoves.add(randRow * size + randCol);
+    return Array.from(candidateMoves);
   }
 
-  for (let i = 0; i < 256; i++) {
-    if (board[i] !== ".") continue;
-    
-    const tempBoard = [...board];
-    tempBoard[i] = botMark;
-    
-    if (checkWinAt(tempBoard, i, botMark, size)) {
-      return i;
-    }
-  }
-  
-  for (let i = 0; i < 256; i++) {
-    if (board[i] !== ".") continue;
-    
-    const tempBoard = [...board];
-    tempBoard[i] = playerMark;
-    
-    if (checkWinAt(tempBoard, i, playerMark, size)) {
-      return i;
-    }
-  }
-
-  const candidateMoves = new Set();
-  const evalRadius = (mode === 'super' ? 3 : 2);
-
-  for (let i = 0; i < 256; i++) {
+  for (let i = 0; i < size * size; i++) {
     if (board[i] !== ".") {
       const row = Math.floor(i / size);
       const col = i % size;
-      for (let r = Math.max(0, row - evalRadius); r <= Math.min(15, row + evalRadius); r++) {
-        for (let c = Math.max(0, col - evalRadius); c <= Math.min(15, col + evalRadius); c++) {
+      for (let r = Math.max(0, row - radius); r <= Math.min(size - 1, row + radius); r++) {
+        for (let c = Math.max(0, col - radius); c <= Math.min(size - 1, col + radius); c++) {
           const checkPos = r * size + c;
           if (board[checkPos] === ".") {
             candidateMoves.add(checkPos);
@@ -374,36 +346,105 @@ function getAIMove(board, playerMark, mode) {
   }
 
   if (candidateMoves.size === 0) {
-    for (let i = 0; i < 256; i++) {
+    for (let i = 0; i < size * size; i++) {
       if (board[i] === '.') candidateMoves.add(i);
     }
   }
+  
+  return Array.from(candidateMoves);
+}
 
-  for (const pos of candidateMoves) {
-    const score = evaluateMove(board, pos, botMark, playerMark, size);
-    moves.push({ pos, score });
-  }
+function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
+  const winner = checkWin(board, size);
+  if (winner === botMark) return 100000000 + depth; 
+  if (winner === playerMark) return -100000000 - depth;
+  if (depth === 0) return 0;
 
-  if (moves.length === 0) {
-    for (let i = 0; i < 256; i++) {
-      if (board[i] === ".") return i;
+  const searchRadius = depth > 2 ? 1 : 2;
+  const candidates = findCandidateMoves(board, size, searchRadius);
+  if (candidates.length === 0) return 0;
+
+  if (isMaximizingPlayer) {
+    let bestValue = -Infinity;
+    for (const move of candidates) {
+      board[move] = botMark;
+      const moveScore = evaluateMove(board, move, botMark, playerMark, size);
+      const value = moveScore + minimax(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
+      board[move] = ".";
+      bestValue = Math.max(bestValue, value);
+      alpha = Math.max(alpha, bestValue);
+      if (beta <= alpha) break;
     }
-    return -1;
+    return bestValue;
+  } else {
+    let bestValue = Infinity;
+    for (const move of candidates) {
+      board[move] = playerMark;
+      const moveScore = evaluateMove(board, move, playerMark, botMark, size);
+      const value = -moveScore + minimax(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
+      board[move] = ".";
+      bestValue = Math.min(bestValue, value);
+      beta = Math.min(beta, bestValue);
+      if (beta <= alpha) break;
+    }
+    return bestValue;
   }
-  
-  moves.sort((a, b) => b.score - a.score);
+}
 
-  if (mode === "easy") {
-    const topMoves = moves.slice(0, Math.min(5, moves.length));
-    return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
-  } else if (mode === "hard") {
-    const topMoves = moves.slice(0, Math.min(2, moves.length));
-    return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
-  } else if (mode === "super") {
-    return moves[0].pos;
+function getAIMove(board, playerMark, mode, size = 16) {
+  const botMark = playerMark === "X" ? "O" : "X";
+  
+  for (let i = 0; i < size * size; i++) {
+    if (board[i] !== ".") continue;
+    board[i] = botMark;
+    if (checkWinAt(board, i, botMark, size)) {
+      board[i] = ".";
+      return i;
+    }
+    board[i] = ".";
   }
   
-  return moves[0].pos;
+  for (let i = 0; i < size * size; i++) {
+    if (board[i] !== ".") continue;
+    board[i] = playerMark;
+    if (checkWinAt(board, i, playerMark, size)) {
+      board[i] = ".";
+      return i;
+    }
+    board[i] = ".";
+  }
+
+  const DEPTHS = { easy: 1, hard: 2, super: 4 };
+  const depth = DEPTHS[mode] || 2;
+  
+  const candidates = findCandidateMoves(board, size, 2);
+  let bestScore = -Infinity;
+  let bestMove = -1;
+
+  if (mode === 'easy') {
+     for (const move of candidates) {
+        const score = evaluateMove(board, move, botMark, playerMark, size);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = move;
+        }
+     }
+     return bestMove;
+  }
+
+  for (const move of candidates) {
+    board[move] = botMark;
+    const moveScore = evaluateMove(board, move, botMark, playerMark, size);
+    const score = moveScore + minimax(board, depth, false, -Infinity, Infinity, botMark, playerMark, size);
+    board[move] = ".";
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+
+  return bestMove;
 }
 
 
@@ -438,10 +479,15 @@ export async function handleCaroCommand(api, message) {
     if (activeCaroGames.has(threadId)) {
       clearTurnTimer(threadId);
       activeCaroGames.delete(threadId);
-      await sendMessageComplete(api, message, "🚫 Trò chơi Caro đã kết thúc do người chơi rời khỏi");
+      await sendMessageComplete(api, message, "Trò chơi Caro đã kết thúc do không còn người chơi");
     } else {
-      await sendMessageWarning(api, message, "⚠️ Không có trò chơi Caro nào đang diễn ra");
+      await sendMessageWarning(api, message, "Không có trò chơi Caro nào đang diễn ra trong nhóm này", 60000);
     }
+    return;
+  }
+
+  if (activeCaroGames.has(threadId)) {
+    await sendMessageWarning(api, message, `Đã có 1 ván cờ đang diễn ra trong nhóm này.\nDùng ${prefix}caro leave để kết thúc ván cũ trước khi bắt đầu 1 ván mới.`, 60000);
     return;
   }
   
@@ -449,12 +495,12 @@ export async function handleCaroCommand(api, message) {
   let playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
   
   if (!["easy", "hard", "super"].includes(mode)) {
-    await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng các mode sau đây để bắt đầu trò chơi:\n- easy: Dễ, dành cho newbie\n- hard: Khó, cân bằng giữa tấn công & phòng thủ\n-super: Thách đấu, dành cho cao thủ");
+    await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng các mode sau đây để bắt đầu trò chơi:\n- easy: Dễ, dành cho newbie\n- hard: Khó, cân bằng giữa tấn công & phòng thủ\n- super: Thách đấu, dành cho cao thủ", 60000);
     return;
   }
   
   if (!["X", "O"].includes(playerMark)) {
-    await sendMessageWarning(api, message, "Quân cờ để bắt đầu không hợp lệ, vui lòng chọn giữa X và O\nX đi trước ");
+    await sendMessageWarning(api, message, "Quân cờ để bắt đầu không hợp lệ, vui lòng chọn giữa X và O\nX đi trước ", 60000);
     return;
   }
   
@@ -473,7 +519,8 @@ export async function handleCaroCommand(api, message) {
     playerName: message.data.dName,
     size,
     moveCount: 0,
-    lastBotMove: -1
+    lastBotMove: -1,
+    isProcessing: false
   });
   
   const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X");
@@ -481,7 +528,7 @@ export async function handleCaroCommand(api, message) {
   await fs.writeFile(imagePath, imageBuffer);
   
   const turnMsg = playerMark === "X" 
-    ? `\n🎯 Đến lượt bạn\n\nHãy chọn số từ 1-256 để đánh quân cờ` 
+    ? `\n🎯 Đến lượt bạn\n\n👉 Hãy chọn số từ 1-256 để đánh quân cờ` 
     : `\n🤖 Bot đi trước`;
   
   await api.sendMessage(
@@ -499,6 +546,7 @@ export async function handleCaroCommand(api, message) {
   } catch (error) {}
   
   if (playerMark === "O") {
+    activeCaroGames.get(threadId).isProcessing = true;
     setTimeout(() => handleBotTurn(api, message), 800);
   } else {
     startTurnTimer(api, message, threadId, true);
@@ -511,9 +559,10 @@ async function handleBotTurn(api, message) {
   
   if (!game) return;
   
+  game.isProcessing = true;
   startTurnTimer(api, message, threadId, false);
   
-  const pos = getAIMove(game.board, game.playerMark, game.mode);
+  const pos = getAIMove(game.board, game.playerMark, game.mode, game.size);
   
   clearTurnTimer(threadId);
   
@@ -568,13 +617,14 @@ async function handleBotTurn(api, message) {
   } else {
     await api.sendMessage(
       {
-        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\n🧭 Chọn ô từ 1-256 để đánh quân cờ, bạn có 60 giây để đánh`,
+        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\n👉 Chọn ô từ 1-256 để đánh quân cờ\n🧭 Bạn có 60 giây để đánh`,
         attachments: [imagePath],
         ttl: 60000
       },
       threadId,
       message.type
     );
+    game.isProcessing = false;
     startTurnTimer(api, message, threadId, true);
   }
   
@@ -588,6 +638,7 @@ export async function handleCaroMessage(api, message) {
   const game = activeCaroGames.get(threadId);
   
   if (!game) return;
+  if (game.isProcessing) return;
   if (message.data.uidFrom !== game.playerId) return;
   if (game.currentTurn !== game.playerMark) return;
   
@@ -602,17 +653,18 @@ export async function handleCaroMessage(api, message) {
   const pos = parseInt(content.trim(), 10) - 1;
   
   if (pos < 0 || pos >= 256) {
-    await sendMessageWarning(api, message, "Index không hợp lệ, vui lòng chọn từ 1-256");
+    await sendMessageWarning(api, message, "Index không hợp lệ, vui lòng chọn từ 1-256", 60000);
     startTurnTimer(api, message, threadId, true);
     return;
   }
   
   if (game.board[pos] !== ".") {
-    await sendMessageWarning(api, message, "Ô này đã được sử dụng, vui lòng chọn một ô trống");
+    await sendMessageWarning(api, message, "Ô này đã được sử dụng, vui lòng chọn một ô trống", 60000);
     startTurnTimer(api, message, threadId, true);
     return;
   }
   
+  game.isProcessing = true;
   game.board[pos] = game.playerMark;
   game.currentTurn = game.botMark;
   game.moveCount++;
@@ -647,4 +699,3 @@ export async function handleCaroMessage(api, message) {
   
   setTimeout(() => handleBotTurn(api, message), 800);
 }
-
