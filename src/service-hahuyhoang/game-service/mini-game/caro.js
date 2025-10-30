@@ -345,36 +345,84 @@ PHÂN TÍCH KỸ LƯỡNG VÀ ĐƯA RA QUYẾT ĐỊNH TỐT NHẤT. CHỈ OUTPU
   return -1;
 }
 
-function checkWin(board, size = 16, need = 5) {
-  const directions = [
-    [0, 1],
-    [1, 0],
-    [1, 1],
-    [1, -1]
-  ];
+async function analyzePosition(board, mark, size = 16) {
+  const threats = [];
+  const directions = [[0,1], [1,0], [1,1], [1,-1]];
   
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      const idx = row * size + col;
-      const mark = board[idx];
-      if (mark === ".") continue;
+  for (let i = 0; i < 256; i++) {
+    if (board[i] !== ".") continue;
+    
+    const row = Math.floor(i / size);
+    const col = i % size;
+    let score = 0;
+    
+    for (const [dr, dc] of directions) {
+      let count = 1;
+      let openEnds = 0;
       
-      for (const [dr, dc] of directions) {
-        let count = 1;
-        for (let step = 1; step < need; step++) {
-          const newRow = row + dr * step;
-          const newCol = col + dc * step;
-          if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
-          const newIdx = newRow * size + newCol;
-          if (board[newIdx] !== mark) break;
-          count++;
-        }
-        if (count >= need) return mark;
+      for (let step = 1; step < 5; step++) {
+        const nr = row + dr * step;
+        const nc = col + dc * step;
+        if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
+        if (board[nr * size + nc] === mark) count++;
+        else break;
       }
+      
+      for (let step = 1; step < 5; step++) {
+        const nr = row - dr * step;
+        const nc = col - dc * step;
+        if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
+        if (board[nr * size + nc] === mark) count++;
+        else break;
+      }
+      
+      if (count >= 5) return i;
+      
+      if (count === 4) score += 1000;
+      else if (count === 3) score += 100;
+      else if (count === 2) score += 10;
+    }
+    
+    if (score > 0) threats.push({pos: i, score});
+  }
+  
+  if (threats.length > 0) {
+    threats.sort((a, b) => b.score - a.score);
+    return threats[0].pos;
+  }
+  
+  for (let i = 0; i < 256; i++) {
+    if (board[i] !== ".") continue;
+    const row = Math.floor(i / size);
+    const col = i % size;
+    if (row >= 4 && row <= 11 && col >= 4 && col <= 11) {
+      return i;
     }
   }
   
-  return null;
+  for (let i = 0; i < 256; i++) {
+    if (board[i] !== ".") continue;
+    let nearQuans = false;
+    const row = Math.floor(i / size);
+    const col = i % size;
+    
+    for (let r = Math.max(0, row - 3); r <= Math.min(15, row + 3); r++) {
+      for (let c = Math.max(0, col - 3); c <= Math.min(15, col + 3); c++) {
+        if (board[r * size + c] !== ".") {
+          nearQuans = true;
+          break;
+        }
+      }
+      if (nearQuans) break;
+    }
+    if (nearQuans) return i;
+  }
+  
+  for (let i = 128; i < 256; i++) {
+    if (board[i] === ".") return i;
+  }
+  
+  return -1;
 }
 
 export async function handleCaroCommand(api, message) {
