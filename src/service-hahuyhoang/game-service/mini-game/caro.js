@@ -31,12 +31,12 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_timeout.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    const modeText = game.mode === "easy" ? "dễ" : game.mode === "hard" ? "khó" : "thách đấu";
+    const modeText = game.mode === "easy" ? "Dễ" : game.mode === "hard" ? "Khó" : "Thách Đấu";
     
     if (isPlayerTurn) {
       await api.sendMessage(
         {
-          msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n⏰ Hết giờ! ${game.playerName} không đánh trong 60 giây.\n🎉 Bot thắng!`,
+          msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 KẾT THÚC TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n⏰ ${game.playerName} đã bị loại do không đánh trong 60 giây\n🏆 Bot đã dành chiến thắng trong ván cờ này`,
           mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
           attachments: [imagePath]
         },
@@ -46,7 +46,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     } else {
       await api.sendMessage(
         {
-          msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n⏰ Hết giờ! Bot không phản hồi trong 60 giây.\n🎉 ${game.playerName} thắng!`,
+          msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 KẾT THÚC TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n⏰ Bot đã thua do không đánh trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng trong ván cờ này`,
           mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
           attachments: [imagePath]
         },
@@ -66,20 +66,6 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
   turnTimers.set(threadId, timer);
 }
 
-function createBoardString(board, size = 16) {
-  let result = "";
-  for (let row = 0; row < size; row++) {
-    const rowContent = [];
-    for (let col = 0; col < size; col++) {
-      const idx = row * size + col;
-      const cell = board[idx];
-      rowContent.push(cell.padStart(3, " "));
-    }
-    result += rowContent.join(" ") + "\n";
-  }
-  return result;
-}
-
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", mode = "super", playerName = "Player") {
   const cellSize = 40;
   const padding = 30;
@@ -97,12 +83,12 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, width, height);
   
-  const modeDisplay = mode === "easy" ? "Easy" : mode === "hard" ? "Hard" : "Super";
+  const modeDisplay = mode === "easy" ? "Dễ" : mode === "hard" ? "Khó" : "Thách Đấu";
   
   ctx.fillStyle = "#000000";
   ctx.font = "bold 16px Arial";
   ctx.textAlign = "center";
-  ctx.fillText(`Caro - 16x16 - ${modeDisplay}`, width / 2, 20);
+  ctx.fillText(`Caro 16x16 - ${modeDisplay}`, width / 2, 20);
   
   ctx.font = "12px Arial";
   ctx.textAlign = "left";
@@ -206,43 +192,142 @@ function countInDirection(board, pos, dr, dc, mark, size = 16) {
   return count;
 }
 
-function getThreadStrength(board, pos, mark, size = 16) {
+function isBlocked(board, pos, dr, dc, mark, size = 16) {
+  const row = Math.floor(pos / size);
+  const col = pos % size;
+  
+  const oppMark = mark === "X" ? "O" : "X";
+  
+  let r = row - dr;
+  let c = col - dc;
+  if (r >= 0 && r < size && c >= 0 && c < size) {
+    if (board[r * size + c] === oppMark) return true;
+  } else {
+    return true;
+  }
+  
+  r = row + dr;
+  c = col + dc;
+  if (r >= 0 && r < size && c >= 0 && c < size) {
+    if (board[r * size + c] === oppMark) return true;
+  } else {
+    return true;
+  }
+  
+  return false;
+}
+
+function analyzePosition(board, pos, mark, size = 16) {
   const directions = [[0,1], [1,0], [1,1], [1,-1]];
-  let maxCount = 0;
-  let totalCount = 0;
+  let maxStrength = 0;
+  let openFours = 0;
+  let closedFours = 0;
+  let openThrees = 0;
+  let closedThrees = 0;
   
   for (const [dr, dc] of directions) {
     const forward = countInDirection(board, pos, dr, dc, mark, size);
     const backward = countInDirection(board, pos, -dr, -dc, mark, size);
-    const count = forward + backward + 1;
+    const total = forward + backward + 1;
     
-    maxCount = Math.max(maxCount, count);
-    totalCount += count;
+    maxStrength = Math.max(maxStrength, total);
+    
+    if (total === 4) {
+      if (isBlocked(board, pos, dr, dc, mark, size)) {
+        closedFours++;
+      } else {
+        openFours++;
+      }
+    } else if (total === 3) {
+      if (isBlocked(board, pos, dr, dc, mark, size)) {
+        closedThrees++;
+      } else {
+        openThrees++;
+      }
+    }
   }
   
-  return { maxCount, totalCount };
+  return { maxStrength, openFours, closedFours, openThrees, closedThrees };
 }
 
-function hasOpenEnd(board, pos, mark, dr, dc, size = 16) {
+function evaluateMove(board, pos, mark, oppMark, size = 16) {
+  let score = 0;
+  
+  const myAnalysis = analyzePosition(board, pos, mark, size);
+  
+  if (myAnalysis.maxStrength >= 4) {
+    score += 10000;
+  }
+  
+  if (myAnalysis.openFours > 0) {
+    score += 5000 * myAnalysis.openFours;
+  }
+  
+  if (myAnalysis.closedFours > 0) {
+    score += 1000 * myAnalysis.closedFours;
+  }
+  
+  if (myAnalysis.openThrees > 0) {
+    score += 800 * myAnalysis.openThrees;
+  }
+  
+  if (myAnalysis.openThrees >= 2) {
+    score += 3000;
+  }
+  
+  if (myAnalysis.closedThrees > 0) {
+    score += 200 * myAnalysis.closedThrees;
+  }
+  
+  const tempBoard = [...board];
+  tempBoard[pos] = oppMark;
+  const oppAnalysis = analyzePosition(tempBoard, pos, oppMark, size);
+  
+  if (oppAnalysis.maxStrength >= 4) {
+    score += 9000;
+  }
+  
+  if (oppAnalysis.openFours > 0) {
+    score += 4500 * oppAnalysis.openFours;
+  }
+  
+  if (oppAnalysis.closedFours > 0) {
+    score += 900 * oppAnalysis.closedFours;
+  }
+  
+  if (oppAnalysis.openThrees > 0) {
+    score += 700 * oppAnalysis.openThrees;
+  }
+  
+  if (oppAnalysis.openThrees >= 2) {
+    score += 2800;
+  }
+  
+  if (oppAnalysis.closedThrees > 0) {
+    score += 180 * oppAnalysis.closedThrees;
+  }
+  
   const row = Math.floor(pos / size);
   const col = pos % size;
+  const centerDist = Math.abs(row - 7.5) + Math.abs(col - 7.5);
+  score += (15 - centerDist) * 5;
   
-  const r1 = row + dr;
-  const c1 = col + dc;
-  const r2 = row - dr;
-  const c2 = col - dc;
-  
-  let openEnds = 0;
-  
-  if (r1 >= 0 && r1 < size && c1 >= 0 && c1 < size) {
-    if (board[r1 * size + c1] === ".") openEnds++;
+  let adjacentCount = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr;
+      const c = col + dc;
+      if (r >= 0 && r < size && c >= 0 && c < size) {
+        if (board[r * size + c] !== ".") {
+          adjacentCount++;
+        }
+      }
+    }
   }
+  score += adjacentCount * 10;
   
-  if (r2 >= 0 && r2 < size && c2 >= 0 && c2 < size) {
-    if (board[r2 * size + c2] === ".") openEnds++;
-  }
-  
-  return openEnds;
+  return score;
 }
 
 function checkWinAt(board, pos, mark, size = 16) {
@@ -321,160 +406,77 @@ function getAIMove(board, playerMark, mode) {
       const row = Math.floor(i / size);
       const col = i % size;
       
-      let hasNearQuans = false;
+      let hasNearby = false;
       for (let r = Math.max(0, row - 2); r <= Math.min(15, row + 2); r++) {
         for (let c = Math.max(0, col - 2); c <= Math.min(15, col + 2); c++) {
           if (board[r * size + c] !== ".") {
-            hasNearQuans = true;
+            hasNearby = true;
             break;
           }
         }
-        if (hasNearQuans) break;
+        if (hasNearby) break;
       }
       
-      if (hasNearQuans) {
-        const strength = getThreadStrength(board, i, botMark, size);
-        moves.push({ pos: i, strength: strength.maxCount });
-      }
-    }
-    
-    if (moves.length > 0) {
-      moves.sort((a, b) => b.strength - a.strength);
-      return moves[0].pos;
-    }
-  } else if (mode === "hard") {
-    for (let i = 0; i < 256; i++) {
-      if (board[i] !== ".") continue;
-      
-      let score = 0;
-      const directions = [[0,1], [1,0], [1,1], [1,-1]];
-      
-      for (const [dr, dc] of directions) {
-        const forward = countInDirection(board, i, dr, dc, botMark, size);
-        const backward = countInDirection(board, i, -dr, -dc, botMark, size);
-        const count = forward + backward;
-        
-        if (count >= 3) {
-          const opens = hasOpenEnd(board, i, botMark, dr, dc, size);
-          if (opens === 2) score += 500;
-          else if (opens === 1) score += 300;
-          else score += 100;
-        } else if (count === 2) {
-          score += 50;
-        }
-      }
-      
-      for (const [dr, dc] of directions) {
-        const forward = countInDirection(board, i, dr, dc, playerMark, size);
-        const backward = countInDirection(board, i, -dr, -dc, playerMark, size);
-        const count = forward + backward;
-        
-        if (count >= 3) {
-          const opens = hasOpenEnd(board, i, playerMark, dr, dc, size);
-          if (opens === 2) score += 400;
-          else if (opens === 1) score += 200;
-          else score += 80;
-        } else if (count === 2) {
-          score += 30;
-        }
-      }
-      
-      const row = Math.floor(i / size);
-      const col = i % size;
-      if (row >= 4 && row <= 11 && col >= 4 && col <= 11) {
-        score += 20;
-      }
-      
-      let nearQuans = false;
-      for (let r = Math.max(0, row - 3); r <= Math.min(15, row + 3); r++) {
-        for (let c = Math.max(0, col - 3); c <= Math.min(15, col + 3); c++) {
-          if (board[r * size + c] !== ".") {
-            nearQuans = true;
-            break;
-          }
-        }
-        if (nearQuans) break;
-      }
-      
-      if (nearQuans) {
-        score += 10;
-      }
-      
-      if (score > 0) {
+      if (hasNearby) {
+        const score = evaluateMove(board, i, botMark, playerMark, size) * 0.5;
         moves.push({ pos: i, score });
       }
     }
     
     if (moves.length > 0) {
       moves.sort((a, b) => b.score - a.score);
-      return moves[0].pos;
+      const topMoves = moves.slice(0, Math.min(5, moves.length));
+      return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
     }
-  } else if (mode === "super") {
-    const centerPositions = [];
-    for (let i = 80; i <= 175; i++) {
-      if ((i - 1) % 16 >= 4 && (i - 1) % 16 <= 11) {
-        centerPositions.push(i - 1);
-      }
-    }
-    
+  } else if (mode === "hard") {
     for (let i = 0; i < 256; i++) {
       if (board[i] !== ".") continue;
       
-      let score = 0;
-      const directions = [[0,1], [1,0], [1,1], [1,-1]];
-      
-      for (const [dr, dc] of directions) {
-        const forward = countInDirection(board, i, dr, dc, botMark, size);
-        const backward = countInDirection(board, i, -dr, -dc, botMark, size);
-        const count = forward + backward;
-        
-        if (count >= 3) {
-          const opens = hasOpenEnd(board, i, botMark, dr, dc, size);
-          if (opens === 2) score += 800;
-          else if (opens === 1) score += 500;
-          else score += 200;
-        } else if (count === 2) {
-          score += 80;
-        } else if (count === 1) {
-          score += 20;
-        }
-      }
-      
-      for (const [dr, dc] of directions) {
-        const forward = countInDirection(board, i, dr, dc, playerMark, size);
-        const backward = countInDirection(board, i, -dr, -dc, playerMark, size);
-        const count = forward + backward;
-        
-        if (count >= 3) {
-          const opens = hasOpenEnd(board, i, playerMark, dr, dc, size);
-          if (opens === 2) score += 600;
-          else if (opens === 1) score += 350;
-          else score += 150;
-        } else if (count === 2) {
-          score += 50;
-        }
-      }
-      
       const row = Math.floor(i / size);
       const col = i % size;
-      if (centerPositions.includes(i)) {
-        score += 100;
-      }
       
-      let nearQuans = 0;
+      let hasNearby = false;
       for (let r = Math.max(0, row - 2); r <= Math.min(15, row + 2); r++) {
         for (let c = Math.max(0, col - 2); c <= Math.min(15, col + 2); c++) {
           if (board[r * size + c] !== ".") {
-            nearQuans++;
+            hasNearby = true;
+            break;
           }
         }
+        if (hasNearby) break;
       }
       
-      if (nearQuans > 0) {
-        score += 50;
+      if (hasNearby || moves.length === 0) {
+        const score = evaluateMove(board, i, botMark, playerMark, size);
+        moves.push({ pos: i, score });
+      }
+    }
+    
+    if (moves.length > 0) {
+      moves.sort((a, b) => b.score - a.score);
+      const topMoves = moves.slice(0, Math.min(3, moves.length));
+      return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
+    }
+  } else if (mode === "super") {
+    for (let i = 0; i < 256; i++) {
+      if (board[i] !== ".") continue;
+      
+      const row = Math.floor(i / size);
+      const col = i % size;
+      
+      let hasNearby = false;
+      for (let r = Math.max(0, row - 3); r <= Math.min(15, row + 3); r++) {
+        for (let c = Math.max(0, col - 3); c <= Math.min(15, col + 3); c++) {
+          if (board[r * size + c] !== ".") {
+            hasNearby = true;
+            break;
+          }
+        }
+        if (hasNearby) break;
       }
       
-      if (score > 0) {
+      if (hasNearby || moves.length === 0) {
+        const score = evaluateMove(board, i, botMark, playerMark, size);
         moves.push({ pos: i, score });
       }
     }
@@ -502,19 +504,25 @@ export async function handleCaroCommand(api, message) {
   
   if (args.length < 2) {
     await sendMessageComplete(api, message, 
-      `🎮 Hướng dẫn chơi cờ Caro:\n\n` +
-      `📌 ${prefix}caro [easy/hard/super] [x/o]\n` +
-      `   - ${prefix}caro easy (random x hoặc o)\n` +
-      `   - ${prefix}caro hard x (chọn x)\n` +
-      `   - X luôn đi trước\n` +
-      `   - Nhập số ô (1-256) để đánh\n` +
-      `   - 5 quân liên tiếp thắng!\n` +
-      `   - ⏰ Mỗi lượt có 60 giây\n\n` +
-      `🎯 Độ khó:\n` +
-      `   • easy: Dễ dàng - Chỉ phòng thủ\n` +
-      `   • hard: Khó khăn - Cân bằng tấn công & phòng thủ\n` +
-      `   • super: Thách đấu - Tấn công dồn dập\n\n` +
-      `📌 ${prefix}caro leave - Rời khỏi trò chơi`
+      `━━━━━━━━━━━━━━━━━━━\n` +
+      `🎮 HƯỚNG DẪN CHƠI CỜ CARO\n` +
+      `━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📌 Cú pháp:\n` +
+      `${prefix}caro [easy/hard/super] [x/o]\n\n` +
+      `💡 Ví dụ:\n` +
+      `• ${prefix}caro easy (random X hoặc O)\n` +
+      `• ${prefix}caro hard x (chọn quân X)\n` +
+      `• ${prefix}caro super o (chọn quân O)\n\n` +
+      `📋 Luật chơi:\n` +
+      `• Quân X đi trước\n` +
+      `• Nhập số ô (1-256) để đánh quân\n` +
+      `• 5 quân liên tiếp sẽ giành chiến thắng\n` +
+      `• Mỗi lượt có 60 giây\n\n` +
+      `⚡ Độ khó:\n` +
+      `• Easy: Dễ - Phù hợp người mới\n` +
+      `• Hard: Khó - Cân bằng tấn công & phòng thủ\n` +
+      `• Super: Thách đấu - AI thông minh\n\n` +
+      `🚪 ${prefix}caro leave - Rời khỏi trò chơi`
     );
     return;
   }
@@ -523,9 +531,9 @@ export async function handleCaroCommand(api, message) {
     if (activeCaroGames.has(threadId)) {
       clearTurnTimer(threadId);
       activeCaroGames.delete(threadId);
-      await sendMessageComplete(api, message, "🚫 Trò chơi Caro đã kết thúc.");
+      await sendMessageComplete(api, message, "🚫 Trò chơi Caro đã kết thúc do người chơi rời khỏi phòng.");
     } else {
-      await sendMessageWarning(api, message, "Không có trò chơi Caro nào đang diễn ra.");
+      await sendMessageWarning(api, message, "⚠️ Không có trò chơi Caro nào đang diễn ra.");
     }
     return;
   }
@@ -534,12 +542,12 @@ export async function handleCaroCommand(api, message) {
   let playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
   
   if (!["easy", "hard", "super"].includes(mode)) {
-    await sendMessageWarning(api, message, "Chế độ không hợp lệ! Chọn: easy, hard, hoặc super");
+    await sendMessageWarning(api, message, "⚠️ Chế độ không hợp lệ! Vui lòng chọn: easy, hard hoặc super");
     return;
   }
   
   if (!["X", "O"].includes(playerMark)) {
-    await sendMessageWarning(api, message, "Quân cờ không hợp lệ! Chọn X hoặc O");
+    await sendMessageWarning(api, message, "⚠️ Quân cờ không hợp lệ! Vui lòng chọn X hoặc O");
     return;
   }
   
@@ -564,14 +572,14 @@ export async function handleCaroCommand(api, message) {
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
-  const modeText = mode === "easy" ? "dễ" : mode === "hard" ? "khó" : "thách đấu";
+  const modeText = mode === "easy" ? "Dễ" : mode === "hard" ? "Khó" : "Thách Đấu";
   const turnMsg = playerMark === "X" 
-    ? `\n👉 Đến Lượt Bạn\n\n🔢 Hãy chọn số từ 1-256 để đánh quân cờ.` 
-    : "(Bot đi trước)";
+    ? `\n👉 Lượt của bạn\n\nHãy chọn số từ 1-256 để đánh quân cờ` 
+    : `\n🤖 Bot đi trước`;
   
   await api.sendMessage(
     {
-      msg: `@${message.data.dName}\n🎮 Trận Caro bắt đầu! ${turnMsg}\n🤖 Độ khó: ${modeText}`,
+      msg: `@${message.data.dName}\n━━━━━━━━━━━━━━━━━━━\n🎮 BẮT ĐẦU TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━${turnMsg}`,
       mentions: [{ pos: 1, uid: message.data.uidFrom, len: message.data.dName.length }],
       attachments: [imagePath]
     },
@@ -584,7 +592,7 @@ export async function handleCaroCommand(api, message) {
   } catch (error) {}
   
   if (playerMark === "O") {
-    setTimeout(() => handleBotTurn(api, message), 1000);
+    setTimeout(() => handleBotTurn(api, message), 800);
   } else {
     startTurnTimer(api, message, threadId, true);
   }
@@ -609,11 +617,11 @@ async function handleBotTurn(api, message) {
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    const modeText = game.mode === "easy" ? "dễ" : game.mode === "hard" ? "khó" : "thách đấu";
+    const modeText = game.mode === "easy" ? "Dễ" : game.mode === "hard" ? "Khó" : "Thách Đấu";
     
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro hòa!\n🤖 Độ khó: ${modeText}\n\n🔗 Hòa do không còn nước đi(256/256).`,
+        msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 KẾT THÚC TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n🤝 Hòa cờ do không còn nước đi (256/256)`,
         mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
@@ -639,12 +647,12 @@ async function handleBotTurn(api, message) {
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
-  const modeText = game.mode === "easy" ? "dễ" : game.mode === "hard" ? "khó" : "thách đấu";
+  const modeText = game.mode === "easy" ? "Dễ" : game.mode === "hard" ? "Khó" : "Thách Đấu";
   
   if (winner) {
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n🔢 Bot đánh ô số ${pos + 1}\n🎉 Bot thắng!`,
+        msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 KẾT THÚC TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã dành chiến thắng với 5 quân liên tiếp`,
         mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
@@ -656,7 +664,7 @@ async function handleBotTurn(api, message) {
   } else {
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro tiếp diễn!\n🤖 Độ khó: ${modeText}\n\n🔢 Bot đánh ô số ${pos + 1}\n👉 Đến lượt bạn!`,
+        msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 TRÒ CHƠI TIẾP DIỄN\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n🤖 Bot đánh ô số ${pos + 1}\n👉 Đến lượt bạn\n\nChọn ô từ 1-256 để đánh quân cờ`,
         mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
@@ -690,13 +698,13 @@ export async function handleCaroMessage(api, message) {
   const pos = parseInt(content.trim(), 10) - 1;
   
   if (pos < 0 || pos >= 256) {
-    await sendMessageWarning(api, message, "Số ô không hợp lệ! Chọn từ 1-256.");
+    await sendMessageWarning(api, message, "Số ô không hợp lệ. Vui lòng chọn từ 1-256.");
     startTurnTimer(api, message, threadId, true);
     return;
   }
   
   if (game.board[pos] !== ".") {
-    await sendMessageWarning(api, message, "Ô này đã có quân! Chọn ô trống.");
+    await sendMessageWarning(api, message, "Ô này đã được đạn! Vui lòng chọn một ô trống.");
     startTurnTimer(api, message, threadId, true);
     return;
   }
@@ -711,12 +719,12 @@ export async function handleCaroMessage(api, message) {
   const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
   await fs.writeFile(imagePath, imageBuffer);
   
-  const modeText = game.mode === "easy" ? "dễ" : game.mode === "hard" ? "khó" : "thách đấu";
+  const modeText = game.mode === "easy" ? "Dễ" : game.mode === "hard" ? "Khó" : "Thách Đấu";
   
   if (winner) {
     await api.sendMessage(
       {
-        msg: `@${game.playerName}\n🎮 Trận Caro kết thúc!\n🤖 Độ khó: ${modeText}\n\n👤 Bạn đánh ô số ${pos + 1}\n🎉 ${game.playerName} thắng!`,
+        msg: `@${game.playerName}\n━━━━━━━━━━━━━━━━━━━\n🎮 KẾT THÚC TRÒ CHƠI\n🤖 Độ khó: ${modeText}\n━━━━━━━━━━━━━━━━━━━\n\n👤 Bạn đánh ô số ${pos + 1}\n🏆 Chúc mừng ${game.playerName} đã dành chiến thắng trong ván cờ này.`,
         mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
         attachments: [imagePath]
       },
@@ -731,19 +739,9 @@ export async function handleCaroMessage(api, message) {
     return;
   }
   
-  await api.sendMessage(
-    {
-      msg: `@${game.playerName}\n🎮 Trận Caro đang diễn ra!\n🤖 Độ khó: ${modeText}\n\n👤 Bạn đánh ô số ${pos + 1}\n🧭 Bot đang suy nghĩ...`,
-      mentions: [{ pos: 1, uid: game.playerId, len: game.playerName.length }],
-      attachments: [imagePath]
-    },
-    threadId,
-    message.type
-  );
-  
   try {
     await fs.unlink(imagePath);
   } catch (error) {}
   
-  setTimeout(() => handleBotTurn(api, message), 1500);
+  setTimeout(() => handleBotTurn(api, message), 800);
 }
