@@ -456,7 +456,7 @@ export async function handleGetVoiceCommand(api, message, aliasCommand) {
       
       await sendVoiceMusic(api, message, { 
         voiceUrl, 
-        caption: "Chuyển đổi văn bản thành giọng nói thành công!" 
+        caption: "Chuyển đổi văn bản sang giọng nói thành công!" 
       }, 1800000);
       fs.unlinkSync(tempFile);
       return;
