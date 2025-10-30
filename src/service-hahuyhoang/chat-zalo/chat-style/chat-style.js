@@ -126,7 +126,7 @@ export async function sendMessageFailed(api, message, caption, hasState = true) 
     const senderId = message.data.uidFrom;
     const threadId = message.threadId;
     const isGroup = message.type === MessageType.GroupMessage;
-    const iconState = "\n❌❌❌";
+    const iconState = "\n🚫🚫🚫";
 
     const style = MultiMsgStyle([MessageStyle(isGroup ? senderName.length + 1 : 0, nameServer.length, COLOR_RED, SIZE_18, IS_BOLD)]);
 
@@ -153,7 +153,7 @@ export async function sendMessageStateQuote(api, message, caption, state, ttl = 
     const senderName = message.data.dName;
     const senderId = message.data.uidFrom;
     const threadId = message.threadId;
-    const iconState = state ? "✅✅✅" : "❌❌❌";
+    const iconState = state ? "✅✅✅" : "🚫🚫🚫";
     const style = MultiMsgStyle([MessageStyle(senderName.length + 1, nameServer.length, COLOR_RED, SIZE_18, IS_BOLD)]);
     let msg = `${senderName}\n${nameServer}` + `\n${caption}${onState ? "\n" + iconState : ""}`;
     await api.sendMessage(
@@ -175,7 +175,7 @@ export async function sendMessageStateQuote(api, message, caption, state, ttl = 
 
 export async function sendMessageState(api, threadId, caption, state, ttl = 0) {
   try {
-    const iconState = state ? "✅✅✅" : "❌❌❌";
+    const iconState = state ? "✅✅✅" : "🚫🚫🚫";
     const style = MultiMsgStyle([MessageStyle(0, nameServer.length, COLOR_RED, SIZE_18, IS_BOLD)]);
     let msg = `${nameServer}` + `\n${caption}\n${iconState}`;
     await api.sendMessage(
@@ -195,7 +195,7 @@ export async function sendMessageState(api, threadId, caption, state, ttl = 0) {
 
 export async function sendMessageResultRequest(api, type = MessageType.GroupMessage, threadId, caption, state, ttl = 0) {
   try {
-    const iconState = state ? "✅✅✅" : "❌❌❌";
+    const iconState = state ? "✅✅✅" : "🚫🚫🚫";
     const style = MultiMsgStyle([MessageStyle(0, nameServer.length, COLOR_RED, SIZE_18, IS_BOLD)]);
     let msg = `${nameServer}` + `\n${caption}\n${iconState}`;
     await api.sendMessage(
@@ -224,7 +224,7 @@ export async function sendMessageFromSQL(api, message, result, hasState = true, 
 
     let msg = `${isGroup ? senderName + "\n" : ""}${nameServer}` + `\n${result.message}`;
     if (hasState) {
-      const state = result.success ? "✅✅✅" : "❌❌❌";
+      const state = result.success ? "✅✅✅" : "🚫🚫🚫";
       msg += `\n${state}`;
     }
     await api.sendMessage(
@@ -276,7 +276,7 @@ export async function sendMessageFromSQLImage(api, message, result, hasState = t
 
     let msg = `${isGroup ? senderName + "\n" : ""}${nameServer}` + `\n${result.message}`;
     if (hasState) {
-      const state = result.success ? "✅✅✅" : "❌❌❌";
+      const state = result.success ? "✅✅✅" : "🚫🚫🚫";
       msg += `\n${state}`;
     }
     await api.sendMessage(
