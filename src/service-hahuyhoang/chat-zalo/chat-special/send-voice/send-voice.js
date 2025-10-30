@@ -477,7 +477,7 @@ export async function handleGetVoiceCommand(api, message, aliasCommand) {
   }
 
   if (voiceUrl) {
-    await sendVoiceMusic(api, message, { voiceUrl, caption: "Đã Là Định Dạng Voice!" }, 1800000);
+    await sendVoiceMusic(api, message, { voiceUrl, caption: "Đã là định dạng voice!" }, 1800000);
     return;
   } 
   else if (videoUrl) {
