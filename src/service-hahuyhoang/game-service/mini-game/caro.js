@@ -627,7 +627,7 @@ async function handleBotTurn(api, message) {
       {
         msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\n🧭 Chọn ô từ 1-256 để đánh quân cờ, bạn có 60 giây để đánh`,
         attachments: [imagePath],
-        ttl
+        ttl: 60000
       },
       threadId,
       message.type
@@ -684,8 +684,7 @@ export async function handleCaroMessage(api, message) {
     await api.sendMessage(
       {
         msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 Bạn đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`,
-        attachments: [imagePath],
-        ttl: 60000,
+        attachments: [imagePath]
       },
       threadId,
       message.type
