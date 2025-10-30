@@ -41,7 +41,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
 }
 
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X") {
-  const cellSize = 55;
+  const cellSize = 50;
   const padding = 40;
   const headerHeight = 110;
   const width = size * cellSize + padding * 2;
@@ -61,16 +61,16 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
   
   if (playerMark === "X") {
     ctx.fillStyle = "#FF0000";
-    ctx.fillText(`X: ${playerName}`, 20, 35);
+    ctx.fillText(`X: ${playerName}`, 20, 30);
     ctx.textAlign = "right";
     ctx.fillStyle = "#0000FF";
-    ctx.fillText("O: BOT", width - 20, 35);
+    ctx.fillText("O: BOT", width - 20, 30);
   } else {
     ctx.fillStyle = "#FF0000";
-    ctx.fillText("X: BOT", 20, 35);
+    ctx.fillText("X: BOT", 20, 30);
     ctx.textAlign = "right";
     ctx.fillStyle = "#0000FF";
-    ctx.fillText(`O: ${playerName}`, width - 20, 35);
+    ctx.fillText(`O: ${playerName}`, width - 20, 30);
   }
   
   ctx.font = "bold 15px 'BeVietnamPro'";
@@ -79,10 +79,10 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
   
   const turnText = currentTurn === "X" ? "X" : "O";
   const turnName = currentTurn === playerMark ? playerName : "BOT";
-  ctx.fillText(`Lượt: ${turnText} (${turnName})`, 20, 70);
+  ctx.fillText(`Lượt: ${turnText} (${turnName})`, 20, 60);
   
   ctx.textAlign = "right";
-  ctx.fillText(`Nước đi: ${moveCount}/256`, width - 20, 70);
+  ctx.fillText(`Nước đi: ${moveCount}/256`, width - 20, 60);
   
   const boardTop = headerHeight;
   
@@ -108,13 +108,13 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     const y = boardTop + padding + row * cellSize + cellSize / 2;
     
     if (board[i] === ".") {
-      ctx.font = "bold 16px 'BeVietnamPro'";
+      ctx.font = "12px 'BeVietnamPro'";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "#888888";
+      ctx.fillStyle = "#000000";
       ctx.fillText((i + 1).toString(), x, y);
     } else {
-      ctx.font = "bold 36px 'BeVietnamPro'";
+      ctx.font = "bold 30px 'BeVietnamPro'";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       
@@ -130,7 +130,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.strokeStyle = "#FFD700";
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(x, y, cellSize / 2.2, 0, Math.PI * 2);
+        ctx.arc(x, y, cellSize / 2.8, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -161,164 +161,91 @@ function countInDirection(board, pos, dr, dc, mark, size = 16) {
   return count;
 }
 
-function isBlocked(board, pos, dr, dc, mark, size = 16) {
+function analyzePosition(board, pos, mark, size = 16) {
+  const oppMark = mark === "X" ? "O" : "X";
   const row = Math.floor(pos / size);
   const col = pos % size;
-  const oppMark = mark === "X" ? "O" : "X";
-  
-  let r = row - dr;
-  let c = col - dc;
-  if (r >= 0 && r < size && c >= 0 && c < size) {
-    if (board[r * size + c] === oppMark) return true;
-  } else {
-    return true;
-  }
-  
-  r = row + dr;
-  c = col + dc;
-  if (r >= 0 && r < size && c >= 0 && c < size) {
-    if (board[r * size + c] === oppMark) return true;
-  } else {
-    return true;
-  }
-  
-  return false;
-}
 
-function analyzePosition(board, pos, mark, size = 16) {
-  const directions = [[0,1], [1,0], [1,1], [1,-1]];
-  let maxStrength = 0;
+  let wins = 0;
   let openFours = 0;
   let closedFours = 0;
   let openThrees = 0;
   let closedThrees = 0;
-  let openTwos = 0;
-  
+
+  const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
   for (const [dr, dc] of directions) {
-    const forward = countInDirection(board, pos, dr, dc, mark, size);
-    const backward = countInDirection(board, pos, -dr, -dc, mark, size);
-    const total = forward + backward + 1;
-    
-    maxStrength = Math.max(maxStrength, total);
-    
-    if (total === 5) {
-      return { maxStrength: 5, openFours: 1, closedFours: 0, openThrees: 0, closedThrees: 0, openTwos: 0 };
+    let count = 1; 
+    let forwardBlocked = false;
+    let backwardBlocked = false;
+
+    let r = row + dr;
+    let c = col + dc;
+    while (r >= 0 && r < size && c >= 0 && c < size && board[r * size + c] === mark) {
+      count++;
+      r += dr;
+      c += dc;
     }
-    
-    if (total === 4) {
-      if (isBlocked(board, pos, dr, dc, mark, size)) {
-        closedFours++;
-      } else {
+    if (r < 0 || r >= size || c < 0 || c >= size || board[r * size + c] === oppMark) {
+      forwardBlocked = true;
+    }
+
+    r = row - dr;
+    c = col - dc;
+    while (r >= 0 && r < size && c >= 0 && c < size && board[r * size + c] === mark) {
+      count++;
+      r -= dr;
+      c -= dc;
+    }
+    if (r < 0 || r >= size || c < 0 || c >= size || board[r * size + c] === oppMark) {
+      backwardBlocked = true;
+    }
+
+    if (count >= 5) {
+      wins++;
+    } else if (count === 4) {
+      if (!forwardBlocked && !backwardBlocked) {
         openFours++;
+      } else if (!forwardBlocked || !backwardBlocked) {
+        closedFours++;
       }
-    } else if (total === 3) {
-      if (isBlocked(board, pos, dr, dc, mark, size)) {
-        closedThrees++;
-      } else {
+    } else if (count === 3) {
+      if (!forwardBlocked && !backwardBlocked) {
         openThrees++;
-      }
-    } else if (total === 2) {
-      if (!isBlocked(board, pos, dr, dc, mark, size)) {
-        openTwos++;
+      } else if (!forwardBlocked || !backwardBlocked) {
+        closedThrees++;
       }
     }
   }
   
-  return { maxStrength, openFours, closedFours, openThrees, closedThrees, openTwos };
-}
-
-function getThreatLevel(board, pos, mark, oppMark, size = 16) {
-  let threatScore = 0;
+  if (wins > 0) return { score: 1000000 }; 
+  if (openFours > 0 || closedFours > 1 || (closedFours > 0 && openThrees > 0)) return { score: 100000 }; 
+  if (openThrees > 1) return { score: 50000 }; 
   
-  const myAnalysis = analyzePosition(board, pos, mark, size);
-  const tempBoard = [...board];
-  tempBoard[pos] = oppMark;
-  const oppAnalysis = analyzePosition(tempBoard, pos, oppMark, size);
-  
-  if (myAnalysis.maxStrength === 5) threatScore += 100000;
-  else if (myAnalysis.openFours > 0) threatScore += 50000;
-  else if (myAnalysis.openFours + myAnalysis.closedFours > 0) threatScore += 25000;
-  
-  if (oppAnalysis.maxStrength === 5) threatScore += 95000;
-  else if (oppAnalysis.openFours > 0) threatScore += 45000;
-  else if (oppAnalysis.openFours + oppAnalysis.closedFours > 0) threatScore += 22000;
-  
-  if (myAnalysis.openThrees >= 2) threatScore += 15000;
-  if (oppAnalysis.openThrees >= 2) threatScore += 12000;
-  
-  return threatScore;
-}
-
-function evaluateMove(board, pos, mark, oppMark, size = 16, depth = 0) {
   let score = 0;
+  score += openThrees * 6000;
+  score += closedFours * 8000;
+  score += closedThrees * 500;
   
+  return { score };
+}
+
+function evaluateMove(board, pos, mark, oppMark, size = 16) {
+  board[pos] = mark;
   const myAnalysis = analyzePosition(board, pos, mark, size);
+  board[pos] = "."; 
   
-  if (myAnalysis.maxStrength >= 5) {
-    score += 100000;
-  } else if (myAnalysis.maxStrength === 4) {
-    score += myAnalysis.openFours > 0 ? 50000 : 20000;
-  }
-  
-  if (myAnalysis.openFours > 0) {
-    score += 15000 * myAnalysis.openFours;
-  }
-  
-  if (myAnalysis.closedFours > 0) {
-    score += 5000 * myAnalysis.closedFours;
-  }
-  
-  if (myAnalysis.openThrees > 0) {
-    score += 3000 * myAnalysis.openThrees;
-  }
-  
-  if (myAnalysis.openThrees >= 2) {
-    score += 8000;
-  }
-  
-  if (myAnalysis.closedThrees > 0) {
-    score += 800 * myAnalysis.closedThrees;
-  }
-  
-  if (myAnalysis.openTwos > 0) {
-    score += 100 * myAnalysis.openTwos;
-  }
-  
-  const tempBoard = [...board];
-  tempBoard[pos] = oppMark;
-  const oppAnalysis = analyzePosition(tempBoard, pos, oppMark, size);
-  
-  if (oppAnalysis.maxStrength >= 5) {
-    score += 95000;
-  } else if (oppAnalysis.maxStrength === 4) {
-    score += oppAnalysis.openFours > 0 ? 45000 : 18000;
-  }
-  
-  if (oppAnalysis.openFours > 0) {
-    score += 12000 * oppAnalysis.openFours;
-  }
-  
-  if (oppAnalysis.closedFours > 0) {
-    score += 4500 * oppAnalysis.closedFours;
-  }
-  
-  if (oppAnalysis.openThrees > 0) {
-    score += 2500 * oppAnalysis.openThrees;
-  }
-  
-  if (oppAnalysis.openThrees >= 2) {
-    score += 7000;
-  }
-  
-  if (oppAnalysis.closedThrees > 0) {
-    score += 700 * oppAnalysis.closedThrees;
-  }
-  
+  board[pos] = oppMark;
+  const oppAnalysis = analyzePosition(board, pos, oppMark, size);
+  board[pos] = "."; 
+
+  let score = myAnalysis.score + oppAnalysis.score * 1.2; 
+
   const row = Math.floor(pos / size);
   const col = pos % size;
   const centerDist = Math.abs(row - 7.5) + Math.abs(col - 7.5);
-  score += (15 - centerDist) * 12;
-  
+  score += (15 - centerDist) * 10; 
+
   let adjacentCount = 0;
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
@@ -332,8 +259,8 @@ function evaluateMove(board, pos, mark, oppMark, size = 16, depth = 0) {
       }
     }
   }
-  score += adjacentCount * 25;
-  
+  score += adjacentCount * 20; 
+
   return score;
 }
 
@@ -377,73 +304,6 @@ function checkWin(board, size = 16) {
   }
   
   return null;
-}
-
-function minimax(board, depth, alpha, beta, isMaximizing, botMark, playerMark, maxDepth = 4) {
-  if (depth === maxDepth) {
-    let score = 0;
-    for (let i = 0; i < 256; i++) {
-      if (board[i] !== ".") {
-        score += evaluateMove(board, i, botMark, playerMark, 16, depth) * (isMaximizing ? 1 : -1);
-      }
-    }
-    return score;
-  }
-  
-  const winner = checkWin(board, 16);
-  if (winner === botMark) return 100000 - depth * 1000;
-  if (winner === playerMark) return -100000 + depth * 1000;
-  
-  const moves = [];
-  for (let i = 0; i < 256; i++) {
-    if (board[i] !== ".") continue;
-    
-    const row = Math.floor(i / 16);
-    const col = i % 16;
-    let hasNearby = false;
-    
-    for (let r = Math.max(0, row - 2); r <= Math.min(15, row + 2); r++) {
-      for (let c = Math.max(0, col - 2); c <= Math.min(15, col + 2); c++) {
-        if (board[r * 16 + c] !== ".") {
-          hasNearby = true;
-          break;
-        }
-      }
-      if (hasNearby) break;
-    }
-    
-    if (hasNearby) {
-      const threatLevel = getThreatLevel(board, i, isMaximizing ? botMark : playerMark, isMaximizing ? playerMark : botMark, 16);
-      moves.push({ pos: i, threat: threatLevel });
-    }
-  }
-  
-  moves.sort((a, b) => b.threat - a.threat);
-  const topMoves = moves.slice(0, Math.min(8, moves.length));
-  
-  if (isMaximizing) {
-    let maxEval = -Infinity;
-    for (const move of topMoves) {
-      const newBoard = [...board];
-      newBoard[move.pos] = botMark;
-      const evaluation = minimax(newBoard, depth + 1, alpha, beta, false, botMark, playerMark, maxDepth);
-      maxEval = Math.max(maxEval, evaluation);
-      alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break;
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (const move of topMoves) {
-      const newBoard = [...board];
-      newBoard[move.pos] = playerMark;
-      const evaluation = minimax(newBoard, depth + 1, alpha, beta, true, botMark, playerMark, maxDepth);
-      minEval = Math.min(minEval, evaluation);
-      beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break;
-    }
-    return minEval;
-  }
 }
 
 function getAIMove(board, playerMark, mode) {
@@ -492,7 +352,7 @@ function getAIMove(board, playerMark, mode) {
       }
       
       if (hasNearby) {
-        const score = evaluateMove(board, i, botMark, playerMark, size) * 0.5;
+        const score = evaluateMove(board, i, botMark, playerMark, size) * 0.3;
         moves.push({ pos: i, score });
       }
     }
@@ -528,7 +388,7 @@ function getAIMove(board, playerMark, mode) {
     
     if (moves.length > 0) {
       moves.sort((a, b) => b.score - a.score);
-      const topMoves = moves.slice(0, Math.min(3, moves.length));
+      const topMoves = moves.slice(0, Math.min(2, moves.length));
       return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
     }
   } else if (mode === "super") {
@@ -557,22 +417,7 @@ function getAIMove(board, playerMark, mode) {
     
     if (moves.length > 0) {
       moves.sort((a, b) => b.score - a.score);
-      const topMoves = moves.slice(0, Math.min(5, moves.length));
-      
-      let bestMove = topMoves[0].pos;
-      let bestScore = -Infinity;
-      
-      for (const move of topMoves) {
-        const testBoard = [...board];
-        testBoard[move.pos] = botMark;
-        const mmScore = minimax(testBoard, 0, -Infinity, Infinity, false, botMark, playerMark, 3);
-        if (mmScore > bestScore) {
-          bestScore = mmScore;
-          bestMove = move.pos;
-        }
-      }
-      
-      return bestMove;
+      return moves[0].pos;
     }
   }
   
@@ -625,12 +470,12 @@ export async function handleCaroCommand(api, message) {
   let playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
   
   if (!["easy", "hard", "super"].includes(mode)) {
-    await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng các mode sau đây để bắt đầu trò chơi:\n- easy: Dễ, dành cho newbie\n- hard: Khó, cân bằng giữa tấn công & phòng thủ\n- super: Thách đấu, dành cho cao thủ");
+    await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng các mode sau đây để bắt đầu trò chơi:\n- easy: Dễ, dành cho newbie\n- hard: Khó, cân bằng giữa tấn công & phòng thủ\n-super: Thách đấu, dành cho cao thủ");
     return;
   }
   
   if (!["X", "O"].includes(playerMark)) {
-    await sendMessageWarning(api, message, "Quân cờ để bắt đầu không hợp lệ, vui lòng chọn giữa X và O\nX đi trước");
+    await sendMessageWarning(api, message, "Quân cờ để bắt đầu không hợp lệ, vui lòng chọn giữa X và O\nX đi trước ");
     return;
   }
   
