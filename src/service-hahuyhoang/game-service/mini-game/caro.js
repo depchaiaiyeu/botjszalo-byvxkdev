@@ -28,9 +28,9 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     if (!game) return;
     
     if (isPlayerTurn) {
-      await sendMessageComplete(api, message, `${game.playerName}\n🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh trong 60 giây\n🏆 Bot đã chiến thắng`);
+      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đánh trong 60 giây\n🏆 Bot đã chiến thắng ván cờ này`);
     } else {
-      await sendMessageComplete(api, message, `${game.playerName}\n🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã chiến thắng`);
+      await sendMessageComplete(api, message, `🎮 TRẬN ĐẤU KẾT THÚC\n\n⏰ Bot thua vì không đánh trong 60 giây\n🏆 ${game.playerName} đã chiến thắng ván cờ này`);
     }
     
     activeCaroGames.delete(threadId);
@@ -509,12 +509,12 @@ export async function handleCaroCommand(api, message) {
   let playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
   
   if (!["easy", "hard", "super"].includes(mode)) {
-    await sendMessageWarning(api, message, "⚠️ Chế độ không hợp lệ! Vui lòng chọn: easy, hard hoặc super");
+    await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng các mode sau đây để bắt đầu trò chơi:\n- easy: Dễ, dành cho newbie\n- hard: Khó, cân bằng giữa tấn công & phòng thủ\n-super: Thách đấu, dành cho cao thủ");
     return;
   }
   
   if (!["X", "O"].includes(playerMark)) {
-    await sendMessageWarning(api, message, "⚠️ Quân cờ không hợp lệ! Vui lòng chọn X hoặc O");
+    await sendMessageWarning(api, message, "Quân cờ để bắt đầu không hợp lệ, vui lòng chọn giữa X và O\nX đi trước ");
     return;
   }
   
@@ -546,7 +546,7 @@ export async function handleCaroCommand(api, message) {
   
   await api.sendMessage(
     {
-      msg: `${message.data.dName}\n🎮 BẮT ĐẦU TRÒ CHƠI${turnMsg}`,
+      msg: `🌟 ${message.data.dName} 🌟\n\n🎮 BẮT ĐẦU TRÒ CHƠI${turnMsg}`,
       attachments: [imagePath]
     },
     threadId,
@@ -585,7 +585,7 @@ async function handleBotTurn(api, message) {
     
     await api.sendMessage(
       {
-        msg: `${game.playerName}\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤝 Hòa cờ vì không còn nước đi (256/256)`,
+        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤝 Hòa cờ vì không còn nước đi (256/256)`,
         attachments: [imagePath]
       },
       threadId,
@@ -614,7 +614,7 @@ async function handleBotTurn(api, message) {
   if (winner) {
     await api.sendMessage(
       {
-        msg: `${game.playerName}\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã chiến thắng với 5 quân liên tiếp`,
+        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã chiến thắng với 5 quân liên tiếp`,
         attachments: [imagePath]
       },
       threadId,
@@ -625,8 +625,9 @@ async function handleBotTurn(api, message) {
   } else {
     await api.sendMessage(
       {
-        msg: `${game.playerName}\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\nChọn ô từ 1-256 để đánh quân cờ`,
-        attachments: [imagePath]
+        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt bạn\n\n🧭 Chọn ô từ 1-256 để đánh quân cờ, bạn có 60 giây để đánh`,
+        attachments: [imagePath],
+        ttl
       },
       threadId,
       message.type
@@ -658,13 +659,13 @@ export async function handleCaroMessage(api, message) {
   const pos = parseInt(content.trim(), 10) - 1;
   
   if (pos < 0 || pos >= 256) {
-    await sendMessageWarning(api, message, "⚠️ Số ô không hợp lệ. Vui lòng chọn từ 1-256");
+    await sendMessageWarning(api, message, "Index không hợp lệ, vui lòng chọn từ 1-256");
     startTurnTimer(api, message, threadId, true);
     return;
   }
   
   if (game.board[pos] !== ".") {
-    await sendMessageWarning(api, message, "⚠️ Ô này đã được đánh! Vui lòng chọn một ô trống");
+    await sendMessageWarning(api, message, "Ô này đã được sử dụng, vui lòng chọn một ô trống");
     startTurnTimer(api, message, threadId, true);
     return;
   }
@@ -682,8 +683,9 @@ export async function handleCaroMessage(api, message) {
   if (winner) {
     await api.sendMessage(
       {
-        msg: `${game.playerName}\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 Bạn đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng`,
-        attachments: [imagePath]
+        msg: `🌟 ${game.playerName} 🌟\n\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 Bạn đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`,
+        attachments: [imagePath],
+        ttl: 60000,
       },
       threadId,
       message.type
