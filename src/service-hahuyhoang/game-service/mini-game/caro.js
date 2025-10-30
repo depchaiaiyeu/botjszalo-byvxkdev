@@ -108,7 +108,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     const y = boardTop + padding + row * cellSize + cellSize / 2;
     
     if (board[i] === ".") {
-      ctx.font = "12px 'BeVietnamPro'";
+      ctx.font = "15px 'BeVietnamPro'";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#000000";
