@@ -664,7 +664,7 @@ export async function handleCaroMessage(api, message) {
   
   if (content.trim().toLowerCase() === "lose") {
     clearTurnTimer(threadId);
-    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n🏳️ ${game.playerName} đã nhận thua\n🏆 Bot đã dành chiến thắng`;
+    const caption = `🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đã nhận thua\n🏆 Bot đã dành chiến thắng ván cờ này`;
     await sendMessageTag(api, message, {
       caption,
       mentions: [{
