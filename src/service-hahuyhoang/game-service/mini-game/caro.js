@@ -161,90 +161,102 @@ function countInDirection(board, pos, dr, dc, mark, size = 16) {
   return count;
 }
 
-function analyzePosition(board, pos, mark, size = 16) {
+function getLineStats(board, pos, dr, dc, mark, size = 16) {
   const oppMark = mark === "X" ? "O" : "X";
-  const row = Math.floor(pos / size);
-  const col = pos % size;
+  let r = Math.floor(pos / size);
+  let c = pos % size;
 
+  let count = 1;
+  let backwardOpen = false;
+  let rb = r - dr;
+  let cb = c - dc;
+  while (rb >= 0 && rb < size && cb >= 0 && cb < size && board[rb * size + cb] === mark) {
+    count++;
+    rb -= dr;
+    cb -= dc;
+  }
+  if (rb >= 0 && rb < size && cb >= 0 && cb < size && board[rb * size + cb] === ".") {
+    backwardOpen = true;
+  }
+
+  let forwardOpen = false;
+  let rf = r + dr;
+  let cf = c + dc;
+  while (rf >= 0 && rf < size && cf >= 0 && cf < size && board[rf * size + cf] === mark) {
+    count++;
+    rf += dr;
+    cf += dc;
+  }
+  if (rf >= 0 && rf < size && cf >= 0 && cf < size && board[rf * size + cf] === ".") {
+    forwardOpen = true;
+  }
+
+  let openEnds = 0;
+  if (backwardOpen) openEnds++;
+  if (forwardOpen) openEnds++;
+
+  return { count, openEnds };
+}
+
+function analyzePosition(board, pos, mark, size = 16) {
   let wins = 0;
   let openFours = 0;
   let closedFours = 0;
   let openThrees = 0;
   let closedThrees = 0;
+  let openTwos = 0;
 
   const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
   for (const [dr, dc] of directions) {
-    let count = 1; 
-    let forwardBlocked = false;
-    let backwardBlocked = false;
-
-    let r = row + dr;
-    let c = col + dc;
-    while (r >= 0 && r < size && c >= 0 && c < size && board[r * size + c] === mark) {
-      count++;
-      r += dr;
-      c += dc;
-    }
-    if (r < 0 || r >= size || c < 0 || c >= size || board[r * size + c] === oppMark) {
-      forwardBlocked = true;
-    }
-
-    r = row - dr;
-    c = col - dc;
-    while (r >= 0 && r < size && c >= 0 && c < size && board[r * size + c] === mark) {
-      count++;
-      r -= dr;
-      c -= dc;
-    }
-    if (r < 0 || r >= size || c < 0 || c >= size || board[r * size + c] === oppMark) {
-      backwardBlocked = true;
-    }
+    const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
 
     if (count >= 5) {
       wins++;
     } else if (count === 4) {
-      if (!forwardBlocked && !backwardBlocked) {
-        openFours++;
-      } else if (!forwardBlocked || !backwardBlocked) {
-        closedFours++;
-      }
+      if (openEnds === 2) openFours++;
+      else if (openEnds === 1) closedFours++;
     } else if (count === 3) {
-      if (!forwardBlocked && !backwardBlocked) {
-        openThrees++;
-      } else if (!forwardBlocked || !backwardBlocked) {
-        closedThrees++;
-      }
+      if (openEnds === 2) openThrees++;
+      else if (openEnds === 1) closedThrees++;
+    } else if (count === 2) {
+      if (openEnds === 2) openTwos++;
     }
   }
-  
-  if (wins > 0) return { score: 1000000 }; 
-  if (openFours > 0 || closedFours > 1 || (closedFours > 0 && openThrees > 0)) return { score: 100000 }; 
-  if (openThrees > 1) return { score: 50000 }; 
-  
+
+  if (wins > 0) return { score: 100000000 };
+
+  if (openFours > 0 || closedFours > 1 || (closedFours > 0 && openThrees > 0)) {
+    return { score: 10000000 };
+  }
+  if (openThrees > 1) {
+    return { score: 5000000 };
+  }
+
   let score = 0;
-  score += openThrees * 6000;
-  score += closedFours * 8000;
-  score += closedThrees * 500;
-  
+  score += closedFours * 100000;
+  score += openThrees * 50000;
+  score += closedThrees * 5000;
+  score += openTwos * 1000;
+
   return { score };
 }
 
 function evaluateMove(board, pos, mark, oppMark, size = 16) {
   board[pos] = mark;
   const myAnalysis = analyzePosition(board, pos, mark, size);
-  board[pos] = "."; 
-  
+  board[pos] = ".";
+
   board[pos] = oppMark;
   const oppAnalysis = analyzePosition(board, pos, oppMark, size);
-  board[pos] = "."; 
+  board[pos] = ".";
 
-  let score = myAnalysis.score + oppAnalysis.score * 1.2; 
+  let score = myAnalysis.score + oppAnalysis.score;
 
   const row = Math.floor(pos / size);
   const col = pos % size;
   const centerDist = Math.abs(row - 7.5) + Math.abs(col - 7.5);
-  score += (15 - centerDist) * 10; 
+  score += (15 - centerDist) * 10;
 
   let adjacentCount = 0;
   for (let dr = -1; dr <= 1; dr++) {
@@ -259,10 +271,11 @@ function evaluateMove(board, pos, mark, oppMark, size = 16) {
       }
     }
   }
-  score += adjacentCount * 20; 
+  score += adjacentCount * 20;
 
   return score;
 }
+
 
 function checkWinAt(board, pos, mark, size = 16) {
   const directions = [[0,1], [1,0], [1,1], [1,-1]];
@@ -310,7 +323,16 @@ function getAIMove(board, playerMark, mode) {
   const botMark = playerMark === "X" ? "O" : "X";
   const size = 16;
   const moves = [];
-  
+
+  const isEmptyBoard = board.every(cell => cell === ".");
+  if (isEmptyBoard) {
+    const centerMin = 6;
+    const centerMax = 9;
+    const randRow = Math.floor(Math.random() * (centerMax - centerMin + 1)) + centerMin;
+    const randCol = Math.floor(Math.random() * (centerMax - centerMin + 1)) + centerMin;
+    return randRow * size + randCol;
+  }
+
   for (let i = 0; i < 256; i++) {
     if (board[i] !== ".") continue;
     
@@ -332,101 +354,58 @@ function getAIMove(board, playerMark, mode) {
       return i;
     }
   }
-  
-  if (mode === "easy") {
-    for (let i = 0; i < 256; i++) {
-      if (board[i] !== ".") continue;
-      
-      const row = Math.floor(i / size);
-      const col = i % size;
-      
-      let hasNearby = false;
-      for (let r = Math.max(0, row - 2); r <= Math.min(15, row + 2); r++) {
-        for (let c = Math.max(0, col - 2); c <= Math.min(15, col + 2); c++) {
-          if (board[r * size + c] !== ".") {
-            hasNearby = true;
-            break;
-          }
-        }
-        if (hasNearby) break;
-      }
-      
-      if (hasNearby) {
-        const score = evaluateMove(board, i, botMark, playerMark, size) * 0.3;
-        moves.push({ pos: i, score });
-      }
-    }
-    
-    if (moves.length > 0) {
-      moves.sort((a, b) => b.score - a.score);
-      const topMoves = moves.slice(0, Math.min(5, moves.length));
-      return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
-    }
-  } else if (mode === "hard") {
-    for (let i = 0; i < 256; i++) {
-      if (board[i] !== ".") continue;
-      
-      const row = Math.floor(i / size);
-      const col = i % size;
-      
-      let hasNearby = false;
-      for (let r = Math.max(0, row - 2); r <= Math.min(15, row + 2); r++) {
-        for (let c = Math.max(0, col - 2); c <= Math.min(15, col + 2); c++) {
-          if (board[r * size + c] !== ".") {
-            hasNearby = true;
-            break;
-          }
-        }
-        if (hasNearby) break;
-      }
-      
-      if (hasNearby || moves.length === 0) {
-        const score = evaluateMove(board, i, botMark, playerMark, size);
-        moves.push({ pos: i, score });
-      }
-    }
-    
-    if (moves.length > 0) {
-      moves.sort((a, b) => b.score - a.score);
-      const topMoves = moves.slice(0, Math.min(2, moves.length));
-      return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
-    }
-  } else if (mode === "super") {
-    for (let i = 0; i < 256; i++) {
-      if (board[i] !== ".") continue;
-      
-      const row = Math.floor(i / size);
-      const col = i % size;
-      
-      let hasNearby = false;
-      for (let r = Math.max(0, row - 3); r <= Math.min(15, row + 3); r++) {
-        for (let c = Math.max(0, col - 3); c <= Math.min(15, col + 3); c++) {
-          if (board[r * size + c] !== ".") {
-            hasNearby = true;
-            break;
-          }
-        }
-        if (hasNearby) break;
-      }
-      
-      if (hasNearby || moves.length === 0) {
-        const score = evaluateMove(board, i, botMark, playerMark, size);
-        moves.push({ pos: i, score });
-      }
-    }
-    
-    if (moves.length > 0) {
-      moves.sort((a, b) => b.score - a.score);
-      return moves[0].pos;
-    }
-  }
-  
+
+  const candidateMoves = new Set();
+  const evalRadius = (mode === 'super' ? 3 : 2);
+
   for (let i = 0; i < 256; i++) {
-    if (board[i] === ".") return i;
+    if (board[i] !== ".") {
+      const row = Math.floor(i / size);
+      const col = i % size;
+      for (let r = Math.max(0, row - evalRadius); r <= Math.min(15, row + evalRadius); r++) {
+        for (let c = Math.max(0, col - evalRadius); c <= Math.min(15, col + evalRadius); c++) {
+          const checkPos = r * size + c;
+          if (board[checkPos] === ".") {
+            candidateMoves.add(checkPos);
+          }
+        }
+      }
+    }
+  }
+
+  if (candidateMoves.size === 0) {
+    for (let i = 0; i < 256; i++) {
+      if (board[i] === '.') candidateMoves.add(i);
+    }
+  }
+
+  for (const pos of candidateMoves) {
+    const score = evaluateMove(board, pos, botMark, playerMark, size);
+    moves.push({ pos, score });
+  }
+
+  if (moves.length === 0) {
+    for (let i = 0; i < 256; i++) {
+      if (board[i] === ".") return i;
+    }
+    return -1;
   }
   
-  return -1;
+  moves.sort((a, b) => b.score - a.score);
+
+  if (mode === "easy") {
+    const topMoves = moves.slice(0, Math.min(5, moves.length));
+    return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
+  } else if (mode === "hard") {
+    const topMoves = moves.slice(0, Math.min(2, moves.length));
+    return topMoves[Math.floor(Math.random() * topMoves.length)].pos;
+  } else if (mode === "super") {
+    return moves[0].pos;
+  }
+  
+  return moves[0].pos;
 }
+
 
 export async function handleCaroCommand(api, message) {
   const threadId = message.threadId;
@@ -668,3 +647,4 @@ export async function handleCaroMessage(api, message) {
   
   setTimeout(() => handleBotTurn(api, message), 800);
 }
+
