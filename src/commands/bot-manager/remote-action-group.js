@@ -30,12 +30,6 @@ schedule.scheduleJob("*/5 * * * * *", () => {
   }
 });
 
-export async function extractZaloGroupLink(url) {
-  if (!url) return null;
-  const match = url.match(/(https?:\/\/)?zalo\.me\/g\/[^\s]+/);
-  return match ? match[0] : null;
-}
-
 export async function handleJoinGroup(api, message) {
   const prefix = getGlobalPrefix();
   const content = removeMention(message);
@@ -43,11 +37,27 @@ export async function handleJoinGroup(api, message) {
   let linkJoin = null;
 
   if (message.data.quote) {
-    if (message.data.quote.msg) {
-      linkJoin = await extractZaloGroupLink(message.data.quote.msg);
+    const quote = message.data.quote;
+    if (quote.msg) {
+      linkJoin = quote.msg;
     }
-    if (!linkJoin && message.data.quote.attach && message.data.quote.attach.href) {
-      linkJoin = await extractZaloGroupLink(message.data.quote.attach.href);
+    if (!linkJoin && quote.attach && quote.attach !== "") {
+      try {
+        let attachData = quote.attach;
+        if (typeof attachData === "string") {
+          attachData = JSON.parse(attachData);
+          if (attachData.params && typeof attachData.params === "string") {
+            attachData.params = JSON.parse(
+              attachData.params.replace(/\\\\/g, "\\").replace(/\\\//g, "/")
+            );
+          }
+        }
+        if (attachData.href) {
+          linkJoin = attachData.href;
+        }
+      } catch (e) {
+        linkJoin = quote.attach;
+      }
     }
   }
 
