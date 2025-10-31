@@ -12,7 +12,6 @@ import { tempDir } from "../../../utils/io-json.js";
 import { uploadAudioFile } from "../../chat-zalo/chat-special/send-voice/process-audio.js";
 
 import { MultiMsgStyle, MessageStyle, MessageMention } from "../../../api-zalo/index.js";
-
 export const COLOR_GREEN = "15a85f";
 export const SIZE_16 = "14";
 export const IS_BOLD = true;
@@ -62,9 +61,7 @@ const getJ2DownloadTokens = async () => {
 
     return cachedTokens;
   } catch (error) {
-    cachedTokens = null;
-    tokenExpiry = 0;
-    throw new Error("Failed to get tokens: " + error.message);
+    throw new Error("Failed to get tokens");
   }
 };
 
@@ -101,31 +98,25 @@ export const getDataDownloadVideo = async (url) => {
             "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
             "x-csrf-token": csrfToken,
             "cookie": `api_token=${apiToken}; csrf_token=${csrfToken}`
-          },
-          timeout: 15000
+          }
         }
       );
 
-      if (response.data && !response.data.error && response.data.medias && response.data.medias.length > 0) {
+      if (response.data && !response.data.error) {
         return response.data;
-      } else {
-        throw new Error("Invalid response data");
       }
     } catch (error) {
       if (error.response?.status === 401 || error.response?.status === 403) {
         cachedTokens = null;
         tokenExpiry = 0;
       }
-
-      attempts++;
-      
-      if (attempts < maxAttempts) {
-        const delay = 1000 * Math.pow(2, attempts - 1);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+    }
+    
+    attempts++;
+    if (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
     }
   }
-  
   return null;
 };
 
@@ -137,7 +128,6 @@ export async function downloadAndConvertAudio(url, api, message) {
       url,
       method: "GET",
       responseType: "stream",
-      timeout: 30000
     });
 
     await new Promise((resolve, reject) => {
@@ -148,6 +138,7 @@ export async function downloadAndConvertAudio(url, api, message) {
     });
 
     const voiceFinalUrl = await uploadAudioFile(mp3Path, api, message);
+
     return voiceFinalUrl;
   } catch (error) {
     throw error;
@@ -193,7 +184,6 @@ export async function processAndSendMedia(api, message, mediaData) {
       `🎬 Tiêu Đề: ${title}\n` +
       `${author && author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}` +
       `📊 Chất lượng: ${quality}`;
-    
     await api.sendVideo({
       videoUrl: videoUrl,
       threadId: message.threadId,
@@ -204,44 +194,6 @@ export async function processAndSendMedia(api, message, mediaData) {
       }
     });
   }
-}
-
-export async function categoryDownload(api, message, platform, selectedMedia, quality) {
-  let tempFilePath;
-  let attempts = 0;
-  const maxAttempts = 2;
-  
-  while (attempts < maxAttempts) {
-    try {
-      tempFilePath = path.join(tempDir, `${platform}_${Date.now()}_${Math.random().toString(36).substring(7)}.${selectedMedia.extension}`);
-      
-      await downloadFile(selectedMedia.url, tempFilePath);
-      
-      const uploadResult = await api.uploadAttachment([tempFilePath], message.threadId, message.type);
-      
-      if (!uploadResult || !uploadResult[0]) {
-        throw new Error("Upload result empty");
-      }
-      
-      const videoUrl = uploadResult[0].fileUrl;
-      await deleteFile(tempFilePath);
-      
-      return videoUrl;
-    } catch (error) {
-      attempts++;
-      if (tempFilePath) {
-        await deleteFile(tempFilePath);
-      }
-      
-      if (attempts >= maxAttempts) {
-        return null;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-  }
-  
-  return null;
 }
 
 export async function handleDownloadCommand(api, message, aliasCommand) {
@@ -262,8 +214,7 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
     }
 
     let dataDownload = await getDataDownloadVideo(query);
-    
-    if (!dataDownload || dataDownload.error || !dataDownload.medias) {
+    if (!dataDownload || dataDownload.error) {
       const object = {
         caption: `Link Không hợp lệ hoặc Không hỗ trợ tải dữ liệu link dạng này.`,
       };
@@ -343,6 +294,7 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
         if (voiceUrl) {
           await api.sendVoice(message, voiceUrl, 600000);
         }
+        return;
       } else {
         const attachmentPaths = [];
     
@@ -376,38 +328,61 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
         if (voiceUrl) {
           await api.sendVoice(message, voiceUrl, 600000);
         }
-      }
-    
-      return;
-    } else {
-      const videos = dataLink.filter(item => item.type.toLowerCase() === "video");
-      if (videos.length === 0) {
         return;
       }
-
-      const sortedVideos = videos.sort((a, b) => {
-        const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
-        const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
-        return qb - qa;
-      });
-
-      const selectedMedia = sortedVideos[0];
-
-      await processAndSendMedia(api, message, {
-        selectedMedia,
-        mediaType,
-        uniqueId,
-        duration,
-        title,
-        author,
-        senderId,
-        senderName,
-      });
     }
+
+    const videos = dataLink.filter(item => item.type.toLowerCase() === "video");
+    if (videos.length === 0) {
+      const object = {
+        caption: `Không tìm thấy video phù hợp để tải về!`,
+      };
+      await sendMessageWarningRequest(api, message, object, 30000);
+      return;
+    }
+
+    const sortedVideos = videos.sort((a, b) => {
+      const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
+      const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
+      return qb - qa;
+    });
+
+    const selectedMedia = sortedVideos[0];
+
+    await processAndSendMedia(api, message, {
+      selectedMedia,
+      mediaType,
+      uniqueId,
+      duration,
+      title,
+      author,
+      senderId,
+      senderName,
+    });
+
   } catch (error) {
+    console.error("Lỗi handleDownloadCommand:", error);
     const object = {
-      caption: `Đã xảy ra lỗi khi xử lý lệnh load data download.`,
+      caption: `Đã xảy ra lỗi khi xử lý lệnh tải xuống.`,
     };
     await sendMessageWarningRequest(api, message, object, 30000);
+  }
+}
+
+export async function categoryDownload(api, message, platform, selectedMedia, quality) {
+  let tempFilePath;
+  try {
+    tempFilePath = path.join(tempDir, `${platform}_${Date.now()}_${Math.random().toString(36).substring(7)}.${selectedMedia.extension}`);
+    await downloadFile(selectedMedia.url, tempFilePath);
+    const uploadResult = await api.uploadAttachment([tempFilePath], message.threadId, message.type);
+    const videoUrl = uploadResult[0].fileUrl;
+    await deleteFile(tempFilePath);
+    return videoUrl;
+  } catch (error) {
+    console.error("Lỗi categoryDownload:", error);
+    if (tempFilePath) {
+      await deleteFile(tempFilePath);
+    }
+    return null;
   }
 }
