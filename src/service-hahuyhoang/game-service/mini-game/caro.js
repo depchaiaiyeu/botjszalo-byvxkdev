@@ -46,7 +46,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     turnTimers.set(threadId, timer);
 }
 
-async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X") {
+async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = []) {
     const cellSize = 50;
     const padding = 40;
     const headerHeight = 110;
@@ -142,6 +142,29 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         }
     }
     
+    if (winningLine && winningLine.length >= 5) {
+        ctx.strokeStyle = "#00FF00";
+        ctx.lineWidth = 6;
+        
+        const startPos = winningLine[0];
+        const endPos = winningLine[4];
+
+        const startRow = Math.floor(startPos / size);
+        const startCol = startPos % size;
+        const endRow = Math.floor(endPos / size);
+        const endCol = endPos % size;
+        
+        const startX = padding + startCol * cellSize + cellSize / 2;
+        const startY = boardTop + padding + startRow * cellSize + cellSize / 2;
+        const endX = padding + endCol * cellSize + cellSize / 2;
+        const endY = boardTop + padding + endRow * cellSize + cellSize / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+    }
+    
     return canvas.toBuffer("image/png");
 }
 
@@ -229,10 +252,8 @@ function analyzePosition(board, pos, mark, size = 16) {
         }
     }
 
-    // Tăng mạnh hệ số chiến thắng và các nước quyết định (tấn công dồn dập, không lùi)
     if (wins > 0) return { score: 1000000000 };
 
-    // Bất kỳ nước nào tạo ra 4 quân hở hoặc tình huống thắng 2 đường/ chặn 2 đường tuyệt đối
     if (openFours > 0) return { score: 500000000 };
     if (closedFours > 1) return { score: 400000000 };
     if (closedFours > 0 && openThrees > 0) return { score: 300000000 };
@@ -256,7 +277,6 @@ function evaluateMove(board, pos, mark, oppMark, size = 16) {
     const oppAnalysis = analyzePosition(board, pos, oppMark, size);
     board[pos] = ".";
 
-    // Tăng cường đánh giá phòng thủ (chặn đối thủ)
     let score = myAnalysis.score * 1.0 + oppAnalysis.score * 1.5;
 
     const row = Math.floor(pos / size);
@@ -308,15 +328,17 @@ function checkWin(board, size = 16) {
             
             for (const [dr, dc] of directions) {
                 let count = 1;
+                let line = [idx];
                 for (let step = 1; step < 5; step++) {
                     const newRow = row + dr * step;
                     const newCol = col + dc * step;
                     if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
                     const newIdx = newRow * size + newCol;
                     if (board[newIdx] !== mark) break;
+                    line.push(newIdx);
                     count++;
                 }
-                if (count >= 5) return mark;
+                if (count >= 5) return { winner: mark, line };
             }
         }
     }
@@ -362,10 +384,11 @@ function findCandidateMoves(board, size = 16, radius = 2) {
 }
 
 function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
-    const winner = checkWin(board, size);
-    // Tăng giá trị để ưu tiên nước thắng sớm
-    if (winner === botMark) return 1000000000 + depth;
-    if (winner === playerMark) return -1000000000 - depth;
+    const winResult = checkWin(board, size);
+    if (winResult) {
+        if (winResult.winner === botMark) return 1000000000 + depth;
+        if (winResult.winner === playerMark) return -1000000000 - depth;
+    }
     if (depth === 0) return 0;
 
     const searchRadius = depth > 2 ? 1 : 2;
@@ -402,7 +425,6 @@ function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerM
 function getAIMove(board, playerMark, mode, size = 16) {
     const botMark = playerMark === "X" ? "O" : "X";
     
-    // Kiểm tra nước thắng ngay
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== ".") continue;
         board[i] = botMark;
@@ -413,7 +435,6 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
     
-    // Kiểm tra nước chặn thắng của đối thủ
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== ".") continue;
         board[i] = playerMark;
@@ -424,26 +445,31 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    // Tăng độ sâu cho AI mạnh hơn
     const DEPTHS = { easy: 1, hard: 3, super: 5 };
     const depth = DEPTHS[mode] || 2;
+    const MAX_CANDIDATES = 20;
+
+    let candidates = findCandidateMoves(board, size, 2);
     
-    const candidates = findCandidateMoves(board, size, 2);
+    const scoredCandidates = candidates.map(move => {
+        return {
+            move: move,
+            score: evaluateMove(board, move, botMark, playerMark, size)
+        };
+    });
+
+    scoredCandidates.sort((a, b) => b.score - a.score);
+
+    const topCandidates = scoredCandidates.slice(0, MAX_CANDIDATES);
+
+    if (mode === 'easy') {
+        return topCandidates[0] ? topCandidates[0].move : -1;
+    }
+
     let bestScore = -Infinity;
     let bestMove = -1;
 
-    if (mode === 'easy') {
-        for (const move of candidates) {
-            const score = evaluateMove(board, move, botMark, playerMark, size);
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = move;
-            }
-        }
-        return bestMove;
-    }
-
-    for (const move of candidates) {
+    for (const { move } of topCandidates) {
         board[move] = botMark;
         const moveScore = evaluateMove(board, move, botMark, playerMark, size);
         const score = moveScore + minimax(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
@@ -590,13 +616,15 @@ async function handleBotTurn(api, message) {
     game.moveCount++;
     game.lastBotMove = pos;
     
-    const winner = checkWin(game.board, game.size);
+    const winResult = checkWin(game.board, game.size);
     
-    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, pos, game.playerMark);
+    const winningLine = winResult ? winResult.line : [];
+    
+    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, pos, game.playerMark, winningLine);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    if (winner) {
+    if (winResult) {
         const caption = `\n🎮 TRÒ CHƠI KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã dành chiến thắng với 5 quân liên tiếp`;
         await sendMessageTag(api, message, {
             caption,
@@ -665,13 +693,15 @@ export async function handleCaroMessage(api, message) {
     game.currentTurn = game.botMark;
     game.moveCount++;
     
-    const winner = checkWin(game.board, game.size);
+    const winResult = checkWin(game.board, game.size);
     
-    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark);
+    const winningLine = winResult ? winResult.line : [];
+    
+    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    if (winner) {
+    if (winResult) {
         const caption = `\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`;
         await sendMessageTag(api, message, {
             caption,
