@@ -82,10 +82,7 @@ export const handleAutoDownloadCommand = async (api, message, groupSettings) => 
 }
 
 export const autoDownload = async (api, message, isSelf, groupSettings) => {
-  if (isSelf) {
-    return false;
-  }
-
+  
   let content = message.data.content;
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
