@@ -1400,6 +1400,7 @@ export async function handleCommand(
 
         // Khu Vực Xử Lý Lệnh Game
         if (numHandleCommand === 5) {
+          await sendReactionConfirmReceive(api, message, numHandleCommand);
           switch (command) {
             case "game":
               await gameInfoCommand(api, message, groupSettings);
