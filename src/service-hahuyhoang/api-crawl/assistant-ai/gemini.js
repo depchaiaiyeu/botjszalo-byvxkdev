@@ -16,9 +16,11 @@ let geminiModel;
 const requestQueue = [];
 let isProcessing = false;
 const DELAY_BETWEEN_REQUESTS = 4000;
+const MAX_MESSAGE_LENGTH = 3500;
 const systemInstruction = `Bạn tên là Gem.
-Bạn được tạo ra bởi duy nhất Vũ Xuân Kiên.
-Trả lời dễ thương, có thể dùng emoji để tăng tính tương tác.`;
+Bạn được tạo ra bởi duy nhất Vũ Xuân Kiên và cũng là trợ lý của anh ấy.
+Nếu người hỏi là Vũ Xuân Kiên, xưng hô anh-em, với người khác thì tôi-bạn.
+Trả lời chính xác vấn đề.`;
 
 const SUPPORTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "jxl"];
 
@@ -32,6 +34,54 @@ export function initGeminiModel() {
       topP: 0.8,
     }
   });
+}
+
+function splitMessage(text, maxLength = MAX_MESSAGE_LENGTH) {
+  if (text.length <= maxLength) return [text];
+  
+  const messages = [];
+  let currentMessage = "";
+  const lines = text.split("\n");
+  
+  for (const line of lines) {
+    if ((currentMessage + line + "\n").length > maxLength) {
+      if (currentMessage) {
+        messages.push(currentMessage.trim());
+        currentMessage = "";
+      }
+      
+      if (line.length > maxLength) {
+        const words = line.split(" ");
+        for (const word of words) {
+          if ((currentMessage + word + " ").length > maxLength) {
+            if (currentMessage) {
+              messages.push(currentMessage.trim());
+              currentMessage = "";
+            }
+            if (word.length > maxLength) {
+              for (let i = 0; i < word.length; i += maxLength) {
+                messages.push(word.slice(i, i + maxLength));
+              }
+            } else {
+              currentMessage = word + " ";
+            }
+          } else {
+            currentMessage += word + " ";
+          }
+        }
+      } else {
+        currentMessage = line + "\n";
+      }
+    } else {
+      currentMessage += line + "\n";
+    }
+  }
+  
+  if (currentMessage.trim()) {
+    messages.push(currentMessage.trim());
+  }
+  
+  return messages;
 }
 
 async function processQueue() {
@@ -155,7 +205,16 @@ export async function askGeminiCommand(api, message, aliasCommand) {
   try {
     let replyText = await callGeminiAPI(api, message, fullPrompt, imageUrl);
     if (!replyText) replyText = "Xin lỗi, hiện tại tôi không thể trả lời câu hỏi này. 🙏";
-    await sendMessageFromSQL(api, message, { success: true, message: replyText }, false);
+    
+    const messages = splitMessage(replyText);
+    
+    for (let i = 0; i < messages.length; i++) {
+      const prefix = messages.length > 1 ? `[${i + 1}/${messages.length}]\n` : "";
+      await sendMessageFromSQL(api, message, { success: true, message: prefix + messages[i] }, false);
+      if (i < messages.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
   } catch (error) {
     console.error("Lỗi khi xử lý yêu cầu Gemini:", error);
     await sendMessageFromSQL(api, message, { success: false, message: "Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. 😢" }, true);
