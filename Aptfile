@@ -1,0 +1,6 @@
+ffmpeg
+libavcodec-extra
+libavformat-dev
+libavutil-dev
+libswscale-dev
+libavfilter-dev
