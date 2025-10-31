@@ -447,7 +447,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
 
     const DEPTHS = { easy: 1, hard: 3, super: 5 };
     const depth = DEPTHS[mode] || 2;
-    const MAX_CANDIDATES = 20;
+    const MAX_CANDIDATES = 3;
 
     let candidates = findCandidateMoves(board, size, 2);
     
