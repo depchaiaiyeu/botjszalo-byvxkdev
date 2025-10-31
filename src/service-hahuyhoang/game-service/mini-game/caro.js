@@ -243,7 +243,7 @@ function analyzePosition(board, pos, mark, size = 16) {
         const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
 
         if (count >= 5) {
-            return { score: 100000000000 };
+            return { score: 1000000000 };
         } else if (count === 4) {
             if (openEnds === 2) openFours++;
             else if (openEnds === 1) closedFours++;
@@ -255,15 +255,15 @@ function analyzePosition(board, pos, mark, size = 16) {
         }
     }
 
-    if (openFours > 0) return { score: 5000000000 };
-    if (closedFours > 1) return { score: 80000000 }; 
-    if (openThrees > 1) return { score: 50000000 };
-    if (closedFours > 0 && openThrees > 0) return { score: 30000000 }; 
+    if (openFours > 0) return { score: 500000000 };
+    if (closedFours > 1) return { score: 8000000 }; 
+    if (openThrees > 1) return { score: 5000000 };
+    if (closedFours > 0 && openThrees > 0) return { score: 3000000 }; 
     
-    score += closedFours * 1000000;
-    score += openThrees * 500000;
-    score += closedThrees * 10000;
-    score += openTwos * 2000;
+    score += closedFours * 100000;
+    score += openThrees * 50000;
+    score += closedThrees * 1000;
+    score += openTwos * 200;
 
     return { score };
 }
@@ -277,8 +277,8 @@ function evaluateMove(board, pos, mark, oppMark, size = 16) {
     const oppAnalysis = analyzePosition(board, pos, oppMark, size);
     board[pos] = ".";
 
-    if (myAnalysis.score >= 100000000000) return myAnalysis.score;
-    if (oppAnalysis.score >= 100000000000) return oppAnalysis.score * 0.9;
+    if (myAnalysis.score >= 1000000000) return myAnalysis.score;
+    if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.9;
     
     let score = myAnalysis.score * 1.0 + oppAnalysis.score * 1.5;
 
@@ -389,8 +389,8 @@ function findCandidateMoves(board, size = 16, radius = 2) {
 function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
     const winResult = checkWin(board, size);
     if (winResult) {
-        if (winResult.winner === botMark) return 100000000000 + depth;
-        if (winResult.winner === playerMark) return -100000000000 - depth;
+        if (winResult.winner === botMark) return 1000000000 + depth;
+        if (winResult.winner === playerMark) return -1000000000 - depth;
     }
     if (depth === 0) return 0;
 
@@ -474,8 +474,16 @@ function getAIMove(board, playerMark, mode, size = 16) {
 
     const topCandidates = scoredCandidates.slice(0, MAX_CANDIDATES_SEARCH);
 
-    if (mode === 'easy' && depth === 1) {
-        return topCandidates[0] ? topCandidates[0].move : -1;
+    if (mode === 'easy' && depth === 2) {
+        let bestMoveForEasy = -1;
+        let bestScoreForEasy = -Infinity;
+        for(const { move, score } of topCandidates.slice(0, 3)) {
+            if (score > bestScoreForEasy) {
+                bestScoreForEasy = score;
+                bestMoveForEasy = move;
+            }
+        }
+        return bestMoveForEasy;
     }
 
     let bestScore = -Infinity;
