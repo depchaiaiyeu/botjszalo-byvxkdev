@@ -26,7 +26,7 @@ export const SUPPORTED_PLATFORMS = [
   { name: 'soundcloud', patterns: ['soundcloud.com'] }
 ];
 
-const detectPlatform = (url) => {
+function detectPlatform(url) {
   const lowerUrl = url.toLowerCase();
   
   for (const platform of SUPPORTED_PLATFORMS) {
@@ -40,7 +40,7 @@ const detectPlatform = (url) => {
   return null;
 }
 
-const extractLinks = (content) => {
+function extractLinks(content) {
   if (typeof content !== 'string') return [];
   
   const urlRegex = /https?:\/\/[^\s]+/gi;
@@ -49,7 +49,7 @@ const extractLinks = (content) => {
   return matches.filter(url => detectPlatform(url) !== null);
 }
 
-export const handleAutoDownloadCommand = async (api, message, groupSettings) => {
+export async function handleAutoDownloadCommand(api, message, groupSettings) {
   const content = removeMention(message);
   const threadId = message.threadId;
   const args = content.split(" ");
@@ -81,8 +81,11 @@ export const handleAutoDownloadCommand = async (api, message, groupSettings) => 
   return true;
 }
 
-export const autoDownload = async (api, message, isSelf, groupSettings) => {
-  
+export async function autoDownload(api, message, isSelf, groupSettings) {
+  if (isSelf) {
+    return false;
+  }
+
   let content = message.data.content;
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
