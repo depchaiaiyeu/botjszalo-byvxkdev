@@ -2,11 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getGlobalPrefix } from "../../service.js";
 import { getContent } from "../../../utils/format-util.js";
 import { 
-  sendMessageComplete, 
-  sendMessageFailed, 
-  sendMessageProcessingRequest, 
-  sendMessageQuery, 
-  sendMessageStateQuote 
+  sendMessageFromSQL,
+  sendMessageQuery
 } from "../../chat-zalo/chat-style/chat-style.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -158,9 +155,9 @@ export async function askGeminiCommand(api, message, aliasCommand) {
   try {
     let replyText = await callGeminiAPI(api, message, fullPrompt, imageUrl);
     if (!replyText) replyText = "Xin lỗi, hiện tại tôi không thể trả lời câu hỏi này. 🙏";
-    await sendMessageStateQuote(api, message, replyText, true, 1800000, false);
+    await sendMessageFromSQL(api, message, { success: true, message: replyText }, false);
   } catch (error) {
     console.error("Lỗi khi xử lý yêu cầu Gemini:", error);
-    await sendMessageFailed(api, message, "Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. 😢", true);
+    await sendMessageFromSQL(api, message, { success: false, message: "Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. 😢" }, true);
   }
 }
