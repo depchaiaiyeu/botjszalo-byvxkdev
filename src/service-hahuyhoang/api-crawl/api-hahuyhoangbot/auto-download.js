@@ -82,9 +82,6 @@ export async function handleAutoDownloadCommand(api, message, groupSettings) {
 }
 
 export async function autoDownload(api, message, isSelf, groupSettings) {
-  if (isSelf) {
-    return false;
-  }
 
   let content = message.data.content;
   const threadId = message.threadId;
