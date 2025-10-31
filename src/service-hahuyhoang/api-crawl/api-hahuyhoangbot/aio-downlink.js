@@ -120,7 +120,7 @@ export const getDataDownloadVideo = async (url) => {
   return null;
 };
 
-export async function downloadAndConvertAudio(url, api, message) {
+export const downloadAndConvertAudio = async (url, api, message) => {
   const mp3Path = path.join(tempDir, `temp_${Date.now()}.mp3`);
 
   try {
@@ -147,7 +147,7 @@ export async function downloadAndConvertAudio(url, api, message) {
   }
 }
 
-export async function processAndSendMedia(api, message, mediaData) {
+export const processAndSendMedia = async (api, message, mediaData) => {
   const {
     selectedMedia,
     mediaType,
@@ -196,7 +196,7 @@ export async function processAndSendMedia(api, message, mediaData) {
   }
 }
 
-export async function handleDownloadCommand(api, message, aliasCommand) {
+export const handleDownloadCommand = async (api, message, aliasCommand) => {
   const content = removeMention(message);
   const senderId = message.data.uidFrom;
   const senderName = message.data.dName;
@@ -363,17 +363,19 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
   }
 }
 
-export async function categoryDownload(api, message, platform, selectedMedia, quality) {
-  let tempFilePath;
+export const categoryDownload = async (api, message, platform, selectedMedia, quality) => {
+  let tempFilePath = null;
   try {
     tempFilePath = path.join(tempDir, `${platform}_${Date.now()}_${Math.random().toString(36).substring(7)}.${selectedMedia.extension}`);
     await downloadFile(selectedMedia.url, tempFilePath);
     const uploadResult = await api.uploadAttachment([tempFilePath], message.threadId, message.type);
     const videoUrl = uploadResult[0].fileUrl;
-    await deleteFile(tempFilePath);
     return videoUrl;
   } catch (error) {
-    await deleteFile(tempFilePath);
     return null;
+  } finally {
+    if (tempFilePath) {
+      await deleteFile(tempFilePath);
+    }
   }
 }
