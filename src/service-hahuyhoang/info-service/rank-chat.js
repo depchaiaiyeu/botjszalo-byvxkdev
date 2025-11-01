@@ -1,5 +1,6 @@
 import '../../utils/canvas/register-fonts.js';
-import fs from "fs/promises";
+import fs from "fs";
+import fsPromises from "fs/promises";
 import path from "path";
 import { createCanvas } from "canvas";
 import { MessageType } from "zlbotdqt";
