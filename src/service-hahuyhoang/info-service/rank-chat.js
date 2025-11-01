@@ -1,3 +1,4 @@
+import '../../utils/canvas/register-fonts.js';
 import fs from "fs";
 import path from "path";
 import { createCanvas } from "canvas";
@@ -5,7 +6,6 @@ import { MessageType, MessageMention } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import '../../utils/canvas/register-fonts.js';
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 
