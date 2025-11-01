@@ -135,7 +135,7 @@ export async function handleLotteryCommand(api, message) {
     if (!todayItem) {
       let resultMessage = `🎰 ${title.toUpperCase()}\n`;
       resultMessage += `❓ Chưa có kết quả ngày ${today}\n`;
-      resultMessage += '═'.repeat(50) + '\n\n';
+      resultMessage += '═'.repeat(33) + '\n\n';
       resultMessage += `📜 CÁC KỲ TRÚNG THƯỞNG GẦN ĐÂY:\n\n`;
 
       items.slice(0, 5).forEach((item, index) => {
