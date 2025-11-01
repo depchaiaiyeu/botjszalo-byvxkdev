@@ -1643,42 +1643,17 @@
       "active": true
     },
     {
-      "name": "jointag",
-      "description": "Tag key để xin vào nhóm",
-      "syntax": "{p}jointag",
-      "permission": "adminLevelHigh",
-      "countdown": 120,
-      "icon": "✅",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true
-    },
-    {
       "name": "groupblocklist",
       "description": "Lấy danh sách các thành phần bị Chặn khỏi nhóm.",
       "syntax": "{p}groupblocklist",
       "permission": "all",
-      "countdown": 120,
-      "icon": "✅",
+      "countdown": 5,
+      "icon": "📜",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
       "alias": [
         "grbl"
-      ]
-    },
-    {
-      "name": "tag",
-      "description": "tag",
-      "syntax": "{p}tag",
-      "permission": "adminLevelHigh",
-      "countdown": 30,
-      "icon": "✅",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true,
-      "alias": [
-        "a"
       ]
     },
     {
@@ -2077,7 +2052,7 @@
       "description": "Tự động send tin nhắn/media, theo thời gian nhất định",
       "syntax": "{p}sendauto",
       "permission": "adminLevelHigh",
-      "countdown": 60,
+      "countdown": 5,
       "icon": "🤖",
       "type": 1,
       "author": "Vũ Xuân Kiên",
@@ -2106,7 +2081,7 @@
       "syntax": "{p}antibot",
       "permission": "adminLevelHigh",
       "countdown": 5,
-      "icon": "✅",
+      "icon": "🚫",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
