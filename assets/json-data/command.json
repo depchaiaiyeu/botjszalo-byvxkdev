@@ -354,10 +354,10 @@
     {
       "name": "sticker",
       "description": "Chuyển đổi hình ảnh thành sticker Zalo",
-      "syntax": "{p}sticker <cần reply tin nhắn>",
+      "syntax": "{p}sticker <quote>",
       "permission": "all",
       "countdown": 10,
-      "icon": "🏆",
+      "icon": "📺",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
@@ -597,7 +597,7 @@
       "syntax": "{p}youtube <từ khóa>(&&số lượng kết quả)",
       "permission": "all",
       "countdown": 60,
-      "icon": "📱",
+      "icon": "📺",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
@@ -614,7 +614,7 @@
       "syntax": "{p}capcut <từ khóa>(&&số lượng kết quả)",
       "permission": "all",
       "countdown": 10,
-      "icon": "📱",
+      "icon": "📺",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
@@ -667,7 +667,7 @@
       "alias": [
         "gl"
       ],
-      "permission": "adminBot",
+      "permission": "all",
       "countdown": 1,
       "icon": "🌐",
       "type": 1,
@@ -999,7 +999,10 @@
       "active": true
     },
     {
-      "name": "setcmd",
+      "name": "setcommand",
+      "alias": [
+        "setcmd"
+      ],
       "description": "Quản lý cài đặt lệnh bot (bật/tắt, phân quyền, thời gian chờ)",
       "syntax": "{p}setcmd [on/off/p/cd] [tên_lệnh] [đối số]",
       "permission": "adminLevelHigh",
