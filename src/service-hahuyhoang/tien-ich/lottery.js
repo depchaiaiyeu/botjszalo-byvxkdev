@@ -1,29 +1,9 @@
 import { sendMessageFromSQL, sendMessageFailed } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../service.js";
+import { removeMention } from "../../utils/format-util.js";
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
-
-function removeMention(message) {
-  let content = message.data.content;
-  try {
-    content = content.title ? content.title : content;
-    const mentions = message.data.mentions || [];
-    if (content && typeof content === "string") {
-      if (!mentions) return content.trim();
-      const sortedMentions = [...mentions].sort((a, b) => b.pos - a.pos);
-      sortedMentions.forEach((mention) => {
-        content = content.replace(content.substr(mention.pos, mention.len), "");
-      });
-      return content.replace(/\s+/g, " ").trim();
-    } else {
-      return "";
-    }
-  } catch (error) {
-    console.log("Error remove mention: ", content);
-    return message.data.content;
-  }
-}
 
 export async function handleLotteryCommand(api, message) {
   try {
@@ -140,10 +120,49 @@ export async function handleLotteryCommand(api, message) {
       return;
     }
 
-    const latestItem = items[0];
-    const itemTitle = latestItem.title[0];
-    const description = latestItem.description[0];
-    const link = latestItem.link[0];
+    const now = new Date();
+    const today = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    let todayItem = null;
+    for (const item of items) {
+      const itemTitle = item.title[0];
+      if (itemTitle.includes(today)) {
+        todayItem = item;
+        break;
+      }
+    }
+
+    if (!todayItem) {
+      let resultMessage = `🎰 ${title.toUpperCase()}\n`;
+      resultMessage += `⚠️ Chưa có kết quả ngày ${today}\n`;
+      resultMessage += '═'.repeat(50) + '\n\n';
+      resultMessage += `📜 CÁC KỲ GÇN ĐÂY:\n\n`;
+
+      items.slice(0, 5).forEach((item, index) => {
+        const itemTitle = item.title[0];
+        const description = item.description[0];
+        const lines = description.split('\n').filter(line => line.trim());
+        
+        resultMessage += `${index + 1}. ${itemTitle}\n`;
+        
+        lines.forEach(line => {
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith('ĐB:')) {
+            resultMessage += `   🏆 ĐB: ${trimmedLine.replace('ĐB:', '').trim()}\n`;
+          }
+        });
+        resultMessage += '\n';
+      });
+
+      resultMessage += '═'.repeat(50) + '\n';
+      resultMessage += `⏰ Cập nhật: ${new Date().toLocaleString('vi-VN')}`;
+
+      await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
+      return;
+    }
+
+    const itemTitle = todayItem.title[0];
+    const description = todayItem.description[0];
 
     let resultMessage = `🎰 ${title.toUpperCase()}\n`;
     resultMessage += `📅 ${itemTitle}\n`;
