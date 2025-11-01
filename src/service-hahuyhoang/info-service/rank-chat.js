@@ -7,7 +7,7 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { sendMessageTag, sendMessageWarning } from '../chat-zalo/chat-style/chat-style.js';
+import { sendMessageTag, sendMessageWarning } from '../../chat-zalo/chat-style/chat-style.js';
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,9 +50,12 @@ async function createRankImage(rankData, isToday) {
   ctx.fillStyle = "#16213e";
   ctx.fillRect(20, 20, width - 40, totalHeight - 40);
 
-  const today = new Date();
-  const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-  const headerText = isToday ? `🏆 Tổng số tin nhắn ngày ${dateStr} 🏆` : "🏆 Tổng số tin nhắn 🏆";
+  let headerText = "🏆 Bảng Xếp Hạng Tương Tác 🏆";
+  if (isToday) {
+    const today = new Date();
+    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    headerText = `🏆 Bảng Xếp Hạng Tương Tác - ${dateStr} 🏆`;
+  }
 
   ctx.fillStyle = "#f39c12";
   ctx.font = "bold 32px BeVietnamPro";
@@ -78,8 +81,12 @@ async function createRankImage(rankData, isToday) {
     ctx.fillText(`${user.messageCount} tin nhắn`, width - 60, y + 38);
   });
 
-  const buffer = canvas.toBuffer("image/png");
-  return buffer;
+  return new Promise((resolve, reject) => {
+    canvas.toBuffer("image/png", (err, buffer) => {
+      if (err) reject(err);
+      else resolve(buffer);
+    });
+  });
 }
 
 export function updateUserRank(groupId, userId, userName, nameGroup) {
@@ -173,20 +180,20 @@ export async function handleRankCommand(api, message, aliasCommand) {
     try {
       const imageBuffer = await createRankImage([{ UserName: userName, messageCount: count }], isToday);
       const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
-      await fs.writeFile(imagePath, imageBuffer);
+      await fsPromises.writeFile(imagePath, imageBuffer);
       
-      const caption = `🏆${isToday ? " Hôm nay" : " Tổng"} số tin nhắn mà người dùng ${userName} đã nhắn là: ${count}`;
+      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
       await sendMessageTag(api, message, {
         caption,
         imagePath
       }, 300000);
 
       try {
-        await fs.unlink(imagePath);
+        await fsPromises.unlink(imagePath);
       } catch (error) {}
     } catch (error) {
       console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      const responseMsg = `🏆${isToday ? " Hôm nay" : " Tổng"} số tin nhắn mà người dùng ${userName} đã nhắn là: ${count}`;
+      const responseMsg = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
       await sendMessageWarning(api, message, responseMsg, 300000);
     }
   } else {
@@ -212,20 +219,20 @@ export async function handleRankCommand(api, message, aliasCommand) {
     try {
       const imageBuffer = await createRankImage(rankData, isToday);
       const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
-      await fs.writeFile(imagePath, imageBuffer);
+      await fsPromises.writeFile(imagePath, imageBuffer);
       
-      const caption = isToday ? "🏆 Bảng topchat hôm nay:\n\n" : "🏆 Bảng topchat:\n\n";
+      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆`;
       await sendMessageTag(api, message, {
         caption,
         imagePath
       }, 300000);
 
       try {
-        await fs.unlink(imagePath);
+        await fsPromises.unlink(imagePath);
       } catch (error) {}
     } catch (error) {
       console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      let responseMsg = isToday ? "🏆 Bảng topchat hôm nay:\n\n" : "🏆 Bảng topchat:\n\n";
+      let responseMsg = "🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n";
       rankData.forEach((user, index) => {
         responseMsg += `${index + 1}. ${user.UserName}: ${user.messageCount} tin nhắn\n`;
       });
