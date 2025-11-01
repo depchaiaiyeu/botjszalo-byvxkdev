@@ -75,3 +75,102 @@ function parseQRContent(content) {
     };
   }
 }
+
+/**
+ * Xử lý lệnh quét QR code
+ */
+export async function handleScanQRCommand(api, message, aliasCommand) {
+  const prefix = getGlobalPrefix();
+  const content = removeMention(message);
+  let text = content.replace(`${prefix}${aliasCommand}`, "").trim();
+
+  const quote = message.data?.quote;
+  if (quote) {
+    try {
+      const parseMessage = JSON.parse(quote.attach);
+      const href = parseMessage?.href;
+      if (href) {
+        text = href;
+      }
+    } catch (error) {
+    }
+  }
+
+  if (!text) {
+    const object = {
+      caption: `Vui lòng reply tin nhắn chứa nội dung hoặc link QRCode cần quét!`,
+    };
+    await sendMessageWarningRequest(api, message, object, 30000);
+    return;
+  }
+
+  const ext = await checkExstentionFileRemote(text);
+  if (ext !== "png" && ext !== "jpg" && ext !== "jpeg") {
+    const object = {
+      caption: `Link hoặc định dạng file Không phải là QRCode!`,
+    };
+    await sendMessageWarningRequest(api, message, object, 30000);
+    return;
+  }
+
+  const result = await scanQRCode(text);
+  if (!result.success) {
+    const object = {
+      caption: `Không tìm thấy QRCode trong ảnh!`,
+    };
+    await sendMessageCompleteRequest(api, message, object, 30000);
+    return;
+  }
+
+  if (checkLinkIsValid(result.data.content)) {
+    const ext = await checkExstentionFileRemote(result.data.content);
+    if (ext === "png" || ext === "jpg" || ext === "jpeg") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét Ảnh Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendImage(result.data.content,
+        message,
+        "",
+        TIME_SHOW_SCAN_QR
+      );
+    } else if (ext === "mp4") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét Video Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendVideo({
+        videoUrl: result.data.content,
+        thumbnail: "",
+        threadId: message.threadId,
+        threadType: message.type,
+        message: { text: "" },
+        ttl: TIME_SHOW_SCAN_QR,
+      });
+    } else if (ext === "gif") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét Gif Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendGif(result.data.content,
+        message,
+        "",
+        TIME_SHOW_SCAN_QR);
+    } else if (ext === "webp") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét Sticker Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendCustomSticker(
+        message,
+        result.data.content,
+        result.data.content,
+        null,
+        null,
+        TIME_SHOW_SCAN_QR
+      );
+    } else if (ext === "aac" || ext === "mp3" || ext === "m4a") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét Voice Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendVoice(
+        { threadId: message.threadId, type: message.type },
+        result.data.content,
+        TIME_SHOW_SCAN_QR
+      );
+    } else if (ext === "apk" || ext === "ipa" || ext === "zip" || ext === "rar" || ext === "7z" || ext === "tar" || ext === "gz" || ext === "bz2" || ext === "xz") {
+      await sendMessageCompleteRequest(api, message, { caption: "Quét File Từ QRCode Thành Công!" }, TIME_SHOW_SCAN_QR);
+      await api.sendFile(message, result.data.content, TIME_SHOW_SCAN_QR, result.data.content, null, ext, null);
+    } else {
+      await sendMessageCompleteRequest(api, message, { caption: `Quét QRCode Hoàn Tất, Nội Dung:\n${result.data.content}` }, TIME_SHOW_SCAN_QR);
+    }
+  } else {
+    await sendMessageCompleteRequest(api, message, { caption: `Quét QRCode Hoàn Tất, Nội Dung:\n${result.data.content}` }, TIME_SHOW_SCAN_QR);
+  }
+}
