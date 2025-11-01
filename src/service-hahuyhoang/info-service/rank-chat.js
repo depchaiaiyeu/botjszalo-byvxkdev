@@ -1,139 +1,12 @@
 import fs from "fs";
 import path from "path";
-import { createCanvas } from 'canvas';
-import { MessageType } from "zlbotdqt";
+import { createCanvas } from "canvas";
+import { MessageType, MessageMention } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
 
-
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
-const tempDirPath = path.join(process.cwd(), 'temp');
-
-if (!fs.existsSync(tempDirPath)) {
-    fs.mkdirSync(tempDirPath, { recursive: true });
-}
-
-function getTempFilePath() {
-  const fileName = `rank_${Date.now()}.png`;
-  return path.join(tempDirPath, fileName);
-}
-
-function roundRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.arcTo(x + width, y, x + width, y + radius, radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
-  ctx.lineTo(x + radius, y + height);
-  ctx.arcTo(x, y + height, x, y + height - radius, radius);
-  ctx.lineTo(x, y + radius);
-  ctx.arcTo(x, y, x + radius, y, radius);
-  ctx.closePath();
-}
-
-async function createRankImage(rankData, title, isToday, targetUser = null) {
-  const CARD_WIDTH = 800;
-  const ITEM_HEIGHT = 70;
-  const HEADER_HEIGHT = 120;
-  const PADDING = 20;
-
-  let dataToRender = [];
-  if (targetUser && typeof targetUser === 'object') {
-      dataToRender = [targetUser];
-  } else if (Array.isArray(rankData)) {
-      dataToRender = rankData;
-  }
-  
-  if (dataToRender.length === 0) {
-      throw new Error("Không có dữ liệu để tạo ảnh bảng xếp hạng.");
-  }
-
-  const CANVAS_HEIGHT = HEADER_HEIGHT + dataToRender.length * ITEM_HEIGHT + PADDING * 2;
-  
-  const canvas = createCanvas(CARD_WIDTH, CANVAS_HEIGHT);
-  const ctx = canvas.getContext('2d');
-  
-  ctx.fillStyle = '#1e1e2d'; 
-  ctx.fillRect(0, 0, CARD_WIDTH, CANVAS_HEIGHT);
-  
-  ctx.fillStyle = '#ffcc00'; 
-  ctx.font = 'bold 32px BeVietnamPro';
-  ctx.textAlign = 'center';
-  ctx.fillText(title, CARD_WIDTH / 2, PADDING + 40);
-
-  ctx.strokeStyle = '#6a6a85';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(PADDING, HEADER_HEIGHT - 10);
-  ctx.lineTo(CARD_WIDTH - PADDING, HEADER_HEIGHT - 10);
-  ctx.stroke();
-
-  let currentY = HEADER_HEIGHT + PADDING;
-
-  for (let i = 0; i < dataToRender.length; i++) {
-    const user = dataToRender[i];
-    
-    const userName = user.UserName || 'Người dùng ẩn danh';
-    const count = isToday ? (user.messageCountToday || 0) : (user.Rank || 0);
-
-    let rank = i + 1;
-    
-    const x = PADDING;
-    const y = currentY;
-    const width = CARD_WIDTH - PADDING * 2;
-    const height = ITEM_HEIGHT - 10;
-    const radius = 10;
-    
-    const gradient = ctx.createLinearGradient(0, y, CARD_WIDTH, y + height);
-    if (rank === 1) {
-        gradient.addColorStop(0, '#ffd700'); 
-        gradient.addColorStop(1, '#ff8c00');
-        ctx.fillStyle = gradient;
-    } else if (rank === 2) {
-        gradient.addColorStop(0, '#c0c0c0'); 
-        gradient.addColorStop(1, '#708090');
-        ctx.fillStyle = gradient;
-    } else if (rank === 3) {
-        gradient.addColorStop(0, '#cd7f32'); 
-        gradient.addColorStop(1, '#a0522d');
-        ctx.fillStyle = gradient;
-    } else {
-        ctx.fillStyle = i % 2 === 0 ? '#2a2a3a' : '#353545';
-    }
-
-    roundRect(ctx, x, y, width, height, radius);
-    ctx.fill();
-
-    ctx.fillStyle = rank <= 3 ? '#1e1e2d' : '#ffffff'; 
-    ctx.font = 'bold 28px BeVietnamPro';
-    ctx.textAlign = 'left';
-    ctx.fillText(`#${rank}`, x + 20, y + height / 2 + 10);
-
-    ctx.fillStyle = rank <= 3 ? '#1e1e2d' : '#ffffff';
-    ctx.font = '26px BeVietnamPro';
-    ctx.textAlign = 'left';
-    ctx.fillText(userName, x + 80, y + height / 2 + 10);
-
-    ctx.fillStyle = rank <= 3 ? '#1e1e2d' : '#78ff78'; 
-    ctx.font = 'bold 28px BeVietnamPro';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${count} tin nhắn`, x + width - 20, y + height / 2 + 10);
-
-    currentY += ITEM_HEIGHT;
-  }
-
-  const filePath = getTempFilePath();
-  const out = fs.createWriteStream(filePath);
-  const stream = canvas.createPNGStream();
-  
-  return new Promise((resolve, reject) => {
-    stream.pipe(out);
-    out.on('finish', () => resolve(filePath));
-    out.on('error', reject);
-  });
-}
 
 function readRankInfo() {
   try {
@@ -153,6 +26,56 @@ function writeRankInfo(data) {
   } catch (error) {
     console.error("Lỗi khi ghi file rank-info.json:", error);
   }
+}
+
+async function createRankImage(rankData, isToday) {
+  const width = 800;
+  const headerHeight = 100;
+  const rowHeight = 60;
+  const totalHeight = headerHeight + rankData.length * rowHeight + 40;
+
+  const canvas = createCanvas(width, totalHeight);
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#1a1a2e";
+  ctx.fillRect(0, 0, width, totalHeight);
+
+  ctx.fillStyle = "#16213e";
+  ctx.fillRect(20, 20, width - 40, totalHeight - 40);
+
+  const today = new Date();
+  const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+  const headerText = isToday ? `🏆 Tổng số tin nhắn ngày ${dateStr} 🏆` : "🏆 Tổng số tin nhắn 🏆";
+
+  ctx.fillStyle = "#f39c12";
+  ctx.font = "bold 32px BeVietnamPro";
+  ctx.textAlign = "center";
+  ctx.fillText(headerText, width / 2, 70);
+
+  ctx.font = "24px BeVietnamPro";
+  
+  rankData.forEach((user, index) => {
+    const y = headerHeight + index * rowHeight + 40;
+    
+    if (index % 2 === 0) {
+      ctx.fillStyle = "#0f3460";
+      ctx.fillRect(40, y, width - 80, rowHeight);
+    }
+
+    ctx.fillStyle = "#e94560";
+    ctx.textAlign = "left";
+    ctx.fillText(`#${index + 1}. ${user.UserName}`, 60, y + 38);
+
+    ctx.fillStyle = "#00d9ff";
+    ctx.textAlign = "right";
+    ctx.fillText(`${user.messageCount} tin nhắn`, width - 60, y + 38);
+  });
+
+  const buffer = canvas.toBuffer("image/png");
+  const tempPath = path.join(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
+  fs.writeFileSync(tempPath, buffer);
+
+  return tempPath;
 }
 
 export function updateUserRank(groupId, userId, userName, nameGroup) {
@@ -230,45 +153,32 @@ export async function handleRankCommand(api, message, aliasCommand) {
     return;
   }
 
-  let filePath = null;
   let responseMsg = "";
 
-  try {
-    if (targetUid) {
-      const targetUser = groupUsers.find(user => user.UID === targetUid);
-      if (!targetUser) {
-        throw new Error(`Không tìm thấy dữ liệu topchat cho user: ${targetUid}`);
-      }
-
-      const currentDate = new Date();
-      const formattedDate = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
-      let title = `📊 Tổng số tin nhắn của ${targetName || targetUser.UserName} ${isToday ? `(ngày ${formattedDate})` : ''} 📊`;
-      
-      // CHỈ TRUYỀN RANKDATA RỖNG KHI CÓ TARGETUSER để đảm bảo dataToRender chỉ chứa targetUser
-      filePath = await createRankImage([], title, isToday, targetUser); 
-
-    } else {
-      let rankData = [];
-      let title = "";
-      if (isToday) {
-        const currentDate = new Date();
-        const formattedDate = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
-        const currentDateString = currentDate.toISOString().split("T")[0];
-        const todayUsers = groupUsers.filter((user) => user.lastMessageDate === currentDateString);
-        if (todayUsers.length === 0) {
-          throw new Error("Chưa có người dùng nào tương tác hôm nay.");
-        }
-        rankData = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10);
-        title = `📊 Tổng số tin nhắn (ngày ${formattedDate}) 📊`;
-      } else {
-        rankData = groupUsers.sort((a, b) => b.Rank - a.Rank).slice(0, 10);
-        title = "📊 Tổng số tin nhắn 📊";
-      }
-      // TRUYỀN RANKDATA KHI KHÔNG CÓ TARGETUSER
-      filePath = await createRankImage(rankData, title, isToday);
+  if (targetUid) {
+    const targetUser = groupUsers.find(user => user.UID === targetUid);
+    if (!targetUser) {
+      await api.sendMessage(
+        { msg: `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`, quote: message },
+        threadId,
+        MessageType.GroupMessage
+      );
+      return;
     }
 
-    if (filePath) {
+    let count = 0;
+    if (isToday) {
+      const currentDate = new Date().toISOString().split("T")[0];
+      count = targetUser.lastMessageDate === currentDate ? targetUser.messageCountToday : 0;
+    } else {
+      count = targetUser.Rank;
+    }
+
+    const userName = targetName || targetUser.UserName;
+    
+    let filePath = null;
+    try {
+      filePath = await createRankImage([{ UserName: userName, messageCount: count }], isToday);
       await api.sendMessage(
         {
           attachments: [filePath],
@@ -276,52 +186,56 @@ export async function handleRankCommand(api, message, aliasCommand) {
         threadId,
         message.type
       );
-    } else {
-        throw new Error("Không thể tạo ảnh bảng xếp hạng.");
+    } catch (error) {
+      console.error("Lỗi khi tạo hình ảnh topchat:", error);
+      responseMsg = `🏆${isToday ? " Hôm nay" : " Tổng"} số tin nhắn mà người dùng ${userName} đã nhắn là: ${count}`;
+      await api.sendMessage({ msg: responseMsg, quote: message, ttl: 600000 }, threadId, MessageType.GroupMessage);
     }
-  } catch (error) {
-    console.error("Lỗi khi tạo hoặc gửi hình ảnh topchat:", error);
-    
-    if (targetUid) {
-        const targetUser = groupUsers.find(user => user.UID === targetUid);
-        if (targetUser) {
-            let count = 0;
-            if (isToday) {
-                const currentDateString = new Date().toISOString().split("T")[0];
-                count = targetUser.lastMessageDate === currentDateString ? targetUser.messageCountToday : 0;
-            } else {
-                count = targetUser.Rank;
-            }
-            const userName = targetName || targetUser.UserName;
-            responseMsg = `📊${isToday ? " Hôm nay" : " Tổng"} số tin nhắn mà người dùng ${userName} đã nhắn là: ${count}`;
-        } else {
-            responseMsg = `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`;
-        }
+  } else {
+    let rankData = [];
+    if (isToday) {
+      const currentDate = new Date().toISOString().split("T")[0];
+      const todayUsers = groupUsers.filter((user) => user.lastMessageDate === currentDate);
+      if (todayUsers.length === 0) {
+        await api.sendMessage(
+          { msg: "Chưa có người dùng nào tương tác hôm nay.", quote: message },
+          threadId,
+          MessageType.GroupMessage
+        );
+        return;
+      }
+      rankData = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10).map(user => ({
+        UserName: user.UserName,
+        messageCount: user.messageCountToday
+      }));
     } else {
-        let rankDataFallback = [];
-        if (isToday) {
-            const currentDateString = new Date().toISOString().split("T")[0];
-            rankDataFallback = groupUsers.filter((user) => user.lastMessageDate === currentDateString)
-                                .sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10);
-            responseMsg = "🏆 Bảng topchat hôm nay:\n\n";
-        } else {
-            rankDataFallback = groupUsers.sort((a, b) => b.Rank - a.Rank).slice(0, 10);
-            responseMsg = "🏆 Bảng topchat:\n\n";
-        }
+      rankData = groupUsers.sort((a, b) => b.Rank - a.Rank).slice(0, 10).map(user => ({
+        UserName: user.UserName,
+        messageCount: user.Rank
+      }));
+    }
 
-        if (rankDataFallback.length === 0) {
-            responseMsg = isToday ? "Chưa có người dùng nào tương tác hôm nay." : "Chưa có dữ liệu topchat cho nhóm này.";
-        } else {
-            rankDataFallback.forEach((user, index) => {
-                const count = isToday ? user.messageCountToday : user.Rank;
-                responseMsg += `${index + 1}. ${user.UserName}: ${count} tin nhắn\n`;
-            });
-            if (!isToday) {
-                responseMsg += `\nDùng ${prefix}${aliasCommand} today để xem topchat hàng ngày.`;
-            }
-        }
+    let filePath = null;
+    try {
+      filePath = await createRankImage(rankData, isToday);
+      await api.sendMessage(
+        {
+          attachments: [filePath],
+        },
+        threadId,
+        message.type
+      );
+    } catch (error) {
+      console.error("Lỗi khi tạo hình ảnh topchat:", error);
+      responseMsg = isToday ? "🏆 Bảng topchat hôm nay:\n\n" : "🏆 Bảng topchat:\n\n";
+      rankData.forEach((user, index) => {
+        responseMsg += `${index + 1}. ${user.UserName}: ${user.messageCount} tin nhắn\n`;
+      });
+      if (!isToday) {
+        responseMsg += `\nDùng ${prefix}${aliasCommand} today để xem topchat hàng ngày.`;
+      }
+      await api.sendMessage({ msg: responseMsg, quote: message, ttl: 600000 }, threadId, MessageType.GroupMessage);
     }
-    await api.sendMessage({ msg: responseMsg, quote: message, ttl: 600000 }, threadId, MessageType.GroupMessage);
   }
 }
 
