@@ -1733,7 +1733,7 @@
       "active": true
     },
     {
-      "name": "qrcode",
+      "name": "createqr",
       "description": "Tạo QRcode Nội dung tùy chọn",
       "syntax": "{p}qrcode <nội dung>",
       "permission": "all",
@@ -1743,7 +1743,8 @@
       "author": "Vũ Xuân Kiên",
       "active": true,
       "alias": [
-        "qr"
+        "qr",
+        "qrc"
       ]
     },
     {
