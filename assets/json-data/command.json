@@ -385,7 +385,7 @@
       "syntax": "{p}gif",
       "permission": "all",
       "countdown": 5,
-      "icon": "",
+      "icon": "📷",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
@@ -1738,7 +1738,7 @@
       "syntax": "{p}qrcode <nội dung>",
       "permission": "all",
       "countdown": 5,
-      "icon": ""✒,
+      "icon": "✒",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true,
@@ -1830,7 +1830,7 @@
     {
       "name": "deleteresource",
       "description": "Xóa file từ thư mục resource",
-      "syntax": "{p}deleteresource {p}deleteresource [thư mục]|[tên file]",
+      "syntax": "{p}deleteresource [thư mục]|[tên file]",
       "permission": "adminLevelHigh",
       "countdown": 30,
       "icon": "🔖",
