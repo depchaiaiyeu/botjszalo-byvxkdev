@@ -1014,7 +1014,7 @@ export async function handleCommand(
         break;
 
 
-      case "setcmd":
+      case "setcommand":
         await handleSetCommandActive(api, message, commandParts);
         break;
 
@@ -1218,7 +1218,7 @@ export async function handleCommand(
                 break;
 
               case "status":
-                await handleCustomCanvasCommand(api, message);
+                await handleCustomCanvasCommand(api, message, aliasCommand);
                 break;
 
               case "data":
