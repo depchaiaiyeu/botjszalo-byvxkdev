@@ -74,11 +74,6 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.fillText("X: BOT", 20, 30);
     }
 
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#000000";
-    const displayMode = mode.charAt(0).toUpperCase() + mode.slice(1);
-    ctx.fillText(`Caro - ${size}x${size} - ${displayMode}`, width / 2, 30);
-    
     ctx.textAlign = "right";
     if (playerMark === "O") {
         ctx.fillStyle = "#0000FF";
@@ -137,7 +132,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
             }
             
             if (i === lastBotMove) {
-                ctx.strokeStyle = "#FF0000";
+                ctx.strokeStyle = "#CC8800";
                 ctx.lineWidth = circleWidth;
                 ctx.beginPath();
                 ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
@@ -659,14 +654,14 @@ export async function handleCaroCommand(api, message) {
     await fs.writeFile(imagePath, imageBuffer);
     
     if (playerMark === "X") {
-        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🎯 Đến lượt ${message.data.dName}\n\n👉 Hãy chọn số từ 1-${size * size} để đánh quân cờ\n\n🧭 Thời gian: 60 giây`;
+        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🎯 Đến lượt ${message.data.dName} (Quân ${playerMark})\n\n👉 Nhập số ô (1-${size * size}) để đánh\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
         }, 60000);
         startTurnTimer(api, message, threadId, true);
     } else {
-        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🤖 Bot đi trước\n\n🎯 Đến lượt ${message.data.dName}`;
+        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🤖 Bot đi trước (Quân X)\n\n🎯 Đến lượt ${message.data.dName}`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -734,7 +729,7 @@ async function handleBotTurn(api, message) {
     
     if (winResult) {
         const winLength = game.size === 3 ? 3 : 5;
-        const caption = `\n🎮 TRÒ CHƠI KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🏆 Bot đã dành chiến thắng với ${winLength} quân liên tiếp`;
+        const caption = `\n🎮 Bot đánh ô: ${pos + 1}\n\n🏆 Bot đã dành chiến thắng với ${winLength} quân liên tiếp`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -742,7 +737,7 @@ async function handleBotTurn(api, message) {
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
-        const caption = `\n🎮 TRÒ CHƠI KẾT THÚC\n\n🤖 Bot đánh ô số ${pos + 1}\n🤝 Hòa cờ do không còn nước đi (${game.moveCount}/${game.size * game.size})`;
+        const caption = `\n🎮 Bot đánh ô: ${pos + 1}\n\n🤝 Hòa cờ do không còn nước đi (${game.moveCount}/${game.size * game.size})`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -750,7 +745,7 @@ async function handleBotTurn(api, message) {
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else {
-        const caption = `\n🎮 TRÒ CHƠI TIẾP DIỄN\n\n🤖 Bot đánh ô số ${pos + 1}\n🎯 Đến lượt ${game.playerName}\n\n👉 Chọn ô từ 1-${game.size * game.size} để đánh quân cờ\n\n🧭 Thời gian: 60 giây`;
+        const caption = `\n🎮 Bot đánh ô: ${pos + 1}\n\n🎯 Đến lượt ${game.playerName} (Quân ${game.playerMark})\n\n👉 Nhập số ô (1-${game.size * game.size}) để đánh\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -819,7 +814,7 @@ export async function handleCaroMessage(api, message) {
     await fs.writeFile(imagePath, imageBuffer);
     
     if (winResult) {
-        const caption = `\n🎮 TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đánh ô số ${pos + 1}\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`;
+        const caption = `\n🎮 Bạn đánh ô: ${pos + 1}\n\n🏆 ${game.playerName} đã chiến thắng trong ván cờ này`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -831,7 +826,7 @@ export async function handleCaroMessage(api, message) {
         } catch (error) {}
         return;
     } else if (game.moveCount === game.size * game.size) {
-        const caption = `\n🎮 TRÒ CHƠI KẾT THÚC\n\n👤 ${game.playerName} đánh ô số ${pos + 1}\n🤝 Hòa cờ do không còn nước đi (${game.moveCount}/${game.size * game.size})`;
+        const caption = `\n🎮 Bạn đánh ô: ${pos + 1}\n\n🤝 Hòa cờ do không còn nước đi (${game.moveCount}/${game.size * game.size})`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
