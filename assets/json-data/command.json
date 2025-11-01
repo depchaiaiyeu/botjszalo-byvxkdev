@@ -2353,6 +2353,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "xoso",
+      "description": "Xem xổ số các vùng",
+      "syntax": "{p}xoso",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "🎰",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
