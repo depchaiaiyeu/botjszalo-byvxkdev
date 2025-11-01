@@ -16,15 +16,11 @@ import { handleRankCommand } from "../service-hahuyhoang/info-service/rank-chat.
 
 import { chatAll } from "../service-hahuyhoang/chat-zalo/chat-all.js";
 import { sendGifRemote } from "../service-hahuyhoang/chat-zalo/chat-special/send-gif/send-gif.js";
-import { handleQrcodeCommand, handleScanQrcodeCommand } from "../service-hahuyhoang/tien-ich/send-qrcode.js";
+import { handleCreateQRCommand } from "../service-hahuyhoang/tien-ich/create-qr.js";
+import { handleScanQRCommand } from "../service-hahuyhoang/tien-ich/scan-qr.js";
 import { handleCheckPhatNguoiCommand } from "../service-hahuyhoang/tien-ich/check-phat-nguoi.js";
 import { handleCheckSimPhongThuyCommand } from "../service-hahuyhoang/tien-ich/phong-thuy-sim.js";
-
 import { duyenphan , tamdauyhop, tuonglai } from "../service-hahuyhoang/tien-ich/boi-tinh-yeu.js";
-import { handlejointagCommand } from "../service-hahuyhoang/tien-ich/jointag.js";
-import { handleAttackboxCommand } from "../service-hahuyhoang/tien-ich/attackbox.js";
-import { handleSendMessageGroupNotJoin } from "../service-hahuyhoang/tien-ich/attack.js";
-import { sendMessageToMentioned } from "../service-hahuyhoang/tien-ich/sendmsg-user.js"
 import { handleSpeedTestCommand } from "../service-hahuyhoang/tien-ich/speedtest.js";
 import { handleCPUBenchmarkCommand } from "../service-hahuyhoang/tien-ich/cpu-benchmark.js";
 import { handleCustomCanvasCommand } from "../service-hahuyhoang/tien-ich/status.js";
@@ -150,13 +146,12 @@ import { handleDeleteMessage } from "./bot-manager/recent-message.js";
 import { Message, MessageStyle } from "../api-zalo/index.js";
 import { sendMovieSchedule } from "../service-hahuyhoang/servises/lich-chieu-phim.js";
 import { processEditAudioCommand, processEditVideoCommand } from "../service-hahuyhoang/servises/edit-media.js";
-import { handleLienQuanCommand } from "../service-hahuyhoang/servises/LQM-General.js";
-import { handleLOLCommand } from "../service-hahuyhoang/servises/LOL.General.js";
+import { handleLienQuanCommand } from "../service-hahuyhoang/servises/lqmb-hero.js";
+import { handleLOLCommand } from "../service-hahuyhoang/servises/lmht-hero.js";
 
 import { handleGetMessageCommand } from "../service-hahuyhoang/tien-ich/get-message.js";
 import { handleImageAnalytics } from "../service-hahuyhoang/ai-genmini/analytics-image.js";
 import { handleImageGeneration } from "../service-hahuyhoang/ai-genmini/create-image.js";
-import { handleWelcomeCommand } from "../service-hahuyhoang/servises/send-msg-code.js";
 import { handleCheckHostCommand } from "../service-hahuyhoang/servises/check-host.js";
 
 import { handleAntiStickerCommand } from "../service-hahuyhoang/anti-service/anti-sticker.js";
@@ -546,8 +541,7 @@ export async function handleCommandPrivate(api, message) {
             return 0;
             case "vdsad":
               await handleVideoCommand(api, message, "sad");
-              return 0;
-
+              return 0;              
           case "sticker":
             await handleStickerCommand(api, message);
             return 0;
@@ -593,12 +587,6 @@ export async function handleCommandPrivate(api, message) {
           case "qrbank":
             await handleBankInfoCommand(api, message, aliasCommand);
             return 0;
-          case "qrcode":
-            await handleQrcodeCommand(api, message);
-            return 0;
-            case "scanqrcode":
-            await handleScanQrcodeCommand(api, message, aliasCommand);
-            return 0;
           case "status":
             await handleCustomCanvasCommand(api, message);
             return 0;
@@ -641,12 +629,6 @@ export async function handleCommandPrivate(api, message) {
           case "groupblocklist":
               await handleBlockedMembers(api, message);
               return 0;
-          case "jointag":
-              await handlejointagCommand (api, message);
-              return 0;
-          case "attackbox":
-              await handleAttackboxCommand(api, message);
-              return 0;
           case "stickercustom":
               await handleSendCustomerStickerVideo(api, message, aliasCommand);
               return 0;
@@ -659,14 +641,8 @@ export async function handleCommandPrivate(api, message) {
           case "addfriend":
               await handleSendFriendRequest(api, message);
               return 0;
-          case "attack":
-            await handleSendMessageGroupNotJoin(api, message, aliasCommand);
-            return 0;
           case "setname":
             await handleUpdateProfileName(api, message );
-            return 0;
-          case "senduser":
-            await sendMessageToMentioned(api, message);
             return 0;
           case "sendvideodownload":
             await sendVideoDownload(api, message, aliasCommand);
@@ -1233,12 +1209,12 @@ export async function handleCommand(
                 await handleBankInfoCommand(api, message, aliasCommand);
                 break;
 
-              case "qrcode":
-                await handleQrcodeCommand(api, message);
+              case "createqr":
+                await handleCreateQRCommand(api, message, aliasCommand);
                 break;
 
-              case "scanqrcode":
-                await handleScanQrcodeCommand(api, message, aliasCommand);
+              case "scanqr":
+                await handleScanQRCommand(api, message, aliasCommand);
                 break;
 
               case "status":
@@ -1285,12 +1261,6 @@ export async function handleCommand(
                case "groupblocklist":
                 await handleBlockedMembers(api, message);
               break;
-              case "jointag":
-                await handlejointagCommand (api, message);
-                break;
-              case "attackbox":
-                await handleAttackboxCommand(api, message);
-                break;
                 case "stickercustom":
                   await handleSendCustomerStickerVideo(api, message, aliasCommand);
                 break;
@@ -1303,15 +1273,9 @@ export async function handleCommand(
               case "addfriend":
                 await handleSendFriendRequest (api, message);
                 break;
-              case "attack":
-                  await handleSendMessageGroupNotJoin (api, message, aliasCommand);
-                break;
               case "setname":
                 await handleUpdateProfileName (api, message );
                 break;
-                case "senduser":
-                  await sendMessageToMentioned(api, message);
-                  break;
               case "sendvideodownload":
                 await sendVideoDownload(api, message, aliasCommand);
                 break;
@@ -1368,9 +1332,6 @@ export async function handleCommand(
                 break;
               case "kkphim":
                 await handleKKPhimCommand (api, message, aliasCommand);
-                break;
-              case "clipphot":
-                await handleClipphotCommand(api, message, aliasCommand);
                 break;
               case "giavang":
                 await handleGoldPriceCommand (api, message);
