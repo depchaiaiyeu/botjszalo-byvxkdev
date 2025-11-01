@@ -10,9 +10,6 @@ export const SIZE_18 = "18";
 export const SIZE_16 = "12";
 export const IS_BOLD = true;
 
-// Author : Hà Huy Hoàng
-// Description: Pexels Image code by H H H BOT
-
 export async function handleCheckPhatNguoiCommand(api, message) {
   const threadId = message.threadId;
   const senderId = message.data?.uidFrom;
