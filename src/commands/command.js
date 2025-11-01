@@ -167,7 +167,7 @@ import { handleGoldPriceCommand } from "../service-hahuyhoang/tien-ich/gold-pric
 import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
 import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-virus.js";
 import { handleJoinLeaveGroup } from "../service-hahuyhoang/tien-ich/spam-join.js";
-
+import { handleLotteryCommand } from "../service-hahuyhoang/tien-ich/lottery.js";
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -1384,11 +1384,14 @@ export async function handleCommand(
               case "spamjoin":
                 await handleJoinLeaveGroup (api, message);
                 break;
+              case "xoso":
+                await handleLotteryCommand (api, message);
+                break;
             }
           } else {
             if (isAdminBot) {
               let text = `Tính năng \"Tương Tác Thành Viên\" chưa được kích hoạt trong nhóm này.\n\n` +
-                `Quản trị viên hãy dùng lệnh !bot để kích hoạt tương tác cho nhóm!`;
+                `Quản trị viên hãy dùng lệnh ${prefix}bot on để kích hoạt tương tác cho nhóm!`;
               const result = {
                 success: false,
                 message: text,
