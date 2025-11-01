@@ -19,7 +19,7 @@
                    `=---='
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   PHẬT ĐỘ, CODE KHÔNG LỖI, TỐI ƯU KHÔNG BUG
-            DEVELOPER: NDQ x LQT
+            DEVELOPER: VXK
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
 import { Zalo } from "./api-zalo/index.js";
@@ -42,8 +42,6 @@ import { initService } from "./service-hahuyhoang/service.js";
 import { reactionEvents } from "./automations/events-reaction.js";
 //import { updateMessageCache } from "./service-hahuyhoang/anti-service/anti-undo.js";
 import { updateMessageCache } from "./utils/message-cache.js";
-import { handleWelcomeByGroup } from "./service-hahuyhoang/servises/send-msg-code.js";
-import { handleAutoBlockOnJoin } from "./service-hahuyhoang/servises/block-user-join.js";
 
 let idBot = -1;
 const prophylacticConfig = readProphylacticConfig();
