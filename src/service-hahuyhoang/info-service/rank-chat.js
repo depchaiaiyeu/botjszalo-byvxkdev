@@ -39,7 +39,17 @@ async function createRankImage(rankData, title, isToday, targetUser = null) {
   const HEADER_HEIGHT = 120;
   const PADDING = 20;
 
-  const dataToRender = targetUser ? [targetUser] : rankData;
+  let dataToRender = [];
+  if (targetUser && typeof targetUser === 'object') {
+      dataToRender = [targetUser];
+  } else if (Array.isArray(rankData)) {
+      dataToRender = rankData;
+  }
+  
+  if (dataToRender.length === 0) {
+      throw new Error("Không có dữ liệu để tạo ảnh bảng xếp hạng.");
+  }
+
   const CANVAS_HEIGHT = HEADER_HEIGHT + dataToRender.length * ITEM_HEIGHT + PADDING * 2;
   
   const canvas = createCanvas(CARD_WIDTH, CANVAS_HEIGHT);
@@ -64,10 +74,12 @@ async function createRankImage(rankData, title, isToday, targetUser = null) {
 
   for (let i = 0; i < dataToRender.length; i++) {
     const user = dataToRender[i];
-    const rank = i + 1; // Rank displayed in the image
-    const count = isToday ? user.messageCountToday : user.Rank;
-    const userName = user.UserName;
+    
+    const userName = user.UserName || 'Người dùng ẩn danh';
+    const count = isToday ? (user.messageCountToday || 0) : (user.Rank || 0);
 
+    let rank = i + 1;
+    
     const x = PADDING;
     const y = currentY;
     const width = CARD_WIDTH - PADDING * 2;
@@ -219,7 +231,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
   }
 
   let filePath = null;
-  let responseMsg = ""; // Dùng cho trường hợp fallback
+  let responseMsg = "";
 
   try {
     if (targetUid) {
@@ -230,8 +242,9 @@ export async function handleRankCommand(api, message, aliasCommand) {
 
       const currentDate = new Date();
       const formattedDate = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
-      let title = `🏆 Tổng số tin nhắn của ${targetName || targetUser.UserName} ${isToday ? `(ngày ${formattedDate})` : ''} 🏆`;
+      let title = `📊 Tổng số tin nhắn của ${targetName || targetUser.UserName} ${isToday ? `(ngày ${formattedDate})` : ''} 📊`;
       
+      // CHỈ TRUYỀN RANKDATA RỖNG KHI CÓ TARGETUSER để đảm bảo dataToRender chỉ chứa targetUser
       filePath = await createRankImage([], title, isToday, targetUser); 
 
     } else {
@@ -246,11 +259,12 @@ export async function handleRankCommand(api, message, aliasCommand) {
           throw new Error("Chưa có người dùng nào tương tác hôm nay.");
         }
         rankData = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10);
-        title = `🏆 Tổng số tin nhắn (ngày ${formattedDate}) 🏆`;
+        title = `📊 Tổng số tin nhắn (ngày ${formattedDate}) 📊`;
       } else {
         rankData = groupUsers.sort((a, b) => b.Rank - a.Rank).slice(0, 10);
-        title = "🏆 Tổng số tin nhắn 🏆";
+        title = "📊 Tổng số tin nhắn 📊";
       }
+      // TRUYỀN RANKDATA KHI KHÔNG CÓ TARGETUSER
       filePath = await createRankImage(rankData, title, isToday);
     }
 
@@ -267,7 +281,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
     }
   } catch (error) {
     console.error("Lỗi khi tạo hoặc gửi hình ảnh topchat:", error);
-    // Fallback sang tin nhắn văn bản khi có lỗi
+    
     if (targetUid) {
         const targetUser = groupUsers.find(user => user.UID === targetUid);
         if (targetUser) {
@@ -284,7 +298,6 @@ export async function handleRankCommand(api, message, aliasCommand) {
             responseMsg = `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`;
         }
     } else {
-        // Tạo tin nhắn fallback cho top 10
         let rankDataFallback = [];
         if (isToday) {
             const currentDateString = new Date().toISOString().split("T")[0];
