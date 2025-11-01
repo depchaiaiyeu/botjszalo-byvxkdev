@@ -1,94 +1,231 @@
+import { createCanvas, loadImage } from "canvas";
 import path from "path";
-import { createCustomCanvas } from "./canvas/custom-canvas.js";
-import { sendMessageStateQuote } from "../chat-zalo/chat-style/chat-style.js";
-import fsp from "fs/promises";
+import fs from "fs/promises";
+import { sendMessageFromSQL, sendMessageFromSQLImage, sendMessageImageNotQuote } from "../chat-zalo/chat-style/chat-style.js";
+import { getUserInfoData } from "../info-service/user-info.js";
+import { getGlobalPrefix } from "../service.js";
+import { removeMention } from "../../utils/format-util.js";
+import { deleteFile } from "../../utils/util.js";
+import { threadId } from "worker_threads";
 
-// Author :  Hà Huy Hoàng
-// Description: Pexels Image code by Hà Huy Hoàng
+async function createStatusImage(text, userInfo) {
+	const width = 900;
+	const tempCanvas = createCanvas(width, 1);
+	const tempCtx = tempCanvas.getContext("2d");
+	tempCtx.font = "bold 48px Arial";
 
-export async function handleCustomCanvasCommand(api, message) {
-  const threadId = message.threadId;
-  const senderId = message.data?.uidFrom;
-  const senderName = message.data?.dName || "Người dùng";
-  const content = message.data?.content?.trim();
-  const quote = message.data?.quote;
-  let textInput;
-  if (quote && quote.msg) {
-    textInput = quote.msg;
-  } else if (content && content.split(" ").length >= 2) {
-    textInput = content.split(" ").slice(1).join(" ");
-  } else {
-    await sendMessageStateQuote(
-      api,
-      message,
-      "Vui lòng nhập nội dung sau lệnh hoặc reply tin nhắn chứa nội dung muốn tạo!",
-      false,
-      30000
-    );
-    return;
-  }
+	const paragraphs = text.split("\n");
+	let lines = [];
 
-  if (textInput.split(" ").length > 2000) {
-    await sendMessageStateQuote(
-      api,
-      message,
-      "Sếp tao giới hạn rồi 2000 từ thôi cu!",
-      false,
-      30000
-    );
-    return;
-  }
+	paragraphs.forEach(paragraph => {
+		if (!paragraph.trim()) {
+			lines.push("");
+			return;
+		}
 
-  try {
-    const userData = await getUserData(api, senderId);
-    if (!userData) {
-      await sendMessageStateQuote(
-        api,
-        message,
-        "Không thể lấy thông tin người dùng!",
-        false,
-        30000
-      );
-      return;
-    }
+		const words = paragraph.split(" ");
+		let currentLine = "";
 
-    const outputPath = await createCustomCanvas(
-      userData.zaloName,
-      userData.cover,
-      userData.avatar,
-      textInput
-    );
+		for (let i = 0; i < words.length; i++) {
+			let word = words[i];
+			const maxWidth = width - 100;
 
-    await api.sendMessage(
-      {
-        msg: `Status của bạn đã được tạo!`,
-        attachments: [outputPath],
-        ttl: 5000000,
-      },
-      threadId,
-      message.type
-    );
+			while (word.length > 0) {
+				const testLine = currentLine ? currentLine + " " + word : word;
+				const lineWidth = tempCtx.measureText(testLine).width;
 
-    await fsp.unlink(outputPath).catch(() => {});
-  } catch (error) {
-    console.error("Lỗi khi xử lý canvas:", error.message);
-    await sendMessageStateQuote(api, message, "Lỗi khi tạo canvas!", false, 30000);
-  }
+				if (lineWidth < maxWidth) {
+					currentLine = testLine;
+					word = "";
+				} else if (!currentLine) {
+					let partialWord = word;
+					while (tempCtx.measureText(partialWord).width >= maxWidth) {
+						partialWord = partialWord.slice(0, -1);
+					}
+					if (partialWord.length > 0) {
+						lines.push(partialWord);
+						word = word.slice(partialWord.length);
+					} else {
+						lines.push(word.charAt(0));
+						word = word.slice(1);
+					}
+					currentLine = "";
+				} else {
+					lines.push(currentLine);
+					currentLine = "";
+				}
+			}
+		}
+
+		if (currentLine) {
+			lines.push(currentLine);
+		}
+	});
+
+	const headerHeight = 150;
+	const lineHeight = 60;
+	const totalTextHeight = lines.length * lineHeight;
+	const minContentHeight = 480;
+
+	const contentPadding = 80;
+	const contentHeight = Math.max(minContentHeight, totalTextHeight + (contentPadding * 2));
+	const height = headerHeight + contentHeight;
+
+	const canvas = createCanvas(width, height);
+	const ctx = canvas.getContext("2d");
+
+	if (userInfo.cover) {
+		try {
+			const cover = await loadImage(userInfo.cover);
+
+			ctx.save();
+			ctx.beginPath();
+			ctx.rect(0, headerHeight, width, height - headerHeight);
+			ctx.clip();
+
+			const scale = Math.max(
+				width / cover.width,
+				(height - headerHeight) / cover.height
+			);
+			const coverWidth = cover.width * scale;
+			const coverHeight = cover.height * scale;
+			const x = (width - coverWidth) / 2;
+			const y = headerHeight + ((height - headerHeight) - coverHeight) / 2;
+
+			ctx.drawImage(cover, x, y, coverWidth, coverHeight);
+
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+			ctx.fillRect(0, headerHeight, width, height - headerHeight);
+			ctx.restore();
+		} catch (error) {
+			console.error("Lỗi load cover:", error);
+			const contentGradient = ctx.createLinearGradient(0, headerHeight, width, height);
+			contentGradient.addColorStop(0, "#E91E63");
+			contentGradient.addColorStop(1, "#2196F3");
+			ctx.fillStyle = contentGradient;
+			ctx.fillRect(0, headerHeight, width, height - headerHeight);
+		}
+	} else {
+		const contentGradient = ctx.createLinearGradient(0, headerHeight, width, height);
+		contentGradient.addColorStop(0, "#E91E63");
+		contentGradient.addColorStop(1, "#2196F3");
+		ctx.fillStyle = contentGradient;
+		ctx.fillRect(0, headerHeight, width, height - headerHeight);
+	}
+
+	ctx.fillStyle = "#FFFFFF";
+	ctx.fillRect(0, 0, width, headerHeight);
+
+	const avatarSize = 100;
+	const avatarX = 40;
+	const separatorX = avatarX + avatarSize + 30;
+
+	try {
+		const avatar = await loadImage(userInfo.avatar);
+		const avatarY = (headerHeight - avatarSize) / 2;
+		const borderWidth = 5;
+		const borderPadding = 5;
+		const borderRadius = avatarSize / 2 + borderWidth + borderPadding;
+
+		ctx.beginPath();
+		ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, borderRadius, 0, Math.PI * 2);
+		ctx.fillStyle = "#2196F3";
+		ctx.fill();
+
+		ctx.beginPath();
+		ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2 + borderPadding, 0, Math.PI * 2);
+		ctx.fillStyle = "#FFFFFF";
+		ctx.fill();
+
+		ctx.save();
+		ctx.beginPath();
+		ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+		ctx.clip();
+		ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+		ctx.restore();
+
+		const separatorHeight = 80;
+		const separatorY = (headerHeight - separatorHeight) / 2;
+
+		ctx.beginPath();
+		ctx.moveTo(separatorX, separatorY);
+		ctx.lineTo(separatorX, separatorY + separatorHeight);
+		ctx.lineWidth = 6;
+		ctx.strokeStyle = "#E0E0E0";
+		ctx.stroke();
+
+	} catch (error) {
+		console.error("Lỗi khi load avatar:", error);
+	}
+
+	const textX = separatorX + 26;
+	const nameY = headerHeight / 2 - 10;
+	const timeY = headerHeight / 2 + 30;
+
+	ctx.font = "bold 38px BeVietnamPro";
+	ctx.fillStyle = "#000000";
+	ctx.textAlign = "left";
+	ctx.fillText(userInfo.name, textX, nameY);
+
+	const now = new Date();
+	const timeStr = now.toLocaleString("vi-VN");
+	ctx.font = "26px Arial";
+	ctx.fillStyle = "#666666";
+	ctx.fillText(timeStr + " 🌍", textX, timeY);
+
+	ctx.font = "bold 48px Arial";
+	ctx.fillStyle = "#FFFFFF";
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+
+	const contentStartY = headerHeight;
+	const contentEndY = height;
+	const contentCenterY = (contentStartY + contentEndY) / 2;
+	const textStartY = contentCenterY - (totalTextHeight / 2);
+
+	lines.forEach((line, index) => {
+		if (line === "") return;
+		const lineY = textStartY + (index * lineHeight);
+		ctx.fillText(line, width / 2, lineY);
+	});
+
+	const filePath = path.resolve(`./assets/temp/status_${Date.now()}.png`);
+	await fs.writeFile(filePath, canvas.toBuffer());
+	return filePath;
 }
 
-async function getUserData(api, userId) {
-  try {
-    const userInfoResponse = await api.getUserInfo(userId);
-    const userData = userInfoResponse?.changed_profiles?.[userId];
-    if (!userData) return null;
+export async function handleCustomCanvasCommand(api, message, aliasCommand) {
+	const prefix = getGlobalPrefix();
+	const content = message.data.content;
+	let stringCommand = content.replace(`${prefix}${aliasCommand}`, "").trim();
+	if (!stringCommand) {
+		const result = {
+			success: false,
+			message: `Vui lòng nhập nội dung mà bạn muốn tạo trạng thái!`
+		};
+		await sendMessageFromSQL(api, message, result, false, 15000);
+		return;
+	}
 
-    return {
-      zaloName: userData.zaloName,
-      cover: userData.cover || null,
-      avatar: userData.avatar || null,
-    };
-  } catch (err) {
-    console.error("Lỗi khi lấy thông tin user:", err);
-    return null;
-  }
+	const senderId = message.data.uidFrom;
+	const userInfo = await getUserInfoData(api, senderId);
+	let imagePath = null;
+
+	try {
+		imagePath = await createStatusImage(stringCommand, userInfo);
+		await api.sendMessage({
+			msg: "",
+			attachments: [imagePath]
+		}, message.threadId, message.type)
+
+	} catch (error) {
+		console.error("Lỗi khi tạo ảnh bài đăng trạng thái:", error);
+		const result = {
+			success: false,
+			message: "Đã xảy ra lỗi khi tạo ảnh trạng thái!"
+		};
+		await sendMessageFromSQL(api, message, result, false);
+	} finally {
+		await deleteFile(imagePath);
+	}
 }
