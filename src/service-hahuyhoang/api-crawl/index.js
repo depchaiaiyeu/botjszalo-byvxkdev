@@ -16,7 +16,7 @@ import { sendTikTokVideo } from "./tiktok/tiktok-service.js";
 import { handleSendTemplateCapcut } from "./capcut/capcut-service.js";
 import { processAndSendMedia } from "./api-hahuyhoangbot/aio-downlink.js";
 import { handleSendHeroSkinDetail } from "../servises/lqmb-hero.js";
-import { handleSendLOLChampionDetail } from "../servises/lhmt-hero.js";
+import { handleSendLOLChampionDetail } from "../servises/lmht-hero.js";
 import { handleSendHH3DEpisode } from "./video/yanhh3d-phim3d.js";
 import { handleSendSubNhanhChillEpisode } from "./video/subnhanhchill.net.js";
 import { handleSendKKPhimEpisode } from "./video/kkphim.js";
