@@ -36,7 +36,7 @@ export async function handleLotteryCommand(api, message) {
 
       let resultMessage = `🎰 DANH SÁCH KHU VỰC XỔ SỐ\n`;
       resultMessage += `📋 Tổng số: ${regions.length} khu vực\n`;
-      resultMessage += '═'.repeat(50) + '\n\n';
+      resultMessage += '═'.repeat(33) + '\n\n';
       
       const regionGroups = {
         '🌴 MIỀN NAM': [],
@@ -59,7 +59,7 @@ export async function handleLotteryCommand(api, message) {
       for (const [groupName, groupRegions] of Object.entries(regionGroups)) {
         if (groupRegions.length > 0) {
           resultMessage += `${groupName}\n`;
-          resultMessage += '─'.repeat(50) + '\n';
+          resultMessage += '─'.repeat(33) + '\n';
           groupRegions.forEach((region, index) => {
             resultMessage += `${index + 1}. ${region}\n`;
           });
@@ -67,9 +67,9 @@ export async function handleLotteryCommand(api, message) {
         }
       }
 
-      resultMessage += '═'.repeat(50) + '\n';
-      resultMessage += `💡 Để xem kết quả, nhập: ${prefix}xoso <tên vùng>\n`;
-      resultMessage += `📝 Ví dụ: ${prefix}xoso vũng tàu`;
+      resultMessage += '═'.repeat(33) + '\n\n';
+      resultMessage += `💡 Để xem kết quả xổ số, nhập: ${prefix}xoso <tên vùng>\n`;
+      resultMessage += `📝 Ví dụ: ${prefix}xoso Miền Bắc`;
 
       await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
       return;
@@ -98,7 +98,7 @@ export async function handleLotteryCommand(api, message) {
     });
 
     if (!rssUrl) {
-      await sendMessageFailed(api, message, `❌ Không tìm thấy khu vực "${argsString}"!\n💡 Nhập "${prefix}xoso" để xem danh sách.`);
+      await sendMessageFailed(api, message, `Không tìm thấy khu vực "${argsString}"!\n💡 Nhập "${prefix}xoso" để xem danh sách`);
       return;
     }
 
@@ -116,7 +116,7 @@ export async function handleLotteryCommand(api, message) {
     const title = rssData.rss.channel[0].title[0];
 
     if (items.length === 0) {
-      await sendMessageFailed(api, message, "Không có dữ liệu xổ số!");
+      await sendMessageFailed(api, message, "Không có dữ liệu xổ số khi scrape");
       return;
     }
 
@@ -134,9 +134,9 @@ export async function handleLotteryCommand(api, message) {
 
     if (!todayItem) {
       let resultMessage = `🎰 ${title.toUpperCase()}\n`;
-      resultMessage += `⚠️ Chưa có kết quả ngày ${today}\n`;
+      resultMessage += `❓ Chưa có kết quả ngày ${today}\n`;
       resultMessage += '═'.repeat(50) + '\n\n';
-      resultMessage += `📜 CÁC KỲ GÇN ĐÂY:\n\n`;
+      resultMessage += `📜 CÁC KỲ TRÚNG THƯỞNG GẦN ĐÂY:\n\n`;
 
       items.slice(0, 5).forEach((item, index) => {
         const itemTitle = item.title[0];
@@ -154,8 +154,8 @@ export async function handleLotteryCommand(api, message) {
         resultMessage += '\n';
       });
 
-      resultMessage += '═'.repeat(50) + '\n';
-      resultMessage += `⏰ Cập nhật: ${new Date().toLocaleString('vi-VN')}`;
+      resultMessage += '═'.repeat(33) + '\n';
+      resultMessage += `⏰ Cập nhật mới nhất lúc: ${new Date().toLocaleString('vi-VN')}`;
 
       await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
       return;
@@ -166,7 +166,7 @@ export async function handleLotteryCommand(api, message) {
 
     let resultMessage = `🎰 ${title.toUpperCase()}\n`;
     resultMessage += `📅 ${itemTitle}\n`;
-    resultMessage += '═'.repeat(50) + '\n\n';
+    resultMessage += '═'.repeat(33) + '\n\n';
 
     const lines = description.split('\n').filter(line => line.trim());
     
@@ -184,13 +184,13 @@ export async function handleLotteryCommand(api, message) {
       }
     });
 
-    resultMessage += '\n' + '═'.repeat(50) + '\n';
-    resultMessage += `⏰ Cập nhật: ${new Date().toLocaleString('vi-VN')}`;
+    resultMessage += '\n' + '═'.repeat(33) + '\n';
+    resultMessage += `⏰ Cập nhật mới nhất lúc: ${new Date().toLocaleString('vi-VN')}`;
 
     await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
 
   } catch (error) {
     console.error("Error in handleLotteryCommand:", error);
-    await sendMessageFailed(api, message, `❌ Đã xảy ra lỗi: ${error.message || error}`);
+    await sendMessageFailed(api, message, `Đã xảy ra lỗi. Nếu bạn là admin vui lòng check tin nhắn riêng (Cloud của tôi) để xem nội dung error.`);
   }
 }
