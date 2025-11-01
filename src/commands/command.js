@@ -16,8 +16,8 @@ import { handleRankCommand } from "../service-hahuyhoang/info-service/rank-chat.
 
 import { chatAll } from "../service-hahuyhoang/chat-zalo/chat-all.js";
 import { sendGifRemote } from "../service-hahuyhoang/chat-zalo/chat-special/send-gif/send-gif.js";
-import { handleCreateQRCommand } from "../service-hahuyhoang/tien-ich/create-qr.js";
-import { handleScanQRCommand } from "../service-hahuyhoang/tien-ich/scan-qr.js";
+import { handleCreateQRCommand } from "../service-hahuyhoang/tien-ich/qr-create.js";
+import { handleScanQRCommand } from "../service-hahuyhoang/tien-ich/qr-scan.js";
 import { handleCheckPhatNguoiCommand } from "../service-hahuyhoang/tien-ich/check-phat-nguoi.js";
 import { handleCheckSimPhongThuyCommand } from "../service-hahuyhoang/tien-ich/phong-thuy-sim.js";
 import { duyenphan , tamdauyhop, tuonglai } from "../service-hahuyhoang/tien-ich/boi-tinh-yeu.js";
