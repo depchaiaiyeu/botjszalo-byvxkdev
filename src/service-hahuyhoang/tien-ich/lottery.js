@@ -4,14 +4,34 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import xml2js from 'xml2js';
 
+function removeMention(message) {
+  let content = message.data.content;
+  try {
+    content = content.title ? content.title : content;
+    const mentions = message.data.mentions || [];
+    if (content && typeof content === "string") {
+      if (!mentions) return content.trim();
+      const sortedMentions = [...mentions].sort((a, b) => b.pos - a.pos);
+      sortedMentions.forEach((mention) => {
+        content = content.replace(content.substr(mention.pos, mention.len), "");
+      });
+      return content.replace(/\s+/g, " ").trim();
+    } else {
+      return "";
+    }
+  } catch (error) {
+    console.log("Error remove mention: ", content);
+    return message.data.content;
+  }
+}
+
 export async function handleLotteryCommand(api, message) {
   try {
     const prefix = getGlobalPrefix();
-    const messageText = message.body || "";
-    const parts = messageText.split(" ");
-    const args = parts.slice(1);
+    const messageText = removeMention(message);
+    const argsString = messageText.replace(`${prefix}xoso`, "").trim();
     
-    if (args.length === 0) {
+    if (!argsString) {
       const response = await axios.get('https://xskt.com.vn/rss', {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -75,7 +95,7 @@ export async function handleLotteryCommand(api, message) {
       return;
     }
 
-    const regionInput = args.join(' ').toLowerCase().trim();
+    const regionInput = argsString.toLowerCase().trim();
     
     const response = await axios.get('https://xskt.com.vn/rss', {
       headers: {
@@ -98,7 +118,7 @@ export async function handleLotteryCommand(api, message) {
     });
 
     if (!rssUrl) {
-      await sendMessageFailed(api, message, `❌ Không tìm thấy khu vực "${args.join(' ')}"!\n💡 Nhập "${prefix}xoso" để xem danh sách.`);
+      await sendMessageFailed(api, message, `❌ Không tìm thấy khu vực "${argsString}"!\n💡 Nhập "${prefix}xoso" để xem danh sách.`);
       return;
     }
 
