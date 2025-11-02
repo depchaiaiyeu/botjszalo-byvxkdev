@@ -2,6 +2,7 @@ import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 import * as cv from './index.js';
+import { createHelpBackground } from './help.js';
 
 const tempDir = path.join(process.cwd(), "temp");
 
@@ -57,11 +58,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
   const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, totalHeight);
-  gradient.addColorStop(0, '#0f172a');
-  gradient.addColorStop(1, '#1e293b');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, WIDTH, totalHeight);
+  createHelpBackground(ctx, WIDTH, totalHeight);
 
   let titleText = targetUser 
     ? "🏆 THỐNG KÊ TƯƠNG TÁC 🏆" 
