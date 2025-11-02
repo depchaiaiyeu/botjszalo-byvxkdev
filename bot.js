@@ -1,9 +1,8 @@
 import { spawn } from "child_process"
-import git from "isomorphic-git"
-import http from "isomorphic-git/http/node"
 import fs from "fs"
 import path from "path"
-import { ensureLogFiles, logManagerBot } from "./src/utils/io-json.js"
+import { logManagerBot, ensureLogFiles } from "./src/utils/io-json.js"
+import { Repository, Signature, Status, Branch } from "es-git"
 
 const GITHUB_REPO = "depchaiaiyeu/botjszalo-byvxkdev"
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
@@ -35,123 +34,40 @@ function shouldExclude(filepath) {
 }
 
 async function ensureGitRepo() {
-  const gitDir = path.join(dir, ".git")
-  const remoteUrl = `https://github.com/${GITHUB_REPO}.git`
-
-  if (!fs.existsSync(gitDir)) {
-    fs.mkdirSync(gitDir, { recursive: true })
-    fs.mkdirSync(path.join(gitDir, "refs", "heads"), { recursive: true })
-    fs.mkdirSync(path.join(gitDir, "objects"), { recursive: true })
-    fs.writeFileSync(path.join(gitDir, "HEAD"), "ref: refs/heads/main")
-    const config = `[core]
-  repositoryformatversion = 0
-  filemode = true
-  bare = false
-  logallrefupdates = true
-[remote "origin"]
-  url = ${remoteUrl}
-  fetch = +refs/heads/*:refs/remotes/origin/*
-[branch "main"]
-  remote = origin
-  merge = refs/heads/main`
-    fs.writeFileSync(path.join(gitDir, "config"), config)
-    console.log(".git created with remote origin")
-  } else {
-    const remotes = await git.listRemotes({ fs, dir })
-    if (!remotes.find(r => r.remote === "origin")) {
-      await git.addRemote({
-        fs,
-        dir,
-        remote: "origin",
-        url: remoteUrl
-      })
-    }
+  if (!fs.existsSync(path.join(dir, ".git"))) {
+    const repo = await Repository.init(dir)
+    const remoteUrl = `https://github.com/${GITHUB_REPO}.git`
+    await repo.remoteAdd("origin", remoteUrl)
   }
 }
 
-async function getRepoUrl() {
-  try {
-    const remotes = await git.listRemotes({ fs, dir })
-    const origin = remotes.find(r => r.remote === "origin")
-    if (origin && GITHUB_TOKEN) {
-      return origin.url.replace("https://", `https://${GITHUB_TOKEN}@`)
-    }
-  } catch (err) {}
-  return null
+async function getRepo() {
+  return await Repository.open(dir)
 }
 
 async function autoCommit() {
   try {
-    const repoUrl = await getRepoUrl()
-    if (!repoUrl) {
-      console.log("No remote origin found or missing GIT_TOKEN")
+    if (!GITHUB_TOKEN) {
+      console.log("No GITHUB_TOKEN")
       return
     }
-
-    const status = await git.statusMatrix({ fs, dir })
-    const filesToAdd = status
-      .filter(([filepath, , worktreeStatus]) => worktreeStatus !== 0 && !shouldExclude(filepath))
-      .map(([filepath]) => filepath)
-
+    const repo = await getRepo()
+    const statuses = await repo.getStatus()
+    const filesToAdd = Object.keys(statuses).filter(f => !shouldExclude(f) && statuses[f] !== Status.Current)
     if (filesToAdd.length === 0) {
       console.log("No changes to commit")
       return
     }
-
-    for (const filepath of filesToAdd) await git.add({ fs, dir, filepath })
-    const timestamp = new Date().toISOString()
-
-    await git.commit({
-      fs,
-      dir,
-      author: { name: "GitHub Action", email: "action@github.com" },
-      message: `Auto commit: ${timestamp}`
-    })
-
-    try {
-      await git.push({
-        fs,
-        http,
-        dir,
-        remote: "origin",
-        ref: "main",
-        onAuth: () => ({ username: GITHUB_TOKEN })
-      })
-      console.log("✅ Auto commit & push done")
-      logManagerBot("Auto commit & push done")
-    } catch (err) {
-      if (err.data?.statusCode === 422 || err.message.includes("rejected")) {
-        console.log("Push rejected, pulling and retrying...")
-        await git.fetch({
-          fs,
-          http,
-          dir,
-          remote: "origin",
-          ref: "main",
-          onAuth: () => ({ username: GITHUB_TOKEN })
-        })
-        await git.merge({
-          fs,
-          dir,
-          ours: "main",
-          theirs: "origin/main",
-          author: { name: "GitHub Action", email: "action@github.com" }
-        })
-        await git.push({
-          fs,
-          http,
-          dir,
-          remote: "origin",
-          ref: "main",
-          force: true,
-          onAuth: () => ({ username: GITHUB_TOKEN })
-        })
-        console.log("✅ Auto commit after merge done")
-        logManagerBot("Auto commit after merge done")
-      } else {
-        throw err
-      }
+    for (const f of filesToAdd) {
+      await repo.add(f)
     }
+    const author = Signature.now("GitHub Action", "action@github.com")
+    const message = `Auto commit: ${new Date().toISOString()}`
+    await repo.commit(message, author, author)
+    const remote = await repo.getRemote("origin")
+    await remote.push("refs/heads/main", { username: GITHUB_TOKEN })
+    console.log("✅ Auto commit & push done")
+    logManagerBot("Auto commit & push done")
   } catch (err) {
     console.error("❌ Auto commit failed:", err.message)
     logManagerBot(`Auto commit failed: ${err.message}`)
@@ -207,7 +123,6 @@ async function main() {
   startBot()
   await autoCommit()
   setInterval(autoCommit, COMMIT_INTERVAL)
-
   process.on("SIGINT", () => {
     console.log("Received SIGINT, restarting bot...")
     restartBot()
