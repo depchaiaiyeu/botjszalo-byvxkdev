@@ -4,8 +4,9 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { drawLeaderboardImage, drawTopChatImage } from "../../utils/canvas/leaderboard-image.js";
+import { drawTopChatImage } from "../../utils/canvas/leaderboard-image.js";
 import { sendMessageWarning, sendMessageComplete } from "../chat-zalo/chat-style/chat-style.js";
+import { getGroupInfoData } from "./group-info.js";
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 
@@ -77,14 +78,11 @@ export async function handleRankCommand(api, message, aliasCommand) {
   const prefix = getGlobalPrefix();
   const args = content.replace(`${prefix}${aliasCommand}`, "").trim().split(/\s+/);
   const threadId = message.threadId;
-  const uidFrom = message.data.uidFrom;
 
   if (args.length > 0 && args[0].toLowerCase() === "help") {
-    const helpMessage = `📋 HƯỚNG DẪN SỬ DỤNG LỆNH TOPCHAT\n\n` +
+    const helpMessage = `📜 Hướng dẫn sử dụng:\n\n` +
       `🔹 ${prefix}${aliasCommand}\n→ Xem top chat ngày hôm nay\n\n` +
-      `🔹 ${prefix}${aliasCommand} @mentions\n→ Xem top chat hôm nay của người được tag\n\n` +
       `🔹 ${prefix}${aliasCommand} total\n→ Xem tổng toàn bộ tin nhắn\n\n` +
-      `🔹 ${prefix}${aliasCommand} total @mentions\n→ Xem tổng tin nhắn của người được tag\n\n` +
       `🔹 ${prefix}${aliasCommand} help\n→ Hiển thị hướng dẫn này`;
     
     await sendMessageComplete(api, message, helpMessage);
@@ -92,19 +90,9 @@ export async function handleRankCommand(api, message, aliasCommand) {
   }
 
   let isToday = true;
-  let targetUid = null;
 
   if (args.length > 0 && args[0].toLowerCase() === "total") {
     isToday = false;
-    if (message.data.mentions && message.data.mentions.length > 0) {
-      targetUid = message.data.mentions[0].uid;
-    } else if (args.length > 1) {
-      targetUid = args[1];
-    }
-  } else if (message.data.mentions && message.data.mentions.length > 0) {
-    targetUid = message.data.mentions[0].uid;
-  } else if (args.length > 0) {
-    targetUid = args[0];
   }
 
   const rankInfo = readRankInfo();
@@ -117,52 +105,35 @@ export async function handleRankCommand(api, message, aliasCommand) {
   }
 
   let filePath = null;
-  let targetUser = null;
 
   try {
-    if (targetUid) {
-      targetUser = groupUsers.find(user => user.UID === targetUid);
+    const groupInfo = await getGroupInfoData(api, threadId);
+    const groupName = groupInfo.name || "Nhóm";
+
+    let usersToList;
+    
+    if (isToday) {
+      const currentDate = new Date().toISOString().split("T")[0];
+      usersToList = groupUsers.filter((user) => user.lastMessageDate === currentDate);
       
-      if (!targetUser) {
-        await sendMessageWarning(api, message, "Người bạn mentions là bot, không thể xem topchat.");
+      if (usersToList.length === 0) {
+        await sendMessageWarning(api, message, "Chưa có người dùng nào tương tác hôm nay.");
         return;
       }
       
-      let sortedUsers = isToday 
-        ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
-        : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
+      usersToList.sort((a, b) => b.messageCountToday - a.messageCountToday);
       
-      const rankIndex = sortedUsers.findIndex(u => u.UID === targetUid);
-      const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 }; 
-
-      filePath = await drawLeaderboardImage([userWithRank], isToday, targetUser, uidFrom, rankInfo);
-
     } else {
-      let usersToList;
-      
-      if (isToday) {
-        const currentDate = new Date().toISOString().split("T")[0];
-        usersToList = groupUsers.filter((user) => user.lastMessageDate === currentDate);
-        
-        if (usersToList.length === 0) {
-          await sendMessageWarning(api, message, "Chưa có người dùng nào tương tác hôm nay.");
-          return;
-        }
-        
-        usersToList.sort((a, b) => b.messageCountToday - a.messageCountToday);
-        
-      } else {
-        usersToList = [...groupUsers];
-        usersToList.sort((a, b) => b.Rank - a.Rank);
-      }
-      
-      const top10Users = usersToList.slice(0, 10).map((user, index) => ({
-        ...user,
-        messageCount: isToday ? user.messageCountToday : user.Rank
-      }));
-      
-      filePath = await drawTopChatImage(top10Users, lastMessageTime);
+      usersToList = [...groupUsers];
+      usersToList.sort((a, b) => b.Rank - a.Rank);
     }
+    
+    const top10Users = usersToList.slice(0, 10).map((user, index) => ({
+      ...user,
+      messageCount: isToday ? user.messageCountToday : user.Rank
+    }));
+    
+    filePath = await drawTopChatImage(top10Users, lastMessageTime, groupName, isToday);
     
     if (filePath) {
       await api.sendMessage(
