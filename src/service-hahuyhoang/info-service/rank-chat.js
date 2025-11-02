@@ -1,28 +1,25 @@
 import fs from "fs";
-import fsPromises from "fs/promises";
 import path from "path";
-import { createCanvas } from "canvas";
-import { MessageType } from "zlbotdqt";
+import { MessageType, MessageMention } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { getGroupInfoData } from "./group-info.js";
-import { sendMessageWarningRequest, sendMessageCompleteRequest } from '../chat-zalo/chat-style/chat-style.js';
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { createCanvas } from 'canvas';
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
+const tempDir = path.join(process.cwd(), "temp");
+
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
 
 function readRankInfo() {
   try {
-    const data = JSON.parse(fs.readFileSync(rankInfoPath, "utf8"));
+    let data = JSON.parse(fs.readFileSync(rankInfoPath, "utf8"));
     if (!data) data = {};
     if (!data.groups) data.groups = {};
     return data;
   } catch (error) {
-    console.error("Lỗi khi đọc file rank-info.json:", error);
     return { groups: {} };
   }
 }
@@ -31,62 +28,8 @@ function writeRankInfo(data) {
   try {
     fs.writeFileSync(rankInfoPath, JSON.stringify(data, null, 2), "utf8");
   } catch (error) {
-    console.error("Lỗi khi ghi file rank-info.json:", error);
-  }
-}
-
-async function createRankImage(rankData, isToday) {
-  const width = 800;
-  const headerHeight = 100;
-  const rowHeight = 60;
-  const totalHeight = headerHeight + rankData.length * rowHeight + 40;
-
-  const canvas = createCanvas(width, totalHeight);
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = "#1a1a2e";
-  ctx.fillRect(0, 0, width, totalHeight);
-
-  ctx.fillStyle = "#16213e";
-  ctx.fillRect(20, 20, width - 40, totalHeight - 40);
-
-  let headerText = "🏆 BXH Tương Tác 🏆";
-  if (isToday) {
-    const today = new Date();
-    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    headerText = `🏆 BXH Tương Tác - ${dateStr} 🏆`;
-  }
-
-  ctx.fillStyle = "#f39c12";
-  ctx.font = "bold 32px BeVietnamPro";
-  ctx.textAlign = "center";
-  ctx.fillText(headerText, width / 2, 70);
-
-  ctx.font = "24px BeVietnamPro";
-  
-  rankData.forEach((user, index) => {
-    const y = headerHeight + index * rowHeight + 40;
     
-    if (index % 2 === 0) {
-      ctx.fillStyle = "#0f3460";
-      ctx.fillRect(40, y, width - 80, rowHeight);
-    }
-
-    ctx.fillStyle = "#e94560";
-    ctx.textAlign = "left";
-    ctx.fillText(`#${index + 1}. ${user.UserName}`, 60, y + 38);
-
-    ctx.fillStyle = "#00d9ff";
-    ctx.textAlign = "right";
-    ctx.fillText(`${user.messageCount} tin nhắn`, width - 60, y + 38);
-  });
-
-  return new Promise((resolve, reject) => {
-    canvas.toBuffer("image/png", (err, buffer) => {
-      if (err) reject(err);
-      else resolve(buffer);
-    });
-  });
+  }
 }
 
 export function updateUserRank(groupId, userId, userName, nameGroup) {
@@ -103,7 +46,7 @@ export function updateUserRank(groupId, userId, userName, nameGroup) {
 
   rankInfo.groups[groupId].users.forEach((user) => {
     if (user.lastMessageDate !== currentDate) {
-      user.messageCountToday = 0; 
+      user.messageCountToday = 0;
     }
   });
 
@@ -126,130 +69,217 @@ export function updateUserRank(groupId, userId, userName, nameGroup) {
   writeRankInfo(rankInfo);
 }
 
+async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUid) {
+  const WIDTH = 700;
+  const HEADER_HEIGHT = 150;
+  const ROW_HEIGHT = 50;
+  const listLength = topUsers.length;
+  const HEIGHT = HEADER_HEIGHT + (targetUser ? 100 : listLength * ROW_HEIGHT);
+
+  const canvas = createCanvas(WIDTH, HEIGHT);
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  let titleText = targetUser 
+    ? "🏆 BXH Tương Tác Người Dùng 🏆" 
+    : (isToday ? "🏆 BXH Tương Tác Hôm Nay 🏆" : "🏆 BXH Tương Tác 🏆");
+    
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fefefe';
+  ctx.font = '36px "BeVietnamPro", Arial';
+  ctx.fillText(titleText, WIDTH / 2, 50);
+
+  if (!targetUser) {
+    ctx.font = '24px "BeVietnamPro"';
+    ctx.fillStyle = '#facc15';
+    ctx.fillText("Top 10 Chó Vương", WIDTH / 2, 90);
+  }
+
+  const listStart = targetUser ? HEADER_HEIGHT + 20 : HEADER_HEIGHT;
+
+  if (!targetUser && listLength > 0) {
+    const HEADER_Y = HEADER_HEIGHT - 30;
+    ctx.font = 'bold 20px "BeVietnamPro"';
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'left';
+    ctx.fillText('Hạng', 50, HEADER_Y);
+    ctx.textAlign = 'left';
+    ctx.fillText('Tên', 180, HEADER_Y);
+    ctx.textAlign = 'right';
+    ctx.fillText('Tin Nhắn', WIDTH - 50, HEADER_Y);
+  }
+  
+  if (targetUser) {
+    const user = topUsers[0];
+    const count = isToday ? user.messageCountToday : user.Rank;
+    const rankIndex = topUsers.findIndex(u => u.UID === user.UID);
+    const rank = rankIndex !== -1 ? rankIndex + 1 : "N/A";
+
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(50, 150, WIDTH - 100, 70);
+    
+    ctx.fillStyle = '#fefefe';
+    ctx.font = 'bold 28px "BeVietnamPro"';
+    ctx.textAlign = 'center';
+        
+    let detailText = rank !== "N/A" 
+        ? `#${rank}. ${user.UserName} - ${count} tin nhắn ${isToday ? "(Hôm nay)" : "(Tổng)"}`
+        : `${user.UserName}: ${count} tin nhắn ${isToday ? "(Hôm nay)" : "(Tổng)"}`;
+        
+    ctx.fillText(detailText, WIDTH / 2, 195);
+  } else {
+    for (let i = 0; i < listLength; i++) {
+      const user = topUsers[i];
+      const y = listStart + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const rank = i + 1;
+      const count = isToday ? user.messageCountToday : user.Rank;
+      const isCurrentUser = user.UID === currentUserUid;
+
+      if (isCurrentUser) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, listStart + i * ROW_HEIGHT, WIDTH, ROW_HEIGHT);
+      }
+      
+      ctx.fillStyle = '#fefefe';
+      
+      ctx.font = 'bold 24px "BeVietnamPro"';
+      ctx.textAlign = 'left';
+      ctx.fillText(`#${rank}.`, 50, y + 8);
+      
+      ctx.font = '24px "BeVietnamPro"';
+      ctx.textAlign = 'left';
+      ctx.fillText(user.UserName, 180, y + 8);
+      
+      ctx.textAlign = 'right';
+      ctx.fillText(`${count} tin nhắn`, WIDTH - 50, y + 8);
+    }
+  }
+  
+  const imagePath = path.join(tempDir, `rank_image_${Date.now()}.png`);
+  const buffer = canvas.toBuffer('image/png');
+  await fs.promises.writeFile(imagePath, buffer);
+  
+  return imagePath;
+}
+
+
 export async function handleRankCommand(api, message, aliasCommand) {
-  const prefix = getGlobalPrefix();
   const content = removeMention(message);
+  const prefix = getGlobalPrefix();
   const args = content.replace(`${prefix}${aliasCommand}`, "").trim().split(/\s+/);
   const threadId = message.threadId;
   const uidFrom = message.data.uidFrom;
 
   let isToday = false;
   let targetUid = null;
-  let targetName = "";
 
   if (args.length > 0 && args[0].toLowerCase() === "today") {
     isToday = true;
     if (args.length > 1 && args[1].toLowerCase() === "me") {
       targetUid = uidFrom;
     } else if (message.data.mentions && message.data.mentions.length > 0) {
-      const mention = message.data.mentions[0];
-      targetUid = mention.uid;
-      targetName = message.data.content.substr(mention.pos, mention.len).replace("@", "").trim();
+      targetUid = message.data.mentions[0].uid;
+    } else if (args.length > 1) {
+      targetUid = args[1];
     }
+  } else if (args.length > 0 && args[0].toLowerCase() === "me") {
+    targetUid = uidFrom;
   } else if (message.data.mentions && message.data.mentions.length > 0) {
-    const mention = message.data.mentions[0];
-    targetUid = mention.uid;
-    targetName = message.data.content.substr(mention.pos, mention.len).replace("@", "").trim();
+    targetUid = message.data.mentions[0].uid;
+  } else if (args.length > 0) {
+    targetUid = args[0];
   }
 
   const rankInfo = readRankInfo();
   const groupUsers = rankInfo.groups[threadId]?.users || [];
 
   if (groupUsers.length === 0) {
-    await sendMessageWarningRequest(api, message, {
-      caption: "Chưa có dữ liệu topchat cho nhóm này."
-    }, 60000);
+    await api.sendMessage(
+      { msg: "Chưa có dữ liệu topchat cho nhóm này.", quote: message },
+      threadId,
+      MessageType.GroupMessage
+    );
     return;
   }
 
-  if (targetUid) {
-    const targetUser = groupUsers.find(user => user.UID === targetUid);
-    if (!targetUser) {
-      await sendMessageWarningRequest(api, message, {
-        caption: `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`
-      }, 60000);
-      return;
-    }
+  let filePath = null;
+  let targetUser = null;
 
-    let count = 0;
-    if (isToday) {
-      const currentDate = new Date().toISOString().split("T")[0];
-      count = targetUser.lastMessageDate === currentDate ? targetUser.messageCountToday : 0;
-    } else {
-      count = targetUser.Rank;
-    }
-
-    const userName = targetName || targetUser.UserName;
-    
-    try {
-      const imageBuffer = await createRankImage([{ UserName: userName, messageCount: count }], isToday);
-      const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
-      await fsPromises.writeFile(imagePath, imageBuffer);
+  try {
+    if (targetUid) {
+      targetUser = groupUsers.find(user => user.UID === targetUid);
       
-      const caption = `🏆 BXH Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
-      await sendMessageCompleteRequest(api, message, {
-        caption,
-        imagePath
-      }, 300000);
-
-      try {
-        await fsPromises.unlink(imagePath);
-      } catch (error) {}
-    } catch (error) {
-      console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      const caption = `🏆 BXH Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
-      await sendMessageWarningRequest(api, message, {
-        caption
-      }, 300000);
-    }
-  } else {
-    let rankData = [];
-    if (isToday) {
-      const currentDate = new Date().toISOString().split("T")[0];
-      const todayUsers = groupUsers.filter((user) => user.lastMessageDate === currentDate);
-      if (todayUsers.length === 0) {
-        await sendMessageWarningRequest(api, message, {
-          caption: "Chưa có người dùng nào tương tác hôm nay."
-        }, 60000);
+      if (!targetUser) {
+        await api.sendMessage(
+          { msg: `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`, quote: message },
+          threadId,
+          MessageType.GroupMessage
+        );
         return;
       }
-      rankData = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10).map(user => ({
-        UserName: user.UserName,
-        messageCount: user.messageCountToday
-      }));
+      
+      // Find the rank of the target user in the current list context (Today/Overall)
+      let sortedUsers = isToday 
+        ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
+        : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
+      
+      const rankIndex = sortedUsers.findIndex(u => u.UID === targetUid);
+      const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 }; // Pass a full user object
+
+      filePath = await drawLeaderboardImage([userWithRank], isToday, targetUser, uidFrom);
+
     } else {
-      rankData = groupUsers.sort((a, b) => b.Rank - a.Rank).slice(0, 10).map(user => ({
-        UserName: user.UserName,
-        messageCount: user.Rank
-      }));
+      let usersToList;
+      
+      if (isToday) {
+        const currentDate = new Date().toISOString().split("T")[0];
+        usersToList = groupUsers.filter((user) => user.lastMessageDate === currentDate);
+        
+        if (usersToList.length === 0) {
+          await api.sendMessage(
+            { msg: "Chưa có người dùng nào tương tác hôm nay.", quote: message },
+            threadId,
+            MessageType.GroupMessage
+          );
+          return;
+        }
+        
+        usersToList.sort((a, b) => b.messageCountToday - a.messageCountToday);
+        
+      } else {
+        usersToList = [...groupUsers];
+        usersToList.sort((a, b) => b.Rank - a.Rank);
+      }
+      
+      const top10Users = usersToList.slice(0, 10);
+      
+      filePath = await drawLeaderboardImage(top10Users, isToday, null, uidFrom);
+    }
+    
+    if (filePath) {
+      await api.sendMessage(
+        { 
+          msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
+          attachments: [filePath], 
+          quote: message, 
+          ttl: 600000 
+        }, 
+        threadId, 
+        MessageType.GroupMessage
+      );
     }
 
-    try {
-      const imageBuffer = await createRankImage(rankData, isToday);
-      const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
-      await fsPromises.writeFile(imagePath, imageBuffer);
-      
-      const caption = `🏆 BXH Tương Tác 🏆`;
-      await sendMessageCompleteRequest(api, message, {
-        caption,
-        imagePath
-      }, 300000);
-
-      try {
-        await fsPromises.unlink(imagePath);
-      } catch (error) {}
-    } catch (error) {
-      console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      let caption = "🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n";
-      rankData.forEach((user, index) => {
-        caption += `${index + 1}. ${user.UserName}: ${user.messageCount} tin nhắn\n`;
-      });
-      if (!isToday) {
-        caption += `\nDùng ${prefix}${aliasCommand} today để xem topchat hàng ngày.`;
-      }
-      await sendMessageWarningRequest(api, message, {
-        caption
-      }, 300000);
+  } catch (error) {
+    await api.sendMessage(
+      { msg: "Đã xảy ra lỗi khi tạo ảnh topchat.", quote: message },
+      threadId,
+      MessageType.GroupMessage
+    );
+  } finally {
+    if (filePath) {
+      await fs.promises.unlink(filePath).catch(() => {});
     }
   }
 }
