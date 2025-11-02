@@ -69,21 +69,19 @@ export function updateUserRank(groupId, userId, userName, nameGroup) {
   writeRankInfo(rankInfo);
 }
 
-async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserUid) {
+async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUid) {
   const WIDTH = 700;
   const HEADER_HEIGHT_TOP = 130;
   const HEADER_HEIGHT_TABLE = 50;
   const ROW_HEIGHT = 60; 
   const FOOTER_HEIGHT = 80; 
 
-  const isStatsMode = Array.isArray(targetUsers);
-  const listLength = isStatsMode ? targetUsers.length : topUsers.length;
-  const listToDraw = isStatsMode ? targetUsers : topUsers;
+  const listLength = topUsers.length;
 
   let currentUsersRank = null; 
   let threadId = null; 
 
-  if (!isStatsMode && currentUserUid) {
+  if (currentUserUid) {
     const rankInfo = readRankInfo();
     for (const [gId, gData] of Object.entries(rankInfo.groups)) {
       if (gData.users.some(u => u.UID === currentUserUid)) {
@@ -109,10 +107,9 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
     }
   }
 
-
   const totalRowsHeight = listLength * ROW_HEIGHT;
-  const showFooter = !isStatsMode && currentUsersRank && currentUsersRank.rank > listLength;
-  const totalHeight = HEADER_HEIGHT_TOP + (isStatsMode ? 0 : HEADER_HEIGHT_TABLE) + totalRowsHeight + (showFooter ? FOOTER_HEIGHT : 0) + (isStatsMode ? 20 : 20);
+  const showFooter = !targetUser && currentUsersRank && currentUsersRank.rank > listLength;
+  const totalHeight = HEADER_HEIGHT_TOP + (targetUser ? 0 : HEADER_HEIGHT_TABLE) + totalRowsHeight + (showFooter ? FOOTER_HEIGHT : 0) + (targetUser ? 0 : 20);
 
   const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
@@ -120,7 +117,7 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
   ctx.fillStyle = '#1e293b';
   ctx.fillRect(0, 0, WIDTH, totalHeight);
 
-  let titleText = isStatsMode 
+  let titleText = targetUser 
     ? "🏆 THỐNG KÊ TƯƠNG TÁC 🏆" 
     : (isToday ? "🏆 BXH TƯƠNG TÁC HÔM NAY 🏆" : "🏆 BXH TƯƠNG TÁC 🏆");
     
@@ -129,7 +126,7 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
   ctx.font = 'bold 38px "BeVietnamPro", Arial';
   ctx.fillText(titleText, WIDTH / 2, 50);
 
-  if (!isStatsMode) {
+  if (!targetUser) {
     ctx.font = '26px "BeVietnamPro"';
     ctx.fillStyle = '#facc15';
     ctx.fillText("Top 10 Mõm Thủ", WIDTH / 2, 95);
@@ -137,8 +134,28 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
 
   let currentY = HEADER_HEIGHT_TOP;
 
-  if (isStatsMode) {
-    
+  if (targetUser) {
+    for (let i = 0; i < listLength; i++) {
+      const user = topUsers[i];
+      const count = isToday ? (user.messageCountToday || 0) : (user.Rank || 0);
+      const rank = user.Rank !== -1 ? user.Rank : "???";
+      const y = currentY + i * (ROW_HEIGHT + 20);
+
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(50, y, WIDTH - 100, ROW_HEIGHT + 20);
+
+      ctx.fillStyle = '#fefefe';
+      ctx.font = 'bold 30px "BeVietnamPro"';
+      ctx.textAlign = 'center';
+          
+      let detailText = rank !== "???" 
+          ? `#${rank} - ${user.UserName}: ${count} ${isToday ? "(Hôm nay)" : "(Tổng)"}`
+          : `${user.UserName} (???)`;
+          
+      ctx.fillText(detailText, WIDTH / 2, y + ROW_HEIGHT / 2 + 10);
+    }
+    currentY += listLength * (ROW_HEIGHT + 20);
+  } else {
     const HEADER_Y_TABLE = currentY + HEADER_HEIGHT_TABLE / 2;
     ctx.font = 'bold 22px "BeVietnamPro"';
     ctx.fillStyle = '#94a3b8';
@@ -147,48 +164,11 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
     ctx.textAlign = 'left';
     ctx.fillText('Tên', 180, HEADER_Y_TABLE);
     ctx.textAlign = 'right';
-    ctx.fillText(isToday ? 'Tin Nhắn HN' : 'Tổng TN', WIDTH - 50, HEADER_Y_TABLE);
-    currentY += HEADER_HEIGHT_TABLE;
-
-    for (let i = 0; i < listLength; i++) {
-        const user = listToDraw[i];
-        const count = isToday ? user.messageCountToday : user.Rank;
-        const rank = user.Rank !== -1 ? user.Rank : "N/A";
-
-        const y = currentY + i * ROW_HEIGHT;
-        
-        ctx.fillStyle = i % 2 === 0 ? '#2d3748' : '#334155';
-        ctx.fillRect(0, y, WIDTH, ROW_HEIGHT);
-
-        ctx.fillStyle = '#fefefe';
-        ctx.font = 'bold 24px "BeVietnamPro"';
-        ctx.textAlign = 'left';
-        ctx.fillText(`#${rank}`, 50, y + ROW_HEIGHT / 2 + 8);
-
-        ctx.font = '24px "BeVietnamPro"';
-        ctx.textAlign = 'left';
-        const userNameText = (count === 0) ? `${user.UserName} (???)` : user.UserName;
-        ctx.fillText(userNameText, 180, y + ROW_HEIGHT / 2 + 8);
-
-        ctx.textAlign = 'right';
-        ctx.fillText(`${count}`, WIDTH - 50, y + ROW_HEIGHT / 2 + 8);
-    }
-    currentY += totalRowsHeight;
-    
-  } else {
-    const HEADER_Y_TABLE = currentY + HEADER_HEIGHT_TABLE / 2;
-    ctx.font = 'bold 22px "BeVietnamPro"';
-    ctx.fillStyle = '#94a3b8';
-    ctx.textAlign = 'left';
-    ctx.fillText('Hạng', 50, HEADER_Y_TABLE);
-    ctx.textAlign = 'left';
-    ctx.fillText('Người Dùng', 180, HEADER_Y_TABLE);
-    ctx.textAlign = 'right';
     ctx.fillText('Số Tin Nhắn', WIDTH - 50, HEADER_Y_TABLE);
     currentY += HEADER_HEIGHT_TABLE;
 
     for (let i = 0; i < listLength; i++) {
-      const user = listToDraw[i];
+      const user = topUsers[i];
       const y = currentY + i * ROW_HEIGHT;
       const rank = i + 1;
       const count = isToday ? user.messageCountToday : user.Rank;
@@ -250,7 +230,6 @@ async function drawLeaderboardImage(topUsers, isToday, targetUsers, currentUserU
   return imagePath;
 }
 
-
 export async function handleRankCommand(api, message, aliasCommand) {
   const content = removeMention(message);
   const prefix = getGlobalPrefix();
@@ -265,30 +244,29 @@ export async function handleRankCommand(api, message, aliasCommand) {
     isToday = true;
     if (args.length > 1 && args[1].toLowerCase() === "me") {
       targetUids.push(uidFrom);
-    } 
+    } else if (message.data.mentions && message.data.mentions.length > 0) {
+      for (const mention of message.data.mentions) {
+        targetUids.push(mention.uid);
+      }
+    } else if (args.length > 1) {
+      targetUids.push(args[1]);
+    }
   } else if (args.length > 0 && args[0].toLowerCase() === "me") {
     targetUids.push(uidFrom);
+  } else if (message.data.mentions && message.data.mentions.length > 0) {
+    for (const mention of message.data.mentions) {
+      targetUids.push(mention.uid);
+    }
+  } else if (args.length > 0) {
+    targetUids.push(args[0]);
   }
-
-  if (message.data.mentions && message.data.mentions.length > 0) {
-    message.data.mentions.forEach(mention => {
-        if (!targetUids.includes(mention.uid)) {
-            targetUids.push(mention.uid);
-        }
-    });
-  } else if (targetUids.length === 0 && args.length > 0 && args[0].toLowerCase() !== "today" && args[0].toLowerCase() !== "me") {
-      targetUids.push(args[0]);
-  } else if (targetUids.length === 0 && args.length > 1 && args[0].toLowerCase() === "today" && args[1].toLowerCase() !== "me") {
-      targetUids.push(args[1]);
-  }
-
 
   const rankInfo = readRankInfo();
   const groupUsers = rankInfo.groups[threadId]?.users || [];
 
   if (groupUsers.length === 0) {
     await api.sendMessage(
-      { msg: "Chưa có dữ liệu topchat cho nhóm này.", quote: message },
+      { msg: "Chưa có dữ liệu topchat cho nhóm này." },
       threadId,
       MessageType.GroupMessage
     );
@@ -296,39 +274,35 @@ export async function handleRankCommand(api, message, aliasCommand) {
   }
 
   let filePath = null;
-  let statsUsers = null;
 
   try {
     if (targetUids.length > 0) {
-      statsUsers = [];
-      let missingUsers = [];
-
-      let sortedUsers = isToday 
-        ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
-        : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
-
-      for (const targetUid of targetUids) {
-        const targetUser = groupUsers.find(user => user.UID === targetUid);
-        
-        if (targetUser) {
-            const rankIndex = sortedUsers.findIndex(u => u.UID === targetUid);
-            const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 };
-            statsUsers.push(userWithRank);
-        } else {
-            missingUsers.push(targetUid);
-        }
-      }
-
-      if (statsUsers.length === 0) {
-        await api.sendMessage(
-          { msg: `Không tìm thấy dữ liệu topchat cho user(s): ${missingUsers.join(", ")}`, quote: message },
-          threadId,
-          MessageType.GroupMessage
-        );
-        return;
-      }
+      const targetUsersData = [];
       
-      filePath = await drawLeaderboardImage([], isToday, statsUsers, uidFrom);
+      for (const targetUid of targetUids) {
+        let targetUser = groupUsers.find(user => user.UID === targetUid);
+        
+        if (!targetUser) {
+          targetUser = {
+            UserName: targetUid,
+            UID: targetUid,
+            Rank: 0,
+            messageCountToday: 0,
+            lastMessageDate: null
+          };
+        }
+        
+        let sortedUsers = isToday 
+          ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
+          : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
+        
+        const rankIndex = sortedUsers.findIndex(u => u.UID === targetUid);
+        const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 }; 
+        
+        targetUsersData.push(userWithRank);
+      }
+
+      filePath = await drawLeaderboardImage(targetUsersData, isToday, true, uidFrom);
 
     } else {
       let usersToList;
@@ -339,7 +313,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
         
         if (usersToList.length === 0) {
           await api.sendMessage(
-            { msg: "Chưa có người dùng nào tương tác hôm nay.", quote: message },
+            { msg: "Chưa có người dùng nào tương tác hôm nay." },
             threadId,
             MessageType.GroupMessage
           );
@@ -363,7 +337,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
         { 
           msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
           attachments: [filePath], 
-          ttl: 8640000 
+          ttl: 600000 
         }, 
         threadId, 
         MessageType.GroupMessage
@@ -372,7 +346,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
 
   } catch (error) {
     await api.sendMessage(
-      { msg: "Đã xảy ra lỗi khi tạo ảnh topchat.", quote: message },
+      { msg: "Đã xảy ra lỗi khi tạo ảnh topchat." },
       threadId,
       MessageType.GroupMessage
     );
