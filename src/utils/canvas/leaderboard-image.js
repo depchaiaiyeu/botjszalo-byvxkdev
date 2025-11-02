@@ -28,10 +28,10 @@ export async function drawTopChatImage(topUsers, lastMessageTime, groupName, isT
   const titleText = isToday ? "🏆 BXH TƯƠNG TÁC HÔM NAY 🏆" : "🏆 BXH TƯƠNG TÁC 🏆";
   ctx.textAlign = 'center';
   ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
-  ctx.font = 'bold 48px "BeVietnamPro", Arial';
+  ctx.font = 'bold 45px "BeVietnamPro", Arial';
   ctx.fillText(titleText, WIDTH / 2, 65);
 
-  ctx.font = 'bold 28px "BeVietnamPro"';
+  ctx.font = 'bold 31px "BeVietnamPro"';
   ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
   ctx.fillText(groupName, WIDTH / 2, 120);
 
