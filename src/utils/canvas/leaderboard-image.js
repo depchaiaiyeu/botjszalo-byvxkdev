@@ -17,7 +17,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
   const RADIUS = 12;
   const GAP = 8;
   const UPDATE_HEIGHT = 30;
-  const TARGET_USER_BOX_HEIGHT = ROW_HEIGHT + 50; 
+  const TARGET_USER_BOX_HEIGHT = ROW_HEIGHT + 70; 
 
   const listLength = topUsers.length;
   let currentUsersRank = null;
@@ -49,9 +49,11 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
 
   const totalRowsHeight = listLength * (ROW_HEIGHT + GAP);
   const showFooter = !targetUser && currentUsersRank && !userInTop10 && currentUsersRank.rank > listLength;
-  const totalHeight = HEADER_HEIGHT_TOP 
-    + (targetUser ? TARGET_USER_BOX_HEIGHT : HEADER_HEIGHT_TABLE + totalRowsHeight + (showFooter ? FOOTER_HEIGHT + 15 : 0) + 10) 
-    + UPDATE_HEIGHT + 20;
+  const contentHeight = targetUser 
+    ? TARGET_USER_BOX_HEIGHT 
+    : HEADER_HEIGHT_TABLE + totalRowsHeight + (showFooter ? FOOTER_HEIGHT + 15 : 0) + 10;
+  
+  const totalHeight = HEADER_HEIGHT_TOP + contentHeight + UPDATE_HEIGHT + 20;
 
   const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
@@ -187,14 +189,12 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
       ctx.textAlign = 'right';
       ctx.fillText(`${count}`, WIDTH - PADDING - 10, footerY + ROW_HEIGHT / 2 + 10);
       currentY += FOOTER_HEIGHT + 15;
+    } else if (!targetUser) {
+      currentY += 10;
     }
   }
 
-  if (targetUser || showFooter) {
-    currentY += 15; 
-  } else {
-    currentY += 10;
-  }
+  currentY += 15;
   
   ctx.font = '22px "BeVietnamPro"';
   ctx.fillStyle = '#94a3b8';
@@ -220,6 +220,7 @@ export async function drawTopChatImage(topUsers, lastMessageTime) {
   const listLength = topUsers.length;
   const totalRowsHeight = listLength * (ROW_HEIGHT + GAP);
   const totalHeight = HEADER_HEIGHT_TOP + HEADER_HEIGHT_TABLE + totalRowsHeight + 20 + UPDATE_HEIGHT;
+  const currentTime = new Date().toLocaleString('vi-VN');
   const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
   createHelpBackground(ctx, WIDTH, totalHeight);
@@ -309,7 +310,7 @@ export async function drawTopChatImage(topUsers, lastMessageTime) {
   ctx.font = '22px "BeVietnamPro"';
   ctx.fillStyle = '#94a3b8';
   ctx.textAlign = 'center';
-  ctx.fillText(`Cập nhật: ${lastMessageTime}`, WIDTH / 2, currentY + UPDATE_HEIGHT / 2);
+  ctx.fillText(`Cập nhật: ${currentTime}`, WIDTH / 2, currentY + UPDATE_HEIGHT / 2);
 
   const imagePath = path.join(tempDir, `topchat_image_${Date.now()}.png`);
   const buffer = canvas.toBuffer('image/png');
