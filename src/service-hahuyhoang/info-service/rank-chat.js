@@ -162,7 +162,7 @@ async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUi
     ctx.textAlign = 'left';
     ctx.fillText('Hạng', 50, HEADER_Y_TABLE);
     ctx.textAlign = 'left';
-    ctx.fillText('Tên', 180, HEADER_Y_TABLE);
+    ctx.fillText('Người Dùng', 180, HEADER_Y_TABLE);
     ctx.textAlign = 'right';
     ctx.fillText('Số Tin Nhắn', WIDTH - 50, HEADER_Y_TABLE);
     currentY += HEADER_HEIGHT_TABLE;
