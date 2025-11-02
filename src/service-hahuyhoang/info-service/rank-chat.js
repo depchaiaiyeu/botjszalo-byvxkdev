@@ -161,7 +161,6 @@ export async function handleRankCommand(api, message, aliasCommand) {
         { 
           msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
           attachments: [filePath], 
-          quote: message, 
           ttl: 600000 
         }, 
         threadId, 
