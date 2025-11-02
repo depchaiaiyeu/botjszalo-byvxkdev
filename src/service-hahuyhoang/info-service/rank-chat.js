@@ -138,7 +138,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
     if (filePath) {
       await api.sendMessage(
         { 
-          msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
+          msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay 🏆" : "Từ Trước Đến Nay 🏆"}`, 
           attachments: [filePath],
           ttl: 8640000
         }, 
