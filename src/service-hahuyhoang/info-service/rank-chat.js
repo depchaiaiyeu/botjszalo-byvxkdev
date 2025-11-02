@@ -1,4 +1,3 @@
-import '../../utils/canvas/register-fonts.js';
 import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
@@ -7,7 +6,7 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { sendMessageWarningRequest, sendMessageCompleteRequest } from '../../chat-zalo/chat-style/chat-style.js';
+import { sendMessageWarningRequest, sendMessageCompleteRequest } from '../chat-zalo/chat-style/chat-style.js';
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
