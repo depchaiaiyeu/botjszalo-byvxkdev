@@ -1,18 +1,12 @@
 import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
+import * as cv from './index.js';
 
 const tempDir = path.join(process.cwd(), "temp");
 
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
-}
-
-function getTextGradient(ctx, x, y, w) {
-  const gradient = ctx.createLinearGradient(x, y, x + w, y);
-  gradient.addColorStop(0, '#4ECB71');
-  gradient.addColorStop(1, '#1E90FF');
-  return gradient;
 }
 
 export async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUid, rankInfo) {
@@ -74,13 +68,13 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
     : (isToday ? "🏆 BXH TƯƠNG TÁC HÔM NAY 🏆" : "🏆 BXH TƯƠNG TÁC 🏆");
     
   ctx.textAlign = 'center';
-  ctx.fillStyle = getTextGradient(ctx, 0, 60, WIDTH);
+  ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
   ctx.font = 'bold 42px "BeVietnamPro", Arial';
   ctx.fillText(titleText, WIDTH / 2, 60);
 
   if (!targetUser) {
     ctx.font = 'bold 28px "BeVietnamPro"';
-    ctx.fillStyle = getTextGradient(ctx, 0, 110, WIDTH);
+    ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
     ctx.fillText("Top 10 Mõm Thủ", WIDTH / 2, 110);
   }
 
@@ -94,7 +88,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
     ctx.fillStyle = 'rgba(71, 85, 105, 0.5)';
     ctx.fillRect(PADDING, currentY, WIDTH - PADDING * 2, ROW_HEIGHT + 30);
 
-    ctx.fillStyle = getTextGradient(ctx, PADDING, currentY, WIDTH - PADDING * 2);
+    ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH - PADDING * 2);
     ctx.font = 'bold 32px "BeVietnamPro"';
     ctx.textAlign = 'center';
         
@@ -164,7 +158,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         ctx.shadowOffsetY = 2;
       }
       
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : getTextGradient(ctx, PADDING + 10, y, WIDTH - PADDING * 2);
+      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, WIDTH - PADDING * 2);
       
       ctx.font = 'bold 28px "BeVietnamPro"';
       ctx.textAlign = 'left';
@@ -181,12 +175,12 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
       
       ctx.font = rank <= 3 ? 'bold 26px "BeVietnamPro"' : '26px "BeVietnamPro"';
       ctx.textAlign = 'left';
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : getTextGradient(ctx, PADDING + 130, y, 300);
+      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, 300);
       ctx.fillText(user.UserName, PADDING + 130, y + ROW_HEIGHT / 2 + 10);
       
       ctx.font = 'bold 26px "BeVietnamPro"';
       ctx.textAlign = 'right';
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : getTextGradient(ctx, WIDTH - PADDING - 100, y, 100);
+      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, 100);
       ctx.fillText(`${count}`, WIDTH - PADDING - 10, y + ROW_HEIGHT / 2 + 10);
     }
     
@@ -204,7 +198,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         ctx.fillStyle = purpleGradient;
         ctx.fillRect(PADDING, footerY, WIDTH - PADDING * 2, ROW_HEIGHT); 
 
-        ctx.fillStyle = getTextGradient(ctx, PADDING + 10, footerY, 100);
+        ctx.fillStyle = cv.getRandomGradient(ctx, 100);
         
         ctx.font = 'bold 26px "BeVietnamPro"';
         ctx.textAlign = 'left';
@@ -212,11 +206,11 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         
         ctx.font = '26px "BeVietnamPro"';
         ctx.textAlign = 'left';
-        ctx.fillStyle = getTextGradient(ctx, PADDING + 130, footerY, 300);
+        ctx.fillStyle = cv.getRandomGradient(ctx, 300);
         ctx.fillText(user.UserName, PADDING + 130, footerY + ROW_HEIGHT / 2 + 10);
 
         ctx.textAlign = 'right';
-        ctx.fillStyle = getTextGradient(ctx, WIDTH - PADDING - 100, footerY, 100);
+        ctx.fillStyle = cv.getRandomGradient(ctx, 100);
         ctx.fillText(`${count}`, WIDTH - PADDING - 10, footerY + ROW_HEIGHT / 2 + 10);
     }
   }
