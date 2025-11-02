@@ -1,77 +1,136 @@
 import { spawn } from "child_process";
-import simpleGit from "simple-git";
+import git from "isomorphic-git";
+import http from "isomorphic-git/http/node/index.js";
+import fs from "fs";
 import { ensureLogFiles, logManagerBot } from "./src/utils/io-json.js";
 
 const GITHUB_TOKEN = "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";
 const COMMIT_INTERVAL = 5 * 60 * 1000;
+const dir = process.cwd();
 
 let botProcess;
-const git = simpleGit();
 
-async function setupGit() {
-  try {
-    await git.addConfig("user.email", "action@github.com");
-    await git.addConfig("user.name", "GitHub Action");
-    
-    const remotes = await git.getRemotes(true);
-    const origin = remotes.find(r => r.name === "origin");
-    
-    if (origin) {
-      const authUrl = origin.refs.fetch.replace("https://", `https://${GITHUB_TOKEN}@`);
-      await git.remote(["set-url", "origin", authUrl]);
+const excludePatterns = [
+  "node_modules",
+  "package-lock.json",
+  "logs/message.json",
+  "logs/message.txt",
+  ".git",
+  ".txt",
+  ".log",
+  ".cache",
+  ".zip",
+  ".rar",
+  ".gitignore",
+  "temp/"
+];
+
+function shouldExclude(filepath) {
+  return excludePatterns.some(pattern => {
+    if (pattern.startsWith(".") && pattern.length < 6) {
+      return filepath.endsWith(pattern);
     }
-  } catch (err) {
-    logManagerBot(`Git setup failed: ${err.message}`);
-    console.error("Git setup failed:", err.message);
-  }
+    if (pattern.endsWith("/")) {
+      return filepath.startsWith(pattern.slice(0, -1));
+    }
+    return filepath.includes(pattern);
+  });
+}
+
+async function getRepoUrl() {
+  try {
+    const remotes = await git.listRemotes({ fs, dir });
+    const origin = remotes.find(r => r.remote === "origin");
+    if (origin) {
+      return origin.url.replace("https://", `https://${GITHUB_TOKEN}@`);
+    }
+  } catch (err) {}
+  return null;
 }
 
 async function autoCommit() {
   try {
-    const excludePatterns = [
-      "node_modules",
-      "package-lock.json",
-      "logs/message.json",
-      "logs/message.txt",
-      "*.txt",
-      "*.log",
-      "*.cache",
-      "*.zip",
-      "*.rar",
-      ".gitignore",
-      "temp/*"
-    ];
-
-    await git.add(".");
+    const repoUrl = await getRepoUrl();
     
-    for (const pattern of excludePatterns) {
-      try {
-        await git.reset(["HEAD", "--", pattern]);
-      } catch (e) {}
+    if (!repoUrl) {
+      console.log("No remote origin found");
+      return;
     }
 
-    const status = await git.status();
-    
-    if (status.staged.length === 0 && status.files.length === 0) {
+    const status = await git.statusMatrix({ fs, dir });
+    const filesToAdd = status
+      .filter(([filepath, , worktreeStatus]) => 
+        worktreeStatus !== 0 && !shouldExclude(filepath)
+      )
+      .map(([filepath]) => filepath);
+
+    if (filesToAdd.length === 0) {
       console.log("No changes to commit");
       return;
     }
 
+    for (const filepath of filesToAdd) {
+      await git.add({ fs, dir, filepath });
+    }
+
     const timestamp = new Date().toISOString();
-    await git.commit(`Auto commit: ${timestamp}`);
+    await git.commit({
+      fs,
+      dir,
+      author: {
+        name: "GitHub Action",
+        email: "action@github.com"
+      },
+      message: `Auto commit: ${timestamp}`
+    });
 
     try {
-      await git.push("origin", "main");
+      await git.push({
+        fs,
+        http,
+        dir,
+        remote: "origin",
+        ref: "main",
+        onAuth: () => ({ username: GITHUB_TOKEN })
+      });
       console.log("Auto commit & push done");
       logManagerBot("Auto commit & push done");
     } catch (err) {
-      if (err.message.includes("rejected") || err.message.includes("fetch first")) {
+      if (err.data?.statusCode === 422 || err.message.includes("rejected")) {
         console.log("Push rejected, pulling and retrying...");
-        await git.fetch("origin", "main");
-        await git.rebase(["origin/main"]);
-        await git.push("origin", "main", ["--force-with-lease"]);
-        console.log("Auto commit after rebase done");
-        logManagerBot("Auto commit after rebase done");
+        
+        await git.fetch({
+          fs,
+          http,
+          dir,
+          remote: "origin",
+          ref: "main",
+          onAuth: () => ({ username: GITHUB_TOKEN })
+        });
+
+        await git.merge({
+          fs,
+          dir,
+          ours: "main",
+          theirs: "origin/main",
+          author: {
+            name: "GitHub Action",
+            email: "action@github.com"
+          }
+        });
+
+        await git.push({
+          fs,
+          http,
+          dir,
+          remote: "origin",
+          ref: "main",
+          force: true,
+          onAuth: () => ({ username: GITHUB_TOKEN })
+        });
+        
+        console.log("Auto commit after merge done");
+        logManagerBot("Auto commit after merge done");
       } else {
         throw err;
       }
@@ -131,12 +190,9 @@ function restartBot() {
 
 async function main() {
   ensureLogFiles();
-  await setupGit();
-  
   startBot();
 
   await autoCommit();
-  
   setInterval(autoCommit, COMMIT_INTERVAL);
 
   process.on("SIGINT", () => {
