@@ -88,7 +88,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
     ctx.fillStyle = 'rgba(71, 85, 105, 0.5)';
     ctx.fillRect(PADDING, currentY, WIDTH - PADDING * 2, ROW_HEIGHT + 30);
 
-    ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH - PADDING * 2);
+    ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 32px "BeVietnamPro"';
     ctx.textAlign = 'center';
         
@@ -125,40 +125,15 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
       const count = isToday ? user.messageCountToday : user.Rank;
       const isCurrentUser = user.UID === currentUserUid;
 
-      if (rank === 1) {
-        const goldGradient = ctx.createLinearGradient(PADDING, y, PADDING, y + ROW_HEIGHT);
-        goldGradient.addColorStop(0, '#ffd700');
-        goldGradient.addColorStop(1, '#ffed4e');
-        ctx.fillStyle = goldGradient;
-      } else if (rank === 2) {
-        const silverGradient = ctx.createLinearGradient(PADDING, y, PADDING, y + ROW_HEIGHT);
-        silverGradient.addColorStop(0, '#c0c0c0');
-        silverGradient.addColorStop(1, '#e8e8e8');
-        ctx.fillStyle = silverGradient;
-      } else if (rank === 3) {
-        const bronzeGradient = ctx.createLinearGradient(PADDING, y, PADDING, y + ROW_HEIGHT);
-        bronzeGradient.addColorStop(0, '#cd7f32');
-        bronzeGradient.addColorStop(1, '#e89b5f');
-        ctx.fillStyle = bronzeGradient;
-      } else {
-        ctx.fillStyle = i % 2 === 0 ? 'rgba(30, 58, 76, 0.6)' : 'rgba(44, 77, 95, 0.6)';
-      }
-      
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(30, 58, 76, 0.6)' : 'rgba(44, 77, 95, 0.6)';
       ctx.fillRect(PADDING, y, WIDTH - PADDING * 2, ROW_HEIGHT);
       
-      if (isCurrentUser && rank > 3) {
+      if (isCurrentUser) {
         ctx.fillStyle = 'rgba(109, 40, 217, 0.7)';
         ctx.fillRect(PADDING, y, WIDTH - PADDING * 2, ROW_HEIGHT);
       }
       
-      if (rank <= 3) {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 2;
-      }
-      
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, WIDTH - PADDING * 2);
+      ctx.fillStyle = '#ffffff';
       
       ctx.font = 'bold 28px "BeVietnamPro"';
       ctx.textAlign = 'left';
@@ -169,18 +144,12 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
       else rankText = `#${rank}`;
       ctx.fillText(rankText, PADDING + 10, y + ROW_HEIGHT / 2 + 10);
       
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      
-      ctx.font = rank <= 3 ? 'bold 26px "BeVietnamPro"' : '26px "BeVietnamPro"';
+      ctx.font = '26px "BeVietnamPro"';
       ctx.textAlign = 'left';
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, 300);
       ctx.fillText(user.UserName, PADDING + 130, y + ROW_HEIGHT / 2 + 10);
       
       ctx.font = 'bold 26px "BeVietnamPro"';
       ctx.textAlign = 'right';
-      ctx.fillStyle = rank <= 3 ? '#1a1a1a' : cv.getRandomGradient(ctx, 100);
       ctx.fillText(`${count}`, WIDTH - PADDING - 10, y + ROW_HEIGHT / 2 + 10);
     }
     
@@ -198,7 +167,7 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         ctx.fillStyle = purpleGradient;
         ctx.fillRect(PADDING, footerY, WIDTH - PADDING * 2, ROW_HEIGHT); 
 
-        ctx.fillStyle = cv.getRandomGradient(ctx, 100);
+        ctx.fillStyle = '#ffffff';
         
         ctx.font = 'bold 26px "BeVietnamPro"';
         ctx.textAlign = 'left';
@@ -206,11 +175,10 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         
         ctx.font = '26px "BeVietnamPro"';
         ctx.textAlign = 'left';
-        ctx.fillStyle = cv.getRandomGradient(ctx, 300);
         ctx.fillText(user.UserName, PADDING + 130, footerY + ROW_HEIGHT / 2 + 10);
 
+        ctx.font = 'bold 26px "BeVietnamPro"';
         ctx.textAlign = 'right';
-        ctx.fillStyle = cv.getRandomGradient(ctx, 100);
         ctx.fillText(`${count}`, WIDTH - PADDING - 10, footerY + ROW_HEIGHT / 2 + 10);
     }
   }
