@@ -6,6 +6,7 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
+import { getGroupInfoData } from "./group-info.js";
 import { sendMessageWarningRequest, sendMessageCompleteRequest } from '../chat-zalo/chat-style/chat-style.js';
 import { fileURLToPath } from "url";
 
@@ -185,7 +186,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
       await fsPromises.writeFile(imagePath, imageBuffer);
       
-      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
+      const caption = `🏆 BXH Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
       await sendMessageCompleteRequest(api, message, {
         caption,
         imagePath
@@ -196,7 +197,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       } catch (error) {}
     } catch (error) {
       console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
+      const caption = `🏆 BXH Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
       await sendMessageWarningRequest(api, message, {
         caption
       }, 300000);
@@ -228,7 +229,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       const imagePath = path.resolve(process.cwd(), "assets", "temp", `rank_${Date.now()}.png`);
       await fsPromises.writeFile(imagePath, imageBuffer);
       
-      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆`;
+      const caption = `🏆 BXH Tương Tác 🏆`;
       await sendMessageCompleteRequest(api, message, {
         caption,
         imagePath
