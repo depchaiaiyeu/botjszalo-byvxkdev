@@ -3,13 +3,29 @@ import fs from "fs";
 import path from "path";
 import * as cv from "./index.js";
 
-// Tạo Hình Lệnh !Help
+export function createHelpBackground(ctx, width, height) {
+  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
+  backgroundGradient.addColorStop(0, "#1E1B4B");
+  backgroundGradient.addColorStop(0.5, "#1E3A8A");
+  backgroundGradient.addColorStop(1, "#0F172A");
+  ctx.fillStyle = backgroundGradient;
+  ctx.fillRect(0, 0, width, height);
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const radius = Math.random() * 3 + 1;
+    const opacity = Math.random() * 0.15 + 0.05;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+    ctx.fill();
+  }
+}
+
 export async function createInstructionsImage(helpContent, isAdminBox, width = 800) {
   const ctxTemp = createCanvas(999, 999).getContext("2d");
-
   const space = 36;
-  let yTemp = 60; 
-
+  let yTemp = 60;
   ctxTemp.font = "bold 28px BeVietnamPro";
   for (const key in helpContent.allMembers) {
     if (helpContent.allMembers.hasOwnProperty(key)) {
@@ -17,15 +33,11 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       const labelWidth = ctxTemp.measureText(keyHelpContent).width;
       const valueHelpContent = " -> " + helpContent.allMembers[key].description;
       const lineWidth = labelWidth + space + ctxTemp.measureText(valueHelpContent).width;
-      if (lineWidth > width) {
-        yTemp += 52;
-      }
+      if (lineWidth > width) yTemp += 52;
       yTemp += 52;
     }
   }
-
-  yTemp += 60; // Khoảng Cách Dưới
-
+  yTemp += 60;
   if (isAdminBox) {
     for (const key in helpContent.admin) {
       if (helpContent.admin.hasOwnProperty(key)) {
@@ -33,39 +45,25 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
         const labelWidth = ctxTemp.measureText(keyHelpContent).width;
         const valueHelpContent = " -> " + helpContent.admin[key].description;
         const lineWidth = labelWidth + space + ctxTemp.measureText(valueHelpContent).width;
-        if (lineWidth > width) {
-          yTemp += 52;
-        }
+        if (lineWidth > width) yTemp += 52;
         yTemp += 52;
       }
     }
-    yTemp += 60; // Khoảng Cách Dưới
+    yTemp += 60;
   }
-
   const height = yTemp > 430 ? yTemp : 430;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-
-  // Áp dụng nền động và gradient
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#3B82F6");
-  backgroundGradient.addColorStop(1, "#111827");
-  ctx.fillStyle = backgroundGradient;
-  ctx.fillRect(0, 0, width, height);
-
+  createHelpBackground(ctx, width, height);
   let y = 60;
-
   ctx.textAlign = "left";
   ctx.font = "bold 28px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText(helpContent.title, space, y);
-
   y += 50;
-
   ctx.textAlign = "left";
   ctx.font = "bold 28px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
-
   for (const key in helpContent.allMembers) {
     if (helpContent.allMembers.hasOwnProperty(key)) {
       ctx.fillStyle = cv.getRandomGradient(ctx, width);
@@ -84,7 +82,6 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       y += 52;
     }
   }
-
   if (isAdminBox) {
     if (Object.keys(helpContent.admin).length > 0) {
       y += 30;
@@ -113,7 +110,6 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       }
     }
   }
-
   const filePath = path.resolve(`./assets/temp/help_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
   const stream = canvas.createPNGStream();
