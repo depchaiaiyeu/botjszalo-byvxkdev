@@ -4,7 +4,8 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { drawLeaderboardImage } from "../../utils/canvas/leaderboard-image.js";
+import { drawLeaderboardImage, drawTopChatImage } from "../../utils/canvas/leaderboard-image.js";
+import { sendMessageWarning, sendMessageComplete } from "../chat-zalo/chat-style/chat-style.js";
 
 const rankInfoPath = path.join(process.cwd(), "assets", "json-data", "rank-info.json");
 
@@ -30,13 +31,20 @@ function writeRankInfo(data) {
 export function updateUserRank(groupId, userId, userName, nameGroup) {
   const rankInfo = readRankInfo();
   if (!rankInfo.groups[groupId]) {
-    rankInfo.groups[groupId] = { users: [] };
+    rankInfo.groups[groupId] = { users: [], lastMessageTime: null };
   }
   if (rankInfo.groups[groupId].nameGroup !== nameGroup) {
     rankInfo.groups[groupId].nameGroup = nameGroup;
   }
 
   const currentDate = new Date().toISOString().split('T')[0];
+  const currentTime = new Date();
+  const hours = String(currentTime.getHours()).padStart(2, '0');
+  const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+  const formattedTime = `${hours}:${minutes}`;
+  
+  rankInfo.groups[groupId].lastMessageTime = formattedTime;
+
   const userIndex = rankInfo.groups[groupId].users.findIndex((user) => user.UID === userId);
 
   rankInfo.groups[groupId].users.forEach((user) => {
@@ -71,20 +79,28 @@ export async function handleRankCommand(api, message, aliasCommand) {
   const threadId = message.threadId;
   const uidFrom = message.data.uidFrom;
 
-  let isToday = false;
+  if (args.length > 0 && args[0].toLowerCase() === "help") {
+    const helpMessage = `📋 HƯỚNG DẪN SỬ DỤNG LỆNH TOPCHAT\n\n` +
+      `🔹 ${prefix}${aliasCommand}\n→ Xem top chat ngày hôm nay\n\n` +
+      `🔹 ${prefix}${aliasCommand} @mentions\n→ Xem top chat hôm nay của người được tag\n\n` +
+      `🔹 ${prefix}${aliasCommand} total\n→ Xem tổng toàn bộ tin nhắn\n\n` +
+      `🔹 ${prefix}${aliasCommand} total @mentions\n→ Xem tổng tin nhắn của người được tag\n\n` +
+      `🔹 ${prefix}${aliasCommand} help\n→ Hiển thị hướng dẫn này`;
+    
+    await sendMessageComplete(api, message, helpMessage);
+    return;
+  }
+
+  let isToday = true;
   let targetUid = null;
 
-  if (args.length > 0 && args[0].toLowerCase() === "today") {
-    isToday = true;
-    if (args.length > 1 && args[1].toLowerCase() === "me") {
-      targetUid = uidFrom;
-    } else if (message.data.mentions && message.data.mentions.length > 0) {
+  if (args.length > 0 && args[0].toLowerCase() === "total") {
+    isToday = false;
+    if (message.data.mentions && message.data.mentions.length > 0) {
       targetUid = message.data.mentions[0].uid;
     } else if (args.length > 1) {
       targetUid = args[1];
     }
-  } else if (args.length > 0 && args[0].toLowerCase() === "me") {
-    targetUid = uidFrom;
   } else if (message.data.mentions && message.data.mentions.length > 0) {
     targetUid = message.data.mentions[0].uid;
   } else if (args.length > 0) {
@@ -93,13 +109,10 @@ export async function handleRankCommand(api, message, aliasCommand) {
 
   const rankInfo = readRankInfo();
   const groupUsers = rankInfo.groups[threadId]?.users || [];
+  const lastMessageTime = rankInfo.groups[threadId]?.lastMessageTime || "00:00";
 
   if (groupUsers.length === 0) {
-    await api.sendMessage(
-      { msg: "Chưa có dữ liệu topchat cho nhóm này.", quote: message },
-      threadId,
-      MessageType.GroupMessage
-    );
+    await sendMessageWarning(api, message, "Chưa có dữ liệu topchat cho nhóm này.");
     return;
   }
 
@@ -111,11 +124,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       targetUser = groupUsers.find(user => user.UID === targetUid);
       
       if (!targetUser) {
-        await api.sendMessage(
-          { msg: `Người bạn mentions là bot, không thể xem topchat.`, quote: message },
-          threadId,
-          MessageType.GroupMessage
-        );
+        await sendMessageWarning(api, message, "Người bạn mentions là bot, không thể xem topchat.");
         return;
       }
       
@@ -136,11 +145,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
         usersToList = groupUsers.filter((user) => user.lastMessageDate === currentDate);
         
         if (usersToList.length === 0) {
-          await api.sendMessage(
-            { msg: "Chưa có người dùng nào tương tác hôm nay.", quote: message },
-            threadId,
-            MessageType.GroupMessage
-          );
+          await sendMessageWarning(api, message, "Chưa có người dùng nào tương tác hôm nay.");
           return;
         }
         
@@ -151,9 +156,12 @@ export async function handleRankCommand(api, message, aliasCommand) {
         usersToList.sort((a, b) => b.Rank - a.Rank);
       }
       
-      const top10Users = usersToList.slice(0, 10);
+      const top10Users = usersToList.slice(0, 10).map((user, index) => ({
+        ...user,
+        messageCount: isToday ? user.messageCountToday : user.Rank
+      }));
       
-      filePath = await drawLeaderboardImage(top10Users, isToday, null, uidFrom, rankInfo);
+      filePath = await drawTopChatImage(top10Users, lastMessageTime);
     }
     
     if (filePath) {
@@ -169,11 +177,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
     }
 
   } catch (error) {
-    await api.sendMessage(
-      { msg: "Đã xảy ra lỗi khi tạo ảnh topchat.", quote: message },
-      threadId,
-      MessageType.GroupMessage
-    );
+    await sendMessageWarning(api, message, "Đã xảy ra lỗi khi tạo ảnh topchat.");
   } finally {
     if (filePath) {
       await fs.promises.unlink(filePath).catch(() => {});
@@ -187,7 +191,7 @@ export async function initRankSystem() {
 
   for (const [groupId, groupData] of Object.entries(groupSettings)) {
     if (!rankInfo.groups[groupId]) {
-      rankInfo.groups[groupId] = { users: [] };
+      rankInfo.groups[groupId] = { users: [], lastMessageTime: null };
     }
 
     if (groupData["adminList"]) {
