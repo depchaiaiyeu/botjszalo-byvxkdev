@@ -46,7 +46,7 @@ async function ensureGitRepo() {
   bare = false
   logallrefupdates = true
 [remote "origin"]
-  url = https://github.com/<user>/<repo>.git
+  url = https://github.com/depchaiaiyeu/botjszalo-byvxkdev.git
   fetch = +refs/heads/*:refs/remotes/origin/*
 [branch "main"]
   remote = origin
@@ -60,7 +60,7 @@ async function ensureGitRepo() {
         fs,
         dir,
         remote: "origin",
-        url: "https://github.com/<user>/<repo>.git"
+        url: "https://github.com/depchaiaiyeu/botjszalo-byvxkdev.git"
       })
     }
   }
