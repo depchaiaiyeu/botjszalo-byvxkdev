@@ -1,14 +1,13 @@
 import { spawn } from "child_process"
-import fs from "fs"
+import fs from "fs/promises"
 import path from "path"
 import { logManagerBot, ensureLogFiles } from "./src/utils/io-json.js"
-import esgit from "es-git"
-
-const { Repository, Signature, Status } = esgit
+import { git } from "isomorphic-git"
+import httpClient from "isomorphic-git/http/node"
 
 const GITHUB_REPO = "depchaiaiyeu/botjszalo-byvxkdev"
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-const COMMIT_INTERVAL = 5 * 60 * 1000 // 5 phút
+const COMMIT_INTERVAL = 5 * 60 * 1000
 const dir = process.cwd()
 let botProcess
 
@@ -36,15 +35,12 @@ function shouldExclude(filepath) {
 }
 
 async function ensureGitRepo() {
-  if (!fs.existsSync(path.join(dir, ".git"))) {
-    const repo = await Repository.init(dir)
+  const gitdir = path.join(dir, ".git")
+  if (!(await fs.access(gitdir).then(() => true).catch(() => false))) {
+    await git.init({ fs, dir, gitdir })
     const remoteUrl = `https://github.com/${GITHUB_REPO}.git`
-    await repo.remoteAdd("origin", remoteUrl)
+    await git.addRemote({ fs, dir, gitdir, remote: "origin", url: remoteUrl })
   }
-}
-
-async function getRepo() {
-  return await Repository.open(dir)
 }
 
 async function autoCommit() {
@@ -54,9 +50,9 @@ async function autoCommit() {
       return
     }
 
-    const repo = await getRepo()
-    const statuses = await repo.getStatus()
-    const filesToAdd = Object.keys(statuses).filter(f => !shouldExclude(f) && statuses[f] !== Status.Current)
+    const gitdir = path.join(dir, ".git")
+    const status = await git.status({ fs, dir, gitdir })
+    const filesToAdd = Object.keys(status).filter(f => !shouldExclude(f) && status[f].working_dir !== "absent" && status[f].working_dir !== "unmodified")
 
     if (filesToAdd.length === 0) {
       console.log("No changes to commit")
@@ -64,15 +60,22 @@ async function autoCommit() {
     }
 
     for (const f of filesToAdd) {
-      await repo.add(f)
+      await git.add({ fs, dir, gitdir, filepath: f })
     }
 
-    const author = Signature.now("GitHub Action", "action@github.com")
+    const author = { name: "GitHub Action", email: "action@github.com" }
     const message = `Auto commit: ${new Date().toISOString()}`
-    await repo.commit(message, author, author)
+    await git.commit({ fs, dir, gitdir, message, author, committer: author })
 
-    const remote = await repo.getRemote("origin")
-    await remote.push("refs/heads/main", { username: GITHUB_TOKEN })
+    await git.push({
+      fs,
+      http: httpClient,
+      dir,
+      gitdir,
+      remote: "origin",
+      ref: "main",
+      onAuth: () => ({ username: "token", password: GITHUB_TOKEN })
+    })
 
     console.log("✅ Auto commit & push done")
     logManagerBot("Auto commit & push done")
@@ -127,7 +130,7 @@ function restartBot() {
 
 async function main() {
   if (!GITHUB_TOKEN) {
-    console.error("❌ Missing GIT_TOKEN environment variable")
+    console.error("❌ Missing GITHUB_TOKEN environment variable")
     return
   }
   ensureLogFiles()
