@@ -2,7 +2,6 @@ import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 import * as cv from './index.js';
-import { createHelpBackground } from './help.js';
 
 const tempDir = path.join(process.cwd(), "temp");
 
@@ -58,7 +57,11 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
   const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
 
-  createHelpBackground(ctx, WIDTH, totalHeight);
+  const gradient = ctx.createLinearGradient(0, 0, 0, totalHeight);
+  gradient.addColorStop(0, '#0f172a');
+  gradient.addColorStop(1, '#1e293b');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, WIDTH, totalHeight);
 
   let titleText = targetUser 
     ? "🏆 THỐNG KÊ TƯƠNG TÁC 🏆" 
@@ -159,8 +162,8 @@ export async function drawLeaderboardImage(topUsers, isToday, targetUser, curren
         const footerY = currentY + 15;
         
         const purpleGradient = ctx.createLinearGradient(PADDING, footerY, PADDING, footerY + ROW_HEIGHT);
-        purpleGradient.addColorStop(0, '#7c3aed');
-        purpleGradient.addColorStop(1, '#6d28d9');
+        purpleGradient.addColorStop(0, '#5A6EEB');
+        purpleGradient.addColorStop(1, '#A7B6FF');
         ctx.fillStyle = purpleGradient;
         ctx.fillRect(PADDING, footerY, WIDTH - PADDING * 2, ROW_HEIGHT); 
 
