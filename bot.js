@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import git from "isomorphic-git";
-import http from "isomorphic-git/http/node/index.js";
+import http from "isomorphic-git/http/node";
 import fs from "fs";
 import { ensureLogFiles, logManagerBot } from "./src/utils/io-json.js";
 
