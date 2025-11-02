@@ -74,7 +74,7 @@ async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUi
   const HEADER_HEIGHT_TOP = 130;
   const HEADER_HEIGHT_TABLE = 50;
   const ROW_HEIGHT = 60; 
-  const FOOTER_HEIGHT = 80; 
+  const FOOTER_HEIGHT = 60; 
 
   const listLength = topUsers.length;
 
@@ -129,7 +129,7 @@ async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUi
   if (!targetUser) {
     ctx.font = '26px "BeVietnamPro"';
     ctx.fillStyle = '#facc15';
-    ctx.fillText("Top 10 Mõm Thủ", WIDTH / 2, 95);
+    ctx.fillText("Top 10 Mõm Vương", WIDTH / 2, 95);
   }
 
   let currentY = HEADER_HEIGHT_TOP;
@@ -218,18 +218,17 @@ async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUi
         ctx.fillRect(0, footerY, WIDTH, ROW_HEIGHT); 
 
         ctx.fillStyle = '#fefefe';
-        ctx.font = 'bold 26px "BeVietnamPro"';
+        
+        ctx.font = 'bold 24px "BeVietnamPro"';
         ctx.textAlign = 'left';
-        ctx.fillText(`Bạn: #${rank} - ${user.UserName}`, 50, footerY + ROW_HEIGHT / 2 + 8);
+        ctx.fillText(`#${rank}`, 50, footerY + ROW_HEIGHT / 2 + 8);
+        
+        ctx.font = '24px "BeVietnamPro"';
+        ctx.textAlign = 'left';
+        ctx.fillText(user.UserName, 180, footerY + ROW_HEIGHT / 2 + 8);
 
         ctx.textAlign = 'right';
         ctx.fillText(`${count}`, WIDTH - 50, footerY + ROW_HEIGHT / 2 + 8);
-        currentY += ROW_HEIGHT;
-
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '18px "BeVietnamPro"';
-        ctx.textAlign = 'center';
-        ctx.fillText(`Bạn đang xếp hạng #${rank} - ${count} ${isToday ? "tin nhắn hôm nay" : "tổng tin nhắn"}`, WIDTH / 2, currentY + 15);
     }
   }
   
@@ -288,7 +287,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       
       if (!targetUser) {
         await api.sendMessage(
-          { msg: `Args không hợp lệ, mention người cần xem topchat?`, quote: message },
+          { msg: `Người bạn mentions là bot, không thể xem topchat.`, quote: message },
           threadId,
           MessageType.GroupMessage
         );
@@ -337,6 +336,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
         { 
           msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
           attachments: [filePath], 
+          quote: message, 
           ttl: 600000 
         }, 
         threadId, 
