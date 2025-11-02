@@ -7,7 +7,7 @@ import { MessageType } from "zlbotdqt";
 import { getGlobalPrefix } from '../service.js';
 import { removeMention } from "../../utils/format-util.js";
 import { readGroupSettings } from "../../utils/io-json.js";
-import { sendMessageTag, sendMessageWarning } from '../chat-zalo/chat-style/chat-style.js';
+import { sendMessageWarningRequest, sendMessageCompleteRequest } from '../../chat-zalo/chat-style/chat-style.js';
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,11 +50,11 @@ async function createRankImage(rankData, isToday) {
   ctx.fillStyle = "#16213e";
   ctx.fillRect(20, 20, width - 40, totalHeight - 40);
 
-  let headerText = "🏆 Bảng Xếp Hạng Tương Tác 🏆";
+  let headerText = "🏆 BXH Tương Tác 🏆";
   if (isToday) {
     const today = new Date();
     const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    headerText = `🏆 Bảng Xếp Hạng Tương Tác - ${dateStr} 🏆`;
+    headerText = `🏆 BXH Tương Tác - ${dateStr} 🏆`;
   }
 
   ctx.fillStyle = "#f39c12";
@@ -156,14 +156,18 @@ export async function handleRankCommand(api, message, aliasCommand) {
   const groupUsers = rankInfo.groups[threadId]?.users || [];
 
   if (groupUsers.length === 0) {
-    await sendMessageWarning(api, message, "Chưa có dữ liệu topchat cho nhóm này.", 60000);
+    await sendMessageWarningRequest(api, message, {
+      caption: "Chưa có dữ liệu topchat cho nhóm này."
+    }, 60000);
     return;
   }
 
   if (targetUid) {
     const targetUser = groupUsers.find(user => user.UID === targetUid);
     if (!targetUser) {
-      await sendMessageWarning(api, message, `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`, 60000);
+      await sendMessageWarningRequest(api, message, {
+        caption: `Không tìm thấy dữ liệu topchat cho user: ${targetUid}`
+      }, 60000);
       return;
     }
 
@@ -183,7 +187,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       await fsPromises.writeFile(imagePath, imageBuffer);
       
       const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
-      await sendMessageTag(api, message, {
+      await sendMessageCompleteRequest(api, message, {
         caption,
         imagePath
       }, 300000);
@@ -193,8 +197,10 @@ export async function handleRankCommand(api, message, aliasCommand) {
       } catch (error) {}
     } catch (error) {
       console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      const responseMsg = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
-      await sendMessageWarning(api, message, responseMsg, 300000);
+      const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n${isToday ? "Hôm nay - " : ""}${userName}: ${count} tin nhắn`;
+      await sendMessageWarningRequest(api, message, {
+        caption
+      }, 300000);
     }
   } else {
     let rankData = [];
@@ -202,7 +208,9 @@ export async function handleRankCommand(api, message, aliasCommand) {
       const currentDate = new Date().toISOString().split("T")[0];
       const todayUsers = groupUsers.filter((user) => user.lastMessageDate === currentDate);
       if (todayUsers.length === 0) {
-        await sendMessageWarning(api, message, "Chưa có người dùng nào tương tác hôm nay.", 60000);
+        await sendMessageWarningRequest(api, message, {
+          caption: "Chưa có người dùng nào tương tác hôm nay."
+        }, 60000);
         return;
       }
       rankData = todayUsers.sort((a, b) => b.messageCountToday - a.messageCountToday).slice(0, 10).map(user => ({
@@ -222,7 +230,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
       await fsPromises.writeFile(imagePath, imageBuffer);
       
       const caption = `🏆 Bảng Xếp Hạng Tương Tác 🏆`;
-      await sendMessageTag(api, message, {
+      await sendMessageCompleteRequest(api, message, {
         caption,
         imagePath
       }, 300000);
@@ -232,14 +240,16 @@ export async function handleRankCommand(api, message, aliasCommand) {
       } catch (error) {}
     } catch (error) {
       console.error("Lỗi khi tạo hình ảnh topchat:", error);
-      let responseMsg = "🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n";
+      let caption = "🏆 Bảng Xếp Hạng Tương Tác 🏆\n\n";
       rankData.forEach((user, index) => {
-        responseMsg += `${index + 1}. ${user.UserName}: ${user.messageCount} tin nhắn\n`;
+        caption += `${index + 1}. ${user.UserName}: ${user.messageCount} tin nhắn\n`;
       });
       if (!isToday) {
-        responseMsg += `\nDùng ${prefix}${aliasCommand} today để xem topchat hàng ngày.`;
+        caption += `\nDùng ${prefix}${aliasCommand} today để xem topchat hàng ngày.`;
       }
-      await sendMessageWarning(api, message, responseMsg, 300000);
+      await sendMessageWarningRequest(api, message, {
+        caption
+      }, 300000);
     }
   }
 }
