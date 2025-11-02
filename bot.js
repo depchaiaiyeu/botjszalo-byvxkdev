@@ -6,7 +6,7 @@ import path from "path"
 import { ensureLogFiles, logManagerBot } from "./src/utils/io-json.js"
 
 const GITHUB_REPO = "depchaiaiyeu/botjszalo-byvxkdev"
-const GITHUB_TOKEN = process.env.GIT_TOKEN
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const COMMIT_INTERVAL = 5 * 60 * 1000
 const dir = process.cwd()
 let botProcess
