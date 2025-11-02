@@ -5,28 +5,16 @@ import * as cv from "./index.js";
 
 export function createHelpBackground(ctx, width, height) {
   const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#1a1d29");
-  backgroundGradient.addColorStop(0.5, "#252942");
-  backgroundGradient.addColorStop(1, "#1a1d29");
+  backgroundGradient.addColorStop(0, "#1E1B4B");
+  backgroundGradient.addColorStop(0.5, "#1E3A8A");
+  backgroundGradient.addColorStop(1, "#0F172A");
   ctx.fillStyle = backgroundGradient;
   ctx.fillRect(0, 0, width, height);
-
-  for (let i = 0; i < 60; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const radius = Math.random() * 2 + 0.5;
-    const opacity = Math.random() * 0.3 + 0.1;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(139, 92, 246, ${opacity})`;
-    ctx.fill();
-  }
-
   for (let i = 0; i < 40; i++) {
     const x = Math.random() * width;
     const y = Math.random() * height;
-    const radius = Math.random() * 1.5 + 0.3;
-    const opacity = Math.random() * 0.2 + 0.05;
+    const radius = Math.random() * 3 + 1;
+    const opacity = Math.random() * 0.15 + 0.05;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
