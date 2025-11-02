@@ -12,7 +12,6 @@ const COMMIT_INTERVAL = 5 * 60 * 1000 // 5 phút
 const dir = process.cwd()
 let botProcess
 
-// Danh sách pattern file/folder cần loại trừ không commit
 const excludePatterns = [
   "node_modules",
   "package-lock.json",
@@ -28,7 +27,6 @@ const excludePatterns = [
   "temp/"
 ]
 
-// Kiểm tra file có nằm trong danh sách loại trừ hay không
 function shouldExclude(filepath) {
   return excludePatterns.some(pattern => {
     if (pattern.startsWith(".") && pattern.length < 6) return filepath.endsWith(pattern)
@@ -37,7 +35,6 @@ function shouldExclude(filepath) {
   })
 }
 
-// Khởi tạo repo git nếu chưa có
 async function ensureGitRepo() {
   if (!fs.existsSync(path.join(dir, ".git"))) {
     const repo = await Repository.init(dir)
@@ -46,12 +43,10 @@ async function ensureGitRepo() {
   }
 }
 
-// Mở repo git đã có
 async function getRepo() {
   return await Repository.open(dir)
 }
 
-// Thực hiện commit & push tự động các file thay đổi, bỏ qua file loại trừ
 async function autoCommit() {
   try {
     if (!GITHUB_TOKEN) {
@@ -61,7 +56,6 @@ async function autoCommit() {
 
     const repo = await getRepo()
     const statuses = await repo.getStatus()
-    // Lọc các file có thay đổi và không loại trừ
     const filesToAdd = Object.keys(statuses).filter(f => !shouldExclude(f) && statuses[f] !== Status.Current)
 
     if (filesToAdd.length === 0) {
@@ -69,20 +63,15 @@ async function autoCommit() {
       return
     }
 
-    // Thêm file vào index
     for (const f of filesToAdd) {
       await repo.add(f)
     }
 
-    // Tạo đối tượng tác giả commit
     const author = Signature.now("GitHub Action", "action@github.com")
     const message = `Auto commit: ${new Date().toISOString()}`
-    // Thực hiện commit
     await repo.commit(message, author, author)
 
-    // Lấy remote tên origin
     const remote = await repo.getRemote("origin")
-    // Push lên nhánh main với token xác thực
     await remote.push("refs/heads/main", { username: GITHUB_TOKEN })
 
     console.log("✅ Auto commit & push done")
@@ -94,7 +83,6 @@ async function autoCommit() {
   }
 }
 
-// Khởi động bot từ file index.js con
 function startBot() {
   botProcess = spawn("node", ["src/index.js"], { detached: true, stdio: "inherit" })
 
@@ -115,7 +103,6 @@ function startBot() {
   console.log("Bot started")
 }
 
-// Dừng bot an toàn
 function stopBot() {
   if (botProcess && botProcess.pid) {
     try {
@@ -124,3 +111,43 @@ function stopBot() {
       console.log("Bot stopped")
     } catch (err) {
       logManagerBot(`Failed to stop bot: ${err.message}`)
+      console.log("Failed to stop bot:", err.message)
+    }
+  }
+}
+
+function restartBot() {
+  stopBot()
+  setTimeout(() => {
+    startBot()
+    logManagerBot("Bot restarted")
+    console.log("Bot restarted")
+  }, 2000)
+}
+
+async function main() {
+  if (!GITHUB_TOKEN) {
+    console.error("❌ Missing GIT_TOKEN environment variable")
+    return
+  }
+  ensureLogFiles()
+  await ensureGitRepo()
+  startBot()
+  await autoCommit()
+  setInterval(autoCommit, COMMIT_INTERVAL)
+
+  process.on("SIGINT", () => {
+    console.log("Received SIGINT, restarting bot...")
+    restartBot()
+  })
+  process.on("SIGTERM", () => {
+    console.log("Received SIGTERM, restarting bot...")
+    restartBot()
+  })
+  process.on("exit", () => {
+    console.log("Process exiting, attempting to restart bot...")
+    setTimeout(startBot, 1000)
+  })
+}
+
+main()
