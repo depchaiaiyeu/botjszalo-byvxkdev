@@ -71,89 +71,153 @@ export function updateUserRank(groupId, userId, userName, nameGroup) {
 
 async function drawLeaderboardImage(topUsers, isToday, targetUser, currentUserUid) {
   const WIDTH = 700;
-  const HEADER_HEIGHT = 150;
-  const ROW_HEIGHT = 50;
-  const listLength = topUsers.length;
-  const HEIGHT = HEADER_HEIGHT + (targetUser ? 100 : listLength * ROW_HEIGHT);
+  const HEADER_HEIGHT_TOP = 130;
+  const HEADER_HEIGHT_TABLE = 50;
+  const ROW_HEIGHT = 60; 
+  const FOOTER_HEIGHT = 80; 
 
-  const canvas = createCanvas(WIDTH, HEIGHT);
+  const listLength = topUsers.length;
+
+  let currentUsersRank = null; 
+  let threadId = null; 
+
+  if (currentUserUid) {
+    const rankInfo = readRankInfo();
+    for (const [gId, gData] of Object.entries(rankInfo.groups)) {
+      if (gData.users.some(u => u.UID === currentUserUid)) {
+        threadId = gId;
+        break;
+      }
+    }
+
+    const groupUsers = rankInfo.groups[threadId]?.users || [];
+    
+    let sortedUsers = isToday 
+        ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
+        : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
+    
+    const currentUserIndex = sortedUsers.findIndex(u => u.UID === currentUserUid);
+    
+    if (currentUserIndex !== -1) { 
+        currentUsersRank = {
+            user: sortedUsers[currentUserIndex],
+            rank: currentUserIndex + 1,
+            count: isToday ? sortedUsers[currentUserIndex].messageCountToday : sortedUsers[currentUserIndex].Rank
+        };
+    }
+  }
+
+
+  const totalRowsHeight = listLength * ROW_HEIGHT;
+  const showFooter = !targetUser && currentUsersRank && currentUsersRank.rank > listLength;
+  const totalHeight = HEADER_HEIGHT_TOP + (targetUser ? 0 : HEADER_HEIGHT_TABLE) + totalRowsHeight + (showFooter ? FOOTER_HEIGHT : 0) + (targetUser ? 0 : 20);
+
+  const canvas = createCanvas(WIDTH, totalHeight);
   const ctx = canvas.getContext('2d');
 
   ctx.fillStyle = '#1e293b';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillRect(0, 0, WIDTH, totalHeight);
 
   let titleText = targetUser 
-    ? "🏆 BXH Tương Tác Người Dùng 🏆" 
-    : (isToday ? "🏆 BXH Tương Tác Hôm Nay 🏆" : "🏆 BXH Tương Tác 🏆");
+    ? "🏆 THỐNG KÊ TƯƠNG TÁC 🏆" 
+    : (isToday ? "🏆 BXH TƯƠNG TÁC HÔM NAY 🏆" : "🏆 BXH TƯƠNG TÁC 🏆");
     
   ctx.textAlign = 'center';
   ctx.fillStyle = '#fefefe';
-  ctx.font = '36px "BeVietnamPro", Arial';
+  ctx.font = 'bold 38px "BeVietnamPro", Arial';
   ctx.fillText(titleText, WIDTH / 2, 50);
 
   if (!targetUser) {
-    ctx.font = '24px "BeVietnamPro"';
+    ctx.font = '26px "BeVietnamPro"';
     ctx.fillStyle = '#facc15';
-    ctx.fillText("Top 10 Chó Vương", WIDTH / 2, 90);
+    ctx.fillText("Top 10 Cao Thủ", WIDTH / 2, 95);
   }
 
-  const listStart = targetUser ? HEADER_HEIGHT + 20 : HEADER_HEIGHT;
+  let currentY = HEADER_HEIGHT_TOP;
 
-  if (!targetUser && listLength > 0) {
-    const HEADER_Y = HEADER_HEIGHT - 30;
-    ctx.font = 'bold 20px "BeVietnamPro"';
-    ctx.fillStyle = '#94a3b8';
-    ctx.textAlign = 'left';
-    ctx.fillText('Hạng', 50, HEADER_Y);
-    ctx.textAlign = 'left';
-    ctx.fillText('Tên', 180, HEADER_Y);
-    ctx.textAlign = 'right';
-    ctx.fillText('Tin Nhắn', WIDTH - 50, HEADER_Y);
-  }
-  
   if (targetUser) {
     const user = topUsers[0];
     const count = isToday ? user.messageCountToday : user.Rank;
-    const rankIndex = topUsers.findIndex(u => u.UID === user.UID);
-    const rank = rankIndex !== -1 ? rankIndex + 1 : "N/A";
+    const rank = user.Rank !== -1 ? user.Rank : "N/A";
 
     ctx.fillStyle = '#475569';
-    ctx.fillRect(50, 150, WIDTH - 100, 70);
-    
+    ctx.fillRect(50, currentY, WIDTH - 100, ROW_HEIGHT + 20);
+
     ctx.fillStyle = '#fefefe';
-    ctx.font = 'bold 28px "BeVietnamPro"';
+    ctx.font = 'bold 30px "BeVietnamPro"';
     ctx.textAlign = 'center';
         
-    let detailText = rank !== "N/A" 
-        ? `#${rank}. ${user.UserName} - ${count} tin nhắn ${isToday ? "(Hôm nay)" : "(Tổng)"}`
-        : `${user.UserName}: ${count} tin nhắn ${isToday ? "(Hôm nay)" : "(Tổng)"}`;
+    let detailText = rank !== -1 
+        ? `#${rank} - ${user.UserName}: ${count} ${isToday ? "(Hôm nay)" : "(Tổng)"}`
+        : `${user.UserName}: ${count} ${isToday ? "(Hôm nay)" : "(Tổng)"}`;
         
-    ctx.fillText(detailText, WIDTH / 2, 195);
+    ctx.fillText(detailText, WIDTH / 2, currentY + ROW_HEIGHT / 2 + 10);
+    currentY += ROW_HEIGHT + 20;
   } else {
+    const HEADER_Y_TABLE = currentY + HEADER_HEIGHT_TABLE / 2;
+    ctx.font = 'bold 22px "BeVietnamPro"';
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'left';
+    ctx.fillText('Hạng', 50, HEADER_Y_TABLE);
+    ctx.textAlign = 'left';
+    ctx.fillText('Tên', 180, HEADER_Y_TABLE);
+    ctx.textAlign = 'right';
+    ctx.fillText('Số Tin Nhắn', WIDTH - 50, HEADER_Y_TABLE);
+    currentY += HEADER_HEIGHT_TABLE;
+
     for (let i = 0; i < listLength; i++) {
       const user = topUsers[i];
-      const y = listStart + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const y = currentY + i * ROW_HEIGHT;
       const rank = i + 1;
       const count = isToday ? user.messageCountToday : user.Rank;
       const isCurrentUser = user.UID === currentUserUid;
 
+      ctx.fillStyle = i % 2 === 0 ? '#2d3748' : '#334155';
+      ctx.fillRect(0, y, WIDTH, ROW_HEIGHT);
+      
       if (isCurrentUser) {
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, listStart + i * ROW_HEIGHT, WIDTH, ROW_HEIGHT);
+        ctx.fillRect(0, y, WIDTH, ROW_HEIGHT);
       }
       
       ctx.fillStyle = '#fefefe';
       
       ctx.font = 'bold 24px "BeVietnamPro"';
       ctx.textAlign = 'left';
-      ctx.fillText(`#${rank}.`, 50, y + 8);
+      ctx.fillText(`#${rank}`, 50, y + ROW_HEIGHT / 2 + 8);
       
       ctx.font = '24px "BeVietnamPro"';
       ctx.textAlign = 'left';
-      ctx.fillText(user.UserName, 180, y + 8);
+      ctx.fillText(user.UserName, 180, y + ROW_HEIGHT / 2 + 8);
       
       ctx.textAlign = 'right';
-      ctx.fillText(`${count} tin nhắn`, WIDTH - 50, y + 8);
+      ctx.fillText(`${count}`, WIDTH - 50, y + ROW_HEIGHT / 2 + 8);
+    }
+    
+    currentY += totalRowsHeight;
+
+    if (showFooter) {
+        const user = currentUsersRank.user;
+        const rank = currentUsersRank.rank;
+        const count = currentUsersRank.count;
+        const footerY = currentY + 10;
+        
+        ctx.fillStyle = '#6d28d9';
+        ctx.fillRect(0, footerY, WIDTH, ROW_HEIGHT); 
+
+        ctx.fillStyle = '#fefefe';
+        ctx.font = 'bold 26px "BeVietnamPro"';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Bạn: #${rank} - ${user.UserName}`, 50, footerY + ROW_HEIGHT / 2 + 8);
+
+        ctx.textAlign = 'right';
+        ctx.fillText(`${count}`, WIDTH - 50, footerY + ROW_HEIGHT / 2 + 8);
+        currentY += ROW_HEIGHT;
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '18px "BeVietnamPro"';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Bạn đang xếp hạng #${rank} - ${count} ${isToday ? "tin nhắn hôm nay" : "tổng tin nhắn"}`, WIDTH / 2, currentY + 15);
     }
   }
   
@@ -220,13 +284,12 @@ export async function handleRankCommand(api, message, aliasCommand) {
         return;
       }
       
-      // Find the rank of the target user in the current list context (Today/Overall)
       let sortedUsers = isToday 
         ? [...groupUsers].filter(u => u.lastMessageDate === new Date().toISOString().split("T")[0]).sort((a, b) => b.messageCountToday - a.messageCountToday)
         : [...groupUsers].sort((a, b) => b.Rank - a.Rank);
       
       const rankIndex = sortedUsers.findIndex(u => u.UID === targetUid);
-      const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 }; // Pass a full user object
+      const userWithRank = { ...targetUser, Rank: rankIndex !== -1 ? rankIndex + 1 : -1 }; 
 
       filePath = await drawLeaderboardImage([userWithRank], isToday, targetUser, uidFrom);
 
@@ -263,7 +326,6 @@ export async function handleRankCommand(api, message, aliasCommand) {
         { 
           msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
           attachments: [filePath], 
-          quote: message, 
           ttl: 600000 
         }, 
         threadId, 
