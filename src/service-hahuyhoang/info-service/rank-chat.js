@@ -160,7 +160,8 @@ export async function handleRankCommand(api, message, aliasCommand) {
       await api.sendMessage(
         { 
           msg: `🏆 BXH Tương Tác ${isToday ? "Hôm Nay" : "Tổng"}`, 
-          attachments: [filePath]
+          attachments: [filePath],
+          ttl: 8640000
         }, 
         threadId, 
         MessageType.GroupMessage
