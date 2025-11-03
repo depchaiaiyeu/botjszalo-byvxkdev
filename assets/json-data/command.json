@@ -2293,6 +2293,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "chess",
+      "description": "Chơi trò chơi cờ vua",
+      "syntax": "{p}chess",
+      "permission": "all",
+      "countdown": 10,
+      "icon": "⚔",
+      "type": 5,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
