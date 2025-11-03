@@ -1,4 +1,4 @@
-import { MultiMsgStyle, MessageStyle, MessageType } from "../../../api-zalo/index.js";
+import { MultiMsgStyle, MessageStyle, MessageType } from "../../api-zalo/index.js";
 import { nameServer } from "../../database/index.js";
 
 export const COLOR_RED = "db342e";
