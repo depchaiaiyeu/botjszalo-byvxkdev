@@ -6,17 +6,17 @@ import { handleVuaTiengVietCommand, handleVuaTiengVietMessage } from "./vuaTieng
 import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
 import { handleCaroCommand, handleCaroMessage } from "./caro.js";
 import { handleChessCommand, handleChessMessage } from "./chess.js";
-import { getGlobalPrefix } from "../../service.js";
 
-export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
+export async function handleChatWithGame(api, message, isCallGame, groupSettings, groupAdmins) {
   if (isCallGame) return;
   const threadId = message.threadId;
-  const gameEnabled = groupSettings[threadId].activeGame;
-  if (gameEnabled === false) return;
-  
-  let content = message.data.content;
   const senderId = message.data.uidFrom;
-  
+  const gameEnabled = groupSettings[threadId]?.activeGame ?? false;
+  const admin = isAdmin(senderId, threadId, groupAdmins);
+
+  if (!admin && gameEnabled === false) return;
+
+  const content = message.data.content;
   if (typeof content === "string") {
     await handleGuessNumberGame(api, message);
     await handleWordChainMessage(api, message);
@@ -27,26 +27,14 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
   }
 }
 
-export async function startGame(api, message, groupSettings, gameType, args, isAdminBox) {
+export async function startGame(api, message, groupSettings, gameType, args, groupAdmins) {
   const senderId = message.data.uidFrom;
   const threadId = message.threadId;
-  const prefix = getGlobalPrefix();
-  const gameEnabled = groupSettings[threadId].activeGame;
-  
-  if (gameEnabled === false) {
-    if (isAdmin(senderId, threadId)) {
-      const text =
-        `Trò chơi hiện tại Không được bật trong nhóm này.\n\n` +
-        `Quản trị viên hãy dùng lệnh ${prefix}gameactive để bật tương tác game cho nhóm!`;
-      const result = {
-        success: false,
-        message: text,
-      };
-      await sendMessageFromSQL(api, message, result, true, 30000);
-    }
-    return;
-  }
-  
+  const gameEnabled = groupSettings[threadId]?.activeGame ?? false;
+  const admin = isAdmin(senderId, threadId, groupAdmins);
+
+  if (!admin && gameEnabled === false) return;
+
   switch (gameType) {
     case "guessNumber":
       await handleGuessNumberCommand(api, message);
