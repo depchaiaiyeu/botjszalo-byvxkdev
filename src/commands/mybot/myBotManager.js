@@ -7,7 +7,6 @@ import { startBot } from "./startBot.js";
 import { deleteBot } from "./deleteBot.js";
 import { infoBot, detailBot } from "./infoBot.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
-import { createBotListImage } from "../../utils/canvas/listbots-canvas.js";
 import { sendMessageFailed, sendMessageComplete, sendMessageWarning, sendMessageResultRequest } from "./chat-style-fake.js";
 import { MessageType } from "zlbotdqt";
 
@@ -51,7 +50,6 @@ function startExpirationCheck(api) {
       for (const [botUid, botInfo] of Object.entries(myBots)) {
         const expiryAt = new Date(botInfo.expiryAt);
         if (expiryAt <= now && botInfo.status === "running") {
-
           const modifiedMessage = {
             threadId: null,
             data: { uidFrom: botUid, dName: botInfo.displayName || botInfo.name },
@@ -68,7 +66,6 @@ function startExpirationCheck(api) {
           myBots[botUid].lastUpdated = now.toISOString();
           myBots[botUid].hsd = formatDateTime(expiryAt);
           fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-
         }
       }
     } catch (error) {
@@ -92,20 +89,20 @@ export async function myBot(api, message, groupAdmins) {
         await sendMessageWarning(
           api,
           message,
-          `《 HỆ THỐNG QUẢN LÝ BOT 》
+          `《 🤖 HỆ THỐNG QUẢN LÝ BOT VXK 🤖 》
 
-➤ Tạo/Sửa Bot:
+➤ 🆕 Tạo/Sửa Bot:
 『${prefix}mybot create』
-• Cú pháp: ${prefix}mybot create cookie imei 
-• Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
-• Lưu ý: 
+• 📝 Cú pháp: ${prefix}mybot create cookie imei 
+• ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
+• ⚠️ Lưu ý: 
    - Không cần nhập dấu []
    - Nếu không biết cách điền, chat "${prefix}mybot create" để xem hướng dẫn
    - Chỉ hoạt động trong tin nhắn riêng
 
-➤ Trợ Giúp:
+➤ ❓ Trợ Giúp:
 『${prefix}mybot help』
-• Hiển thị hướng dẫn sử dụng các lệnh cơ bản`, 
+• 💡 Hiển thị hướng dẫn sử dụng các lệnh cơ bản`, 
 true
         );
       } catch (err) {
@@ -132,7 +129,7 @@ true
       const botUid = await getBotUidByIndex(index);
       if (!botUid) {
         try {
-          const messageOptions = { msg: `❌ Không tìm thấy bot với số thứ tự ${index}!`, ttl: 120000 };
+          const messageOptions = { msg: `🚫 Không tìm thấy bot với số thứ tự ${index}!`, ttl: 120000 };
           if (message && typeof message === 'object' && message.messageID) {
             messageOptions.quote = message;
           }
@@ -170,7 +167,9 @@ true
           if (args.length < 4) {
             try {
               const messageOptions = { 
-                msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot addtime [index] [thời hạn]\nVí dụ: ${prefix}mybot addtime 1 24h`, 
+                msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot addtime [index] [thời hạn]
+Ví dụ: ${prefix}mybot addtime 1 24h`, 
                 ttl: 120000 
               };
               if (message && typeof message === 'object' && message.messageID) {
@@ -188,7 +187,9 @@ true
           if (args.length < 4) {
             try {
               const messageOptions = { 
-                msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot subtime [index] [thời hạn]\nVí dụ: ${prefix}mybot subtime 1 24h`, 
+                msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot subtime [index] [thời hạn]
+Ví dụ: ${prefix}mybot subtime 1 24h`, 
                 ttl: 120000 
               };
               if (message && typeof message === 'object' && message.messageID) {
@@ -206,7 +207,9 @@ true
           if (args.length < 4) {
             try {
               const messageOptions = { 
-                msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot approve [index] [thời hạn]\nVí dụ: ${prefix}mybot approve 1 24h`, 
+                msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot approve [index] [thời hạn]
+Ví dụ: ${prefix}mybot approve 1 24h`, 
                 ttl: 120000 
               };
               if (message && typeof message === 'object' && message.messageID) {
@@ -240,7 +243,7 @@ true
         const checkResult = await checkBotExists(uidFrom);
         if (!checkResult.exists) {
           try {
-            const messageOptions = { msg: "❌ Bạn chưa có bot nào được tạo!", ttl: 120000 };
+            const messageOptions = { msg: "🚫 Bạn chưa có bot nào được tạo!", ttl: 120000 };
             if (message && typeof message === 'object' && message.messageID) {
               messageOptions.quote = message;
             }
@@ -253,7 +256,7 @@ true
         if (checkResult.botInfo.status !== "running") {
           try {
             const messageOptions = { 
-              msg: "❌ Có bot đéo đâu mà đòi reset!!! Vui lòng chờ phê duyệt hoặc liên hệ ADMIN để gia hạn.\n\n ❌❌❌", 
+              msg: "🚫 Có bot đéo đâu mà đòi reset!!! Vui lòng chờ phê duyệt hoặc liên hệ ADMIN để gia hạn.", 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -285,7 +288,11 @@ true
         if (args.length < 3) {
           try {
             const messageOptions = { 
-              msg: `❌ Sai cú pháp!\n\n📝 Cách dùng:\n• ${prefix}mybot update name [tên mới]\n• ${prefix}mybot update description [mô tả mới]\n• ${prefix}mybot update nameserver [tên server mới]`, 
+              msg: `🚫 Sai cú pháp!
+📝 Cách dùng:
+• ${prefix}mybot update name [tên mới]
+• ${prefix}mybot update description [mô tả mới]
+• ${prefix}mybot update nameserver [tên server mới]`, 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -307,7 +314,7 @@ true
           await handleUpdateNameServer(api, uidFrom, dName, newValue, threadId, type, message);
         } else if (updateType === "credentials") {
           try {
-            const messageOptions = { msg: "❌ Chỉ hỗ trợ update: name, description, nameserver hoặc credentials", ttl: 120000 };
+            const messageOptions = { msg: "🚫 Chỉ hỗ trợ update: name, description, nameserver hoặc credentials", ttl: 120000 };
             if (message && typeof message === 'object' && message.messageID) {
               messageOptions.quote = message;
             }
@@ -320,7 +327,8 @@ true
         if (args.length < 3 || args[2].toLowerCase() !== "admin") {
           try {
             const messageOptions = { 
-              msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot add admin [uid] hoặc @tag`, 
+              msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot add admin [uid] hoặc @tag`, 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -340,7 +348,8 @@ true
         if (args.length < 3 || args[2].toLowerCase() !== "admin") {
           try {
             const messageOptions = { 
-              msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot remove admin [uid] hoặc @tag`, 
+              msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot remove admin [uid] hoặc @tag`, 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -360,7 +369,8 @@ true
         if (args.length < 3 || args[2].toLowerCase() !== "list") {
           try {
             const messageOptions = { 
-              msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot admin list`, 
+              msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot admin list`, 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -377,7 +387,7 @@ true
       case "notify":
         if (!isMotherBotAdmin) {
           try {
-            const messageOptions = { msg: "❌ Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
+            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
             if (message && typeof message === 'object' && message.messageID) {
               messageOptions.quote = message;
             }
@@ -390,7 +400,8 @@ true
         if (args.length < 3) {
           try {
             const messageOptions = { 
-              msg: `❌ Sai cú pháp!\n\n📝 Cách dùng: ${prefix}mybot notify [nội dung thông báo]`, 
+              msg: `🚫 Sai cú pháp!
+📝 Cách dùng: ${prefix}mybot notify [nội dung thông báo]`, 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -408,7 +419,7 @@ true
         if (!isMotherBotAdmin) {
           try {
             const messageOptions = { 
-              msg: "❌ Lệnh này chỉ dành cho quản trị viên hệ thống!", 
+              msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", 
               ttl: 120000 
             };
             if (message && typeof message === 'object' && message.messageID) {
@@ -425,7 +436,7 @@ true
       case "activeall":
         if (!isMotherBotAdmin) {
           try {
-            const messageOptions = { msg: "❌ Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
+            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
             if (message && typeof message === 'object' && message.messageID) {
               messageOptions.quote = message;
             }
@@ -440,7 +451,7 @@ true
       case "shutdownall":
         if (!isMotherBotAdmin) {
           try {
-            const messageOptions = { msg: "❌ Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
+            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
             if (message && typeof message === 'object' && message.messageID) {
               messageOptions.quote = message;
             }
@@ -456,30 +467,34 @@ true
         await sendMessageWarning(
           api,
           message,
-          `📋 HƯỚNG DẪN QUẢN LÝ BOT 📋\n\n` +
-          `1️⃣ Các lệnh cơ bản\n\n` +
-          `➤『${prefix}mybot info』 - Xem thông tin chủ bot của bạn\n` +
-          `➤『${prefix}mybot detail』 - Xem thông tin chi tiết bot của bạn\n` +
-          `➤『${prefix}mybot start』 - Kích hoạt bot\n` +
-          `➤『${prefix}mybot restart』 - Khởi động lại bot\n` +
-          `➤『${prefix}mybot stop』 - Tắt bot\n` +
-          `2️⃣ Các lệnh quản lý bot\n\n` +
-          `➤『${prefix}mybot qtv』 - Xem danh sách lệnh quản lý bot\n` +
-          `3️⃣ Đối với quản trị viên\n\n` +
-          `➤『${prefix}mybot manager』 - Xem danh sách lệnh quản lý hệ thống bot` +
+          `📋 HƯỚNG DẪN QUẢN LÝ BOT VXK 📋
+
+1️⃣ Các lệnh cơ bản
+
+➤ 『${prefix}mybot info』 - ℹ️ Xem thông tin chủ bot của bạn
+➤ 『${prefix}mybot detail』 - 🔎 Xem thông tin chi tiết bot của bạn
+➤ 『${prefix}mybot start』 - ▶️ Kích hoạt bot
+➤ 『${prefix}mybot restart』 - 🔄 Khởi động lại bot
+➤ 『${prefix}mybot stop』 - ⏹️ Tắt bot
+2️⃣ Các lệnh quản lý bot
+
+➤ 『${prefix}mybot qtv』 - ⚙️ Xem danh sách lệnh quản lý bot
+3️⃣ Đối với quản trị viên
+
+➤ 『${prefix}mybot manager』 - 👮 Xem danh sách lệnh quản lý hệ thống bot`,
           true
         );
         break;
       case "qtv": {
         const qtvMessage = `📋 HƯỚNG DẪN QUẢN LÝ BOT 📋
 
-➤『${prefix}mybot update name』- Cập nhật tên hiển thị
-➤『${prefix}mybot update description』- Cập nhật mô tả bot
-➤『${prefix}mybot update nameserver』- Cập nhật name server của bot
-➤『${prefix}mybot add admin』- Thêm admin bot
-➤『${prefix}mybot remove admin』- Xoá admin bot
-➤『${prefix}mybot admin list』- Xem danh sách admin bot
-➤『${prefix}mybot delete』- Xoá bot khỏi hệ thống VXK Bot Team`;
+➤ 『${prefix}mybot update name』- ✏️ Cập nhật tên hiển thị
+➤ 『${prefix}mybot update description』- 📝 Cập nhật mô tả bot
+➤ 『${prefix}mybot update nameserver』- 🌐 Cập nhật name server của bot
+➤ 『${prefix}mybot add admin』- ➕ Thêm admin bot
+➤ 『${prefix}mybot remove admin』- ➖ Xoá admin bot
+➤ 『${prefix}mybot admin list』- 👥 Xem danh sách admin bot
+➤ 『${prefix}mybot delete』- 🗑️ Xoá bot khỏi hệ thống VXK Bot Team`;
         try {
           await sendMessageWarning(api, message, qtvMessage, true);
         } catch (err) {
@@ -491,7 +506,7 @@ true
         const listAdmin = JSON.parse(fs.readFileSync(adminListPath, "utf8"));
         if (!listAdmin.includes(uidFrom.toString())) {
           try {
-            await sendMessageFailed(api, message, "❌ Lệnh này chỉ dành cho quản trị viên hệ thống!", true);
+            await sendMessageFailed(api, message, "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", true);
           } catch (err) {
           
           }
@@ -500,28 +515,28 @@ true
         const managerMessage = `👮 LỆNH QUẢN TRỊ BOT 👮
 
 ➤ Quản lý danh sách:
-• ${prefix}mybot list - Xem danh sách tất cả bot
-• ${prefix}mybot load - Tải lại dữ liệu bot từ file json
-• ${prefix}mybot notify - Thông báo cho tất cả khách hàng đang thuê bot
+• ${prefix}mybot list - 📋 Xem danh sách tất cả bot
+• ${prefix}mybot load - 🔄 Tải lại dữ liệu bot từ file json
+• ${prefix}mybot notify - 📢 Thông báo cho tất cả khách hàng đang thuê bot
 
 ➤ Quản lý bot cụ thể:
-• ${prefix}mybot detail [index] - Xem thông tin bot theo số thứ tự
-• ${prefix}mybot info [index] - Xem thông tin cơ bản bot theo số thứ tự
-• ${prefix}mybot active [index] - Kích hoạt bot theo số thứ tự
-• ${prefix}mybot restart [index] - Khởi động lại bot theo số thứ tự
-• ${prefix}mybot shutdown [index] - Tắt bot theo số thứ tự
+• ${prefix}mybot detail [index] - 🔎 Xem thông tin bot theo số thứ tự
+• ${prefix}mybot info [index] - ℹ️ Xem thông tin cơ bản bot theo số thứ tự
+• ${prefix}mybot active [index] - ▶️ Kích hoạt bot theo số thứ tự
+• ${prefix}mybot restart [index] - 🔄 Khởi động lại bot theo số thứ tự
+• ${prefix}mybot shutdown [index] - ⏹️ Tắt bot theo số thứ tự
 
 ➤ Phê duyệt/Từ chối bot:
-• ${prefix}mybot addtime [index/ID] [thời hạn] - Tăng thời hạn dùng bot
-• ${prefix}mybot subtime [index/ID] [thời hạn] - Giảm thời hạn dùng bot
-• ${prefix}mybot approve [index/ID] [thời hạn] - Phê duyệt bot
+• ${prefix}mybot addtime [index/ID] [thời hạn] - ➕ Tăng thời hạn dùng bot
+• ${prefix}mybot subtime [index/ID] [thời hạn] - ➖ Giảm thời hạn dùng bot
+• ${prefix}mybot approve [index/ID] [thời hạn] - ✅ Phê duyệt bot
    Ví dụ: ${prefix}mybot approve 1 24h
-• ${prefix}mybot reject [index/ID] - Từ chối bot
-• ${prefix}mybot delete [index/ID] - Xóa bot
+• ${prefix}mybot reject [index/ID] - 🚫 Từ chối bot
+• ${prefix}mybot delete [index/ID] - 🗑️ Xóa bot
 
 ➤ Quản lý hệ thống:
-• ${prefix}mybot activeall - Khởi chạy tất cả bot
-• ${prefix}mybot shutdownall - Tắt tất cả bot
+• ${prefix}mybot activeall - 🚀 Khởi chạy tất cả bot
+• ${prefix}mybot shutdownall - 🚨 Tắt tất cả bot
 
 📝 Lưu ý về thời hạn:
 • Định dạng: số + đơn vị
@@ -536,7 +551,7 @@ true
       }
       default:
         try {
-          const messageOptions = { msg: `❌ Lệnh "${subCommand}" không tồn tại!`, ttl: 120000 };
+          const messageOptions = { msg: `🚫 Lệnh "${subCommand}" không tồn tại!`, ttl: 120000 };
           if (message && typeof message === 'object' && message.messageID) {
             messageOptions.quote = message;
           }
@@ -550,7 +565,8 @@ true
  
     try {
       const messageOptions = { 
-        msg: `❌ Đã xảy ra lỗi khi xử lý lệnh mybot!\nChi tiết: ${error.message}`, 
+        msg: `🚫 Đã xảy ra lỗi khi xử lý lệnh mybot!
+Chi tiết: ${error.message}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -576,7 +592,6 @@ async function getBotUidByIndex(index) {
 }
 
 async function handleListBots(api, threadId, type, message) {
-  let imagePath;
   try {
     if (!threadId) {
       return;
@@ -584,7 +599,7 @@ async function handleListBots(api, threadId, type, message) {
 
     if (!fs.existsSync(myBotsPath)) {
       try {
-        await sendMessageFailed(api, message, "❌ Chưa có bot nào được tạo!", true);
+        await sendMessageFailed(api, message, "🚫 Chưa có bot nào được tạo!", true);
       } catch (err) {
 
       }
@@ -595,56 +610,58 @@ async function handleListBots(api, threadId, type, message) {
     try {
       myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
     } catch (parseError) {
-      await sendMessageFailed(api, message, `❌ Lỗi khi đọc file bot: ${parseError.message}`, true);
+      await sendMessageFailed(api, message, `🚫 Lỗi khi đọc file bot: ${parseError.message}`, true);
       return;
     }
 
-    const botList = Object.values(myBots);
+    const botList = Object.entries(myBots);
     if (botList.length === 0) {
       try {
-        await sendMessageFailed(api, message, "❌ Danh sách bot trống!", true);
+        await sendMessageFailed(api, message, "🚫 Danh sách bot trống!", true);
       } catch (err) {
 
       }
       return;
     }
 
-    try {
-      imagePath = await createBotListImage(botList, api);
-      if (!fs.existsSync(imagePath)) {
-        throw new Error("Tệp ảnh không được tạo");
-      }
-    } catch (imageError) {
-      await sendMessageFailed(api, message, `❌ Không thể tạo ảnh danh sách bot: ${imageError.message}`, true);
-      return;
-    }
+    let listMessage = "📜 Danh sách bot con hệ thống VXK:\n\n";
+
+    botList.forEach(([botUid, botInfo], index) => {
+      const statusEmoji = {
+        "running": "🟢",
+        "stopped": "🔴",
+        "pending": "🟡",
+        "expired": "⚫",
+        "rejected": "🚫"
+      }[botInfo.status] || "⚪";
+      const botName = botInfo.displayName || botInfo.name || botUid;
+      const hsd = botInfo.hsd || "Không xác định";
+      const creationDate = botInfo.createdAt ? formatDateTime(new Date(botInfo.createdAt)) : "N/A";
+
+      listMessage += `${index + 1}️⃣. ${botName}\n`;
+      listMessage += `├─ 🆔 ID Chủ Bot: ${botUid}\n`;
+      listMessage += `├─ ⚔️ Trạng Thái: ${statusEmoji} ${botInfo.status.toUpperCase()}\n`;
+      listMessage += `├─ ⏳ Hạn Sử Dụng: ${hsd}\n`;
+      listMessage += `└─ 📆 Ngày Tạo: ${creationDate}\n\n`;
+    });
 
     try {
-      const dataUpload = await api.uploadAttachment([imagePath], threadId, type);
-      const imageUrl = dataUpload[0].fileUrl || dataUpload[0].normalUrl;
-      if (!imageUrl) {
-        throw new Error("Không lấy được URL ảnh từ API upload");
+      const messageOptions = {
+        msg: listMessage,
+        ttl: 600000
+      };
+      if (message && typeof message === 'object' && message.messageID) {
+        messageOptions.quote = message;
       }
-
-      const ttl = 600000;
-      const msg = `📋DANH SÁCH TẤT CẢ BOT📋`;
-      await api.sendImage(imageUrl, message, msg, ttl);
+      await api.sendMessage(messageOptions, threadId, type);
     } catch (sendError) {
       
-      await sendMessageFailed(api, message, `❌ Không thể gửi ảnh danh sách bot: ${sendError.message}`, true);
+      await sendMessageFailed(api, message, `🚫 Không thể gửi tin nhắn danh sách bot: ${sendError.message}`, true);
     }
 
   } catch (error) {
 
-    await sendMessageFailed(api, message, `❌ Không thể lấy danh sách bot: ${error.message}`, true);
-  } finally {
-    if (imagePath && fs.existsSync(imagePath)) {
-      try {
-        fs.unlinkSync(imagePath);
-      } catch (unlinkError) {
-       
-      }
-    }
+    await sendMessageFailed(api, message, `🚫 Không thể lấy danh sách bot: ${error.message}`, true);
   }
 }
 
@@ -652,7 +669,7 @@ async function handleAddTime(api, botUid, dName, duration, threadId, type, messa
   try {
     if (!fs.existsSync(myBotsPath)) {
       try {
-        const messageOptions = { msg: "❌ File mybots.json không tồn tại!", ttl: 120000 };
+        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -665,7 +682,7 @@ async function handleAddTime(api, botUid, dName, duration, threadId, type, messa
     const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
     if (!myBots[botUid]) {
       try {
-        const messageOptions = { msg: `❌ Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
+        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -679,7 +696,9 @@ async function handleAddTime(api, botUid, dName, duration, threadId, type, messa
     if (durationMs === null) {
       try {
         const messageOptions = { 
-          msg: `❌ Thời hạn không hợp lệ! Định dạng: số + đơn vị (s, m, h, d). Ví dụ: 30s, 15m, 24h, 7d`, 
+          msg: `🚫 Thời hạn không hợp lệ! 
+Định dạng: số + đơn vị (s, m, h, d). 
+Ví dụ: 30s, 15m, 24h, 7d`, 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -700,7 +719,11 @@ async function handleAddTime(api, botUid, dName, duration, threadId, type, messa
     const formattedExpiry = formatDateTime(new Date(newExpiry));
     try {
       const messageOptions = { 
-        msg: `✅ Đã tăng thời hạn bot thành công!\n\n🤖 Bot ID: ${botUid}\n⏰ Thời hạn mới: ${formattedExpiry}\n👤 Cập nhật bởi: ${dName}`, 
+        msg: `✅ Đã tăng thời hạn bot thành công!
+
+🤖 Bot ID: ${botUid}
+⏰ Thời hạn mới: ${formattedExpiry}
+👤 Cập nhật bởi: ${dName}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -726,7 +749,8 @@ async function handleAddTime(api, botUid, dName, duration, threadId, type, messa
 
     try {
       const messageOptions = { 
-        msg: `❌ Đã xảy ra lỗi khi tăng thời hạn bot!\nChi tiết: ${error.message}`, 
+        msg: `🚫 Đã xảy ra lỗi khi tăng thời hạn bot!
+Chi tiết: ${error.message}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -743,7 +767,7 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
   try {
     if (!fs.existsSync(myBotsPath)) {
       try {
-        const messageOptions = { msg: "❌ File mybots.json không tồn tại!", ttl: 120000 };
+        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -756,7 +780,7 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
     const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
     if (!myBots[botUid]) {
       try {
-        const messageOptions = { msg: `❌ Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
+        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -770,7 +794,9 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
     if (durationMs === null) {
       try {
         const messageOptions = { 
-          msg: `❌ Thời hạn không hợp lệ! Định dạng: số + đơn vị (s, m, h, d). Ví dụ: 30s, 15m, 24h, 7d`, 
+          msg: `🚫 Thời hạn không hợp lệ! 
+Định dạng: số + đơn vị (s, m, h, d). 
+Ví dụ: 30s, 15m, 24h, 7d`, 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -787,7 +813,7 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
     if (newExpiry < new Date()) {
       try {
         const messageOptions = { 
-          msg: `❌ Không thể giảm thời hạn! Thời hạn mới sẽ nhỏ hơn thời gian hiện tại.`, 
+          msg: `🚫 Không thể giảm thời hạn! Thời hạn mới sẽ nhỏ hơn thời gian hiện tại.`, 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -806,7 +832,11 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
     const formattedExpiry = formatDateTime(new Date(newExpiry));
     try {
       const messageOptions = { 
-        msg: `✅ Đã giảm thời hạn bot thành công!\n\n🤖 Bot ID: ${botUid}\n⏰ Thời hạn mới: ${formattedExpiry}\n👤 Cập nhật bởi: ${dName}`, 
+        msg: `✅ Đã giảm thời hạn bot thành công!
+
+🤖 Bot ID: ${botUid}
+⏰ Thời hạn mới: ${formattedExpiry}
+👤 Cập nhật bởi: ${dName}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -821,7 +851,8 @@ async function handleSubTime(api, botUid, dName, duration, threadId, type, messa
 
     try {
       const messageOptions = { 
-        msg: `❌ Đã xảy ra lỗi khi giảm thời hạn bot!\nChi tiết: ${error.message}`, 
+        msg: `🚫 Đã xảy ra lỗi khi giảm thời hạn bot!
+Chi tiết: ${error.message}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -841,7 +872,7 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
         api,
         type || MessageType.GroupMessage,
         threadId,
-        "❌ File mybots.json không tồn tại!",
+        "🚫 File mybots.json không tồn tại!",
         false,
         120000
       );
@@ -854,7 +885,7 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
         api,
         type || MessageType.GroupMessage,
         threadId,
-        `❌ Không tìm thấy bot với ID ${botUid}!`,
+        `🚫 Không tìm thấy bot với ID ${botUid}!`,
         false,
         120000
       );
@@ -867,7 +898,9 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
         api,
         type || MessageType.GroupMessage,
         threadId,
-        `❌ Thời hạn không hợp lệ! Định dạng: số + đơn vị (s, m, h, d). Ví dụ: 30s, 15m, 24h, 7d, -1 (vô thời hạn)`,
+        `🚫 Thời hạn không hợp lệ! 
+Định dạng: số + đơn vị (s, m, h, d). 
+Ví dụ: 30s, 15m, 24h, 7d, -1 (vô thời hạn)`,
         false,
         120000
       );
@@ -905,7 +938,7 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
         api,
         type || MessageType.GroupMessage,
         threadId,
-        `❌ Lỗi khi khởi động bot: ${startBotError.message}`,
+        `🚫 Lỗi khi khởi động bot: ${startBotError.message}`,
         false,
         120000
       );
@@ -914,7 +947,11 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
     try {
       await api.sendMessage(
         {
-          msg: `📢 Bot của bạn đã được phê duyệt!\n\n⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}\n\n👤 Phê duyệt bởi: ${dName}\n\n  /-li  /-li  /-li`,
+          msg: `📢 Bot của bạn đã được phê duyệt!
+
+⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}
+
+👤 Phê duyệt bởi: ${dName}`,
           ttl: 120000
         },
         botUid,
@@ -926,7 +963,11 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
       api,
       type || MessageType.GroupMessage,
       threadId,
-      `✅ Đã phê duyệt bot thành công!\n\n🤖 Bot ID: ${botUid}\n⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}\n👤 Phê duyệt bởi: ${dName}`,
+      `✅ Đã phê duyệt bot thành công!
+
+🤖 Bot ID: ${botUid}
+⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}
+👤 Phê duyệt bởi: ${dName}`,
       true,
       120000
     );
@@ -936,7 +977,8 @@ async function handleApprove(api, botUid, dName, duration, threadId, type, messa
       api,
       type || MessageType.GroupMessage,
       threadId,
-      `❌ Đã xảy ra lỗi khi phê duyệt bot!\nChi tiết: ${error.message}`,
+      `🚫 Đã xảy ra lỗi khi phê duyệt bot!
+Chi tiết: ${error.message}`,
       false,
       120000
     );
@@ -946,7 +988,7 @@ async function handleReject(api, botUid, dName, threadId, type, message) {
   try {
     if (!fs.existsSync(myBotsPath)) {
       try {
-        const messageOptions = { msg: "❌ File mybots.json không tồn tại!", ttl: 120000 };
+        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -959,7 +1001,7 @@ async function handleReject(api, botUid, dName, threadId, type, message) {
     const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
     if (!myBots[botUid]) {
       try {
-        const messageOptions = { msg: `❌ Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
+        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
         if (message && typeof message === 'object' && message.messageID) {
           messageOptions.quote = message;
         }
@@ -980,7 +1022,10 @@ async function handleReject(api, botUid, dName, threadId, type, message) {
     await stopBot(api, modifiedMessage, []);
     try {
       const messageOptions = { 
-        msg: `✅ Đã từ chối bot thành công!\n\n🤖 Bot ID: ${botUid}\n👤 Từ chối bởi: ${dName}`, 
+        msg: `✅ Đã từ chối bot thành công!
+
+🤖 Bot ID: ${botUid}
+👤 Từ chối bởi: ${dName}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -992,7 +1037,9 @@ async function handleReject(api, botUid, dName, threadId, type, message) {
     }
     try {
       await api.sendMessage({ 
-        msg: `📢 Bot của bạn đã bị từ chối!\n\n👤 Từ chối bởi: ${dName}`, 
+        msg: `📢 Bot của bạn đã bị từ chối!
+
+👤 Từ chối bởi: ${dName}`, 
         ttl: 120000 
       }, botUid, 1);
     } catch (err) {
@@ -1003,7 +1050,8 @@ async function handleReject(api, botUid, dName, threadId, type, message) {
 
     try {
       const messageOptions = { 
-        msg: `❌ Đã xảy ra lỗi khi từ chối bot!\nChi tiết: ${error.message}`, 
+        msg: `🚫 Đã xảy ra lỗi khi từ chối bot!
+Chi tiết: ${error.message}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -1020,7 +1068,7 @@ async function handleActiveAll(api, uidFrom, dName, threadId, type, message, gro
   try {
     if (!fs.existsSync(myBotsPath)) {
       try {
-        await sendMessageFailed(api, message, "❌ File mybots.json không tồn tại!", true);
+        await sendMessageFailed(api, message, "🚫 File mybots.json không tồn tại!", true);
       } catch (err) {
       
       }
@@ -1047,7 +1095,11 @@ async function handleActiveAll(api, uidFrom, dName, threadId, type, message, gro
       await sendMessageComplete(
         api,
         message,
-        `✅ Đã khởi chạy tất cả bot!\nThành công: ${successCount}\nThất bại: ${failCount}\n👤 Thực hiện bởi: ${dName}`,
+        `✅ Đã khởi chạy tất cả bot thành công!
+
+Thành công: ${successCount}
+Thất bại: ${failCount}
+👤 Thực hiện bởi: ${dName}`,
         true
       );
     } catch (err) {
@@ -1060,7 +1112,8 @@ async function handleActiveAll(api, uidFrom, dName, threadId, type, message, gro
       await sendMessageFailed(
         api,
         message,
-        `❌ Đã xảy ra lỗi khi khởi chạy tất cả bot!\nChi tiết: ${error.message}`,
+        `🚫 Đã xảy ra lỗi khi khởi chạy tất cả bot!
+Chi tiết: ${error.message}`,
         true
       );
     } catch (err) {
@@ -1073,7 +1126,7 @@ async function handleShutdownAll(api, uidFrom, dName, threadId, type, message, g
   try {
     if (!fs.existsSync(myBotsPath)) {
       try {
-        await sendMessageFailed(api, message, "❌ File mybots.json không tồn tại!", true);
+        await sendMessageFailed(api, message, "🚫 File mybots.json không tồn tại!", true);
       } catch (err) {
       
       }
@@ -1100,7 +1153,11 @@ async function handleShutdownAll(api, uidFrom, dName, threadId, type, message, g
       await sendMessageComplete(
         api,
         message,
-        `⏹️ Đã tắt tất cả bot!\nThành công: ${successCount}\nThất bại: ${failCount}\n👤 Thực hiện bởi: ${dName}`,
+        `⏹️ Đã tắt tất cả bot thành công!
+
+Thành công: ${successCount}
+Thất bại: ${failCount}
+👤 Thực hiện bởi: ${dName}`,
         true
       );
     } catch (err) {
@@ -1113,7 +1170,8 @@ async function handleShutdownAll(api, uidFrom, dName, threadId, type, message, g
       await sendMessageFailed(
         api,
         message,
-        `❌ Đã xảy ra lỗi khi tắt tất cả bot!\nChi tiết: ${error.message}`,
+        `🚫 Đã xảy ra lỗi khi tắt tất cả bot!
+Chi tiết: ${error.message}`,
         true
       );
     } catch (err) {
@@ -1126,7 +1184,7 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
     const checkResult = await checkBotExists(uidFrom);
     if (!checkResult.exists) {
       try {
-        await sendMessageFailed(api, message, "❌ Bạn chưa có bot nào được tạo!", true);
+        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
       } catch (err) {
       
       }
@@ -1134,7 +1192,7 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
     }
     if (!adminUid || adminUid.trim().length === 0) {
       try {
-        await sendMessageFailed(api, message, "❌ UID admin không được để trống!", true);
+        await sendMessageFailed(api, message, "🚫 UID admin không được để trống!", true);
       } catch (err) {
       
       }
@@ -1142,7 +1200,7 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
     }
     if (!/^\d+$/.test(adminUid.trim())) {
       try {
-        await sendMessageFailed(api, message, "❌ UID admin phải là một chuỗi số!", true);
+        await sendMessageFailed(api, message, "🚫 UID admin phải là một chuỗi số!", true);
       } catch (err) {
       
       }
@@ -1167,7 +1225,7 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
     }
     if (adminList.includes(trimmedUid)) {
       try {
-        await sendMessageFailed(api, message, `❌ UID ${trimmedUid} đã là admin của bot này rồi!`, true);
+        await sendMessageFailed(api, message, `🚫 UID ${trimmedUid} đã là admin của bot này rồi!`, true);
       } catch (err) {
       
       }
@@ -1176,7 +1234,11 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
     adminList.push(trimmedUid);
     fs.writeFileSync(adminFilePath, JSON.stringify(adminList, null, 2));
     try {
-      await sendMessageComplete(api, message, `✅ Đã thêm UID: ${trimmedUid} vào danh sách admin bot của bạn\n🤖 Bot ID: ${uidFrom}\n👤 Thêm bởi: ${dName}\n\n📊 Tổng admin hiện tại: ${adminList.length}`, true);
+      await sendMessageComplete(api, message, `✅ Đã thêm UID: ${trimmedUid} vào danh sách admin bot của bạn
+
+🤖 Bot ID: ${uidFrom}
+👤 Thêm bởi: ${dName}
+📊 Tổng admin hiện tại: ${adminList.length}`, true);
     } catch (err) {
     
     }
@@ -1184,7 +1246,8 @@ async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, mes
   } catch (error) {
   
     try {
-      await sendMessageFailed(api, message, `❌ Đã xảy ra lỗi khi thêm admin!\nChi tiết: ${error.message}`, true);
+      await sendMessageFailed(api, message, `🚫 Đã xảy ra lỗi khi thêm admin!
+Chi tiết: ${error.message}`, true);
     } catch (err) {
     
     }
@@ -1196,7 +1259,7 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
     const checkResult = await checkBotExists(uidFrom);
     if (!checkResult.exists) {
       try {
-        await sendMessageFailed(api, message, "❌ Bạn chưa có bot nào được tạo!", true);
+        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
       } catch (err) {
       
       }
@@ -1204,7 +1267,7 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
     }
     if (!adminUid || adminUid.trim().length === 0) {
       try {
-        await sendMessageFailed(api, message, "❌ UID admin không được để trống!", true);
+        await sendMessageFailed(api, message, "🚫 UID admin không được để trống!", true);
       } catch (err) {
       
       }
@@ -1212,7 +1275,7 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
     }
     if (!/^\d+$/.test(adminUid.trim())) {
       try {
-        await sendMessageFailed(api, message, "❌ UID admin phải là một chuỗi số!", true);
+        await sendMessageFailed(api, message, "🚫 UID admin phải là một chuỗi số!", true);
       } catch (err) {
       
       }
@@ -1234,7 +1297,7 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
     }
     if (!adminList.includes(trimmedUid)) {
       try {
-        await sendMessageFailed(api, message, `❌ UID ${trimmedUid} không phải là admin của bot này!`, true);
+        await sendMessageFailed(api, message, `🚫 UID ${trimmedUid} không phải là admin của bot này!`, true);
       } catch (err) {
       
       }
@@ -1243,7 +1306,11 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
     adminList = adminList.filter(uid => uid !== trimmedUid);
     fs.writeFileSync(adminFilePath, JSON.stringify(adminList, null, 2));
     try {
-      await sendMessageComplete(api, message, `✅ Đã xóa UID: ${trimmedUid} khỏi danh sách admin bot của bạn\n🤖 Bot ID: ${uidFrom}\n👤 Xóa bởi: ${dName}\n\n📊 Tổng admin hiện tại: ${adminList.length}`, true);
+      await sendMessageComplete(api, message, `✅ Đã xóa UID: ${trimmedUid} khỏi danh sách admin bot của bạn
+
+🤖 Bot ID: ${uidFrom}
+👤 Xóa bởi: ${dName}
+📊 Tổng admin hiện tại: ${adminList.length}`, true);
     } catch (err) {
     
     }
@@ -1251,7 +1318,8 @@ async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, 
   } catch (error) {
    
     try {
-      await sendMessageFailed(api, message, `❌ Đã xảy ra lỗi khi xóa admin!\nChi tiết: ${error.message}`, true);
+      await sendMessageFailed(api, message, `🚫 Đã xảy ra lỗi khi xóa admin!
+Chi tiết: ${error.message}`, true);
     } catch (err) {
     
     }
@@ -1263,7 +1331,7 @@ async function handleListAdmins(api, uidFrom, dName, threadId, type, message) {
     const checkResult = await checkBotExists(uidFrom);
     if (!checkResult.exists) {
       try {
-        await sendMessageFailed(api, message, "❌ Bạn chưa có bot nào được tạo!", true);
+        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
       } catch (err) {
 
       }
@@ -1285,7 +1353,9 @@ async function handleListAdmins(api, uidFrom, dName, threadId, type, message) {
     }
     if (adminList.length === 0) {
       try {
-        await sendMessageComplete(api, message, `📋 Danh sách admin bot của bạn trống!\n🤖 Bot ID: ${uidFrom}`, true);
+        await sendMessageComplete(api, message, `📋 Danh sách admin bot của bạn trống!
+
+🤖 Bot ID: ${uidFrom}`, true);
       } catch (err) {
 
       }
@@ -1295,7 +1365,8 @@ async function handleListAdmins(api, uidFrom, dName, threadId, type, message) {
     adminList.forEach((uid, index) => {
       listMessage += `${index + 1}. 🆔 UID: ${uid}\n`;
     });
-    listMessage += `\n🤖 Bot ID: ${uidFrom}\n👤 Yêu cầu bởi: ${dName}`;
+    listMessage += `\n🤖 Bot ID: ${uidFrom}
+👤 Yêu cầu bởi: ${dName}`;
     try {
       await sendMessageComplete(api, message, listMessage, true);
     } catch (err) {
@@ -1304,7 +1375,8 @@ async function handleListAdmins(api, uidFrom, dName, threadId, type, message) {
   } catch (error) {
  
     try {
-      await sendMessageFailed(api, message, `❌ Không thể lấy danh sách admin!\nChi tiết: ${error.message}`, true);
+      await sendMessageFailed(api, message, `🚫 Không thể lấy danh sách admin!
+Chi tiết: ${error.message}`, true);
     } catch (err) {
 
     }
@@ -1316,7 +1388,7 @@ async function handleNotify(api, uidFrom, dName, content, threadId, type, messag
     if (!fs.existsSync(myBotsPath)) {
       try {
         const messageOptions = { 
-          msg: "❌ File mybots.json không tồn tại!", 
+          msg: "🚫 File mybots.json không tồn tại!", 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -1345,7 +1417,11 @@ async function handleNotify(api, uidFrom, dName, content, threadId, type, messag
         try {
           await api.sendMessage(
             {
-              msg: `📢 Thông báo từ hệ thống:\n${content}\n\n👤 Gửi bởi: ${dName}`,
+              msg: `📢 Thông báo từ hệ thống:
+
+${content}
+
+👤 Gửi bởi: ${dName}`,
               ttl: 120000,
             },
             botUid,
@@ -1385,7 +1461,11 @@ async function handleNotify(api, uidFrom, dName, content, threadId, type, messag
             try {
               await api.sendMessage(
                 {
-                  msg: `📢 Thông báo từ hệ thống (dành cho admin bot ${botUid}):\n${content}\n\n👤 Gửi bởi: ${dName}`,
+                  msg: `📢 Thông báo từ hệ thống (dành cho admin bot ${botUid}):
+
+${content}
+
+👤 Gửi bởi: ${dName}`,
                   ttl: 120000,
                 },
                 adminUid,
@@ -1405,7 +1485,10 @@ async function handleNotify(api, uidFrom, dName, content, threadId, type, messag
 
     try {
       const messageOptions = {
-        msg: `✅ Đã gửi thông báo đến ${successCount} người dùng!!!\n\nNội dung: ${content}\n👤 Gửi bởi: ${dName}`,
+        msg: `✅ Đã gửi thông báo đến ${successCount} người dùng!
+
+Nội dung: ${content}
+👤 Gửi bởi: ${dName}`,
         ttl: 120000,
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -1420,7 +1503,8 @@ async function handleNotify(api, uidFrom, dName, content, threadId, type, messag
 
     try {
       const messageOptions = {
-        msg: `❌ Đã xảy ra lỗi khi gửi thông báo!\nChi tiết: ${error.message}`,
+        msg: `🚫 Đã xảy ra lỗi khi gửi thông báo!
+Chi tiết: ${error.message}`,
         ttl: 120000,
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -1475,7 +1559,7 @@ async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
     if (!fs.existsSync(myBotsPath)) {
       try {
         const messageOptions = { 
-          msg: "❌ File mybots.json không tồn tại!", 
+          msg: "🚫 File mybots.json không tồn tại!", 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -1495,7 +1579,8 @@ async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
 
       try {
         const messageOptions = { 
-          msg: `❌ Lỗi khi phân tích file mybots.json!\nChi tiết: ${parseError.message}`, 
+          msg: `🚫 Lỗi khi phân tích file mybots.json!
+Chi tiết: ${parseError.message}`, 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -1512,7 +1597,7 @@ async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
     if (botCount === 0) {
       try {
         const messageOptions = { 
-          msg: "❌ Danh sách bot trống!", 
+          msg: "🚫 Danh sách bot trống!", 
           ttl: 120000 
         };
         if (message && typeof message === 'object' && message.messageID) {
@@ -1529,7 +1614,10 @@ async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
 
     try {
       const messageOptions = { 
-        msg: `✅ Đã tải lại dữ liệu bot thành công!\n📊 Số lượng bot: ${botCount}\n👤 Thực hiện bởi: ${dName}`, 
+        msg: `✅ Đã tải lại dữ liệu bot thành công!
+
+📊 Số lượng bot: ${botCount}
+👤 Thực hiện bởi: ${dName}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -1544,7 +1632,8 @@ async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
   
     try {
       const messageOptions = { 
-        msg: `❌ Đã xảy ra lỗi khi tải lại dữ liệu bot!\nChi tiết: ${error.message}`, 
+        msg: `🚫 Đã xảy ra lỗi khi tải lại dữ liệu bot!
+Chi tiết: ${error.message}`, 
         ttl: 120000 
       };
       if (message && typeof message === 'object' && message.messageID) {
@@ -1563,7 +1652,7 @@ async function handleUpdateName(api, uidFrom, dName, newName, threadId, type, me
         await sendMessageFailed(
           api,
           message,
-          "Tên bot không được để trống!",
+          "🚫 Tên bot không được để trống!",
           true
         );
       } catch (err) {
@@ -1577,7 +1666,11 @@ async function handleUpdateName(api, uidFrom, dName, newName, threadId, type, me
         await sendMessageComplete(
           api,
           message,
-          `Đã cập nhật tên bot thành: ${newName.trim()}\n🤖 Bot ID: ${uidFrom}\n👤 Cập nhật bởi: ${dName}`,
+          `✅ Đã cập nhật tên bot thành công!
+
+✏️ Tên mới: ${newName.trim()}
+🤖 Bot ID: ${uidFrom}
+👤 Cập nhật bởi: ${dName}`,
           true
         );
       } catch (err) {
@@ -1588,7 +1681,7 @@ async function handleUpdateName(api, uidFrom, dName, newName, threadId, type, me
         await sendMessageFailed(
           api,
           message,
-          "Không thể cập nhật tên bot!",
+          "🚫 Không thể cập nhật tên bot!",
           true
         );
       } catch (err) {
@@ -1601,7 +1694,8 @@ async function handleUpdateName(api, uidFrom, dName, newName, threadId, type, me
       await sendMessageFailed(
         api,
         message,
-        `Đã xảy ra lỗi khi cập nhật tên bot!\nChi tiết: ${error.message}`,
+        `🚫 Đã xảy ra lỗi khi cập nhật tên bot!
+Chi tiết: ${error.message}`,
         true
       );
     } catch (err) {
@@ -1617,7 +1711,7 @@ async function handleUpdateDescription(api, uidFrom, dName, description, threadI
         await sendMessageFailed(
           api,
           message,
-          "Mô tả không được để trống!",
+          "🚫 Mô tả không được để trống!",
           true
         );
       } catch (err) {
@@ -1631,7 +1725,11 @@ async function handleUpdateDescription(api, uidFrom, dName, description, threadI
         await sendMessageComplete(
           api,
           message,
-          `Đã cập nhật mô tả bot: ${description.trim()}\n🤖 Bot ID: ${uidFrom}\n👤 Cập nhật bởi: ${dName}`,
+          `✅ Đã cập nhật mô tả bot thành công!
+
+📝 Mô tả mới: ${description.trim()}
+🤖 Bot ID: ${uidFrom}
+👤 Cập nhật bởi: ${dName}`,
           true
         );
       } catch (err) {
@@ -1642,7 +1740,7 @@ async function handleUpdateDescription(api, uidFrom, dName, description, threadI
         await sendMessageFailed(
           api,
           message,
-          "Không thể cập nhật mô tả bot!",
+          "🚫 Không thể cập nhật mô tả bot!",
           true
         );
       } catch (err) {
@@ -1655,7 +1753,8 @@ async function handleUpdateDescription(api, uidFrom, dName, description, threadI
       await sendMessageFailed(
         api,
         message,
-        `Đã xảy ra lỗi khi cập nhật mô tả bot!\nChi tiết: ${error.message}`,
+        `🚫 Đã xảy ra lỗi khi cập nhật mô tả bot!
+Chi tiết: ${error.message}`,
         true
       );
     } catch (err) {
@@ -1671,7 +1770,7 @@ async function handleUpdateNameServer(api, uidFrom, dName, nameServer, threadId,
         await sendMessageFailed(
           api,
           message,
-          "Tên server không được để trống!",
+          "🚫 Tên server không được để trống!",
           true
         );
       } catch (err) {
@@ -1685,7 +1784,7 @@ async function handleUpdateNameServer(api, uidFrom, dName, nameServer, threadId,
         await sendMessageFailed(
           api,
           message,
-          "Không tìm thấy file cấu hình database!",
+          "🚫 Không tìm thấy file cấu hình database!",
           true
         );
       } catch (err) {
@@ -1700,7 +1799,11 @@ async function handleUpdateNameServer(api, uidFrom, dName, nameServer, threadId,
       await sendMessageComplete(
         api,
         message,
-        `Đã cập nhật tên server thành: ${nameServer.trim()}\n🤖 Bot ID: ${uidFrom}\n👤 Cập nhật bởi: ${dName}`,
+        `✅ Đã cập nhật tên server thành công!
+
+🌐 Tên Server mới: ${nameServer.trim()}
+🤖 Bot ID: ${uidFrom}
+👤 Cập nhật bởi: ${dName}`,
         true
       );
     } catch (err) {
@@ -1713,7 +1816,8 @@ async function handleUpdateNameServer(api, uidFrom, dName, nameServer, threadId,
       await sendMessageFailed(
         api,
         message,
-        `Đã xảy ra lỗi khi cập nhật tên server!\nChi tiết: ${error.message}`,
+        `🚫 Đã xảy ra lỗi khi cập nhật tên server!
+Chi tiết: ${error.message}`,
         true
       );
     } catch (err) {
