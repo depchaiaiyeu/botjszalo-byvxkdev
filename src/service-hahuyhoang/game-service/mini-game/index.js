@@ -5,6 +5,7 @@ import { handleWordChainCommand, handleWordChainMessage } from "./wordChain.js";
 import { handleVuaTiengVietCommand, handleVuaTiengVietMessage } from "./vuaTiengViet.js";
 import { handleFishingCommand, handleFishingMessage } from "./fishing.js";
 import { handleCaroCommand, handleCaroMessage } from "./caro.js";
+import { handleChessCommand, handleChessMessage } from "./chess.js";
 import { getGlobalPrefix } from "../../service.js";
 
 export async function handleChatWithGame(api, message, isCallGame, groupSettings) {
@@ -17,12 +18,12 @@ export async function handleChatWithGame(api, message, isCallGame, groupSettings
   const senderId = message.data.uidFrom;
   
   if (typeof content === "string") {
-    content = content.trim();
     await handleGuessNumberGame(api, message);
     await handleWordChainMessage(api, message);
     await handleVuaTiengVietMessage(api, message);
     await handleFishingMessage(api, message);
     await handleCaroMessage(api, message);
+    await handleChessMessage(api, message);
   }
 }
 
@@ -61,6 +62,9 @@ export async function startGame(api, message, groupSettings, gameType, args, isA
       break;
     case "caro":
       await handleCaroCommand(api, message);
+      break;
+    case "chess":
+      await handleChessCommand(api, message);
       break;
   }
 }
