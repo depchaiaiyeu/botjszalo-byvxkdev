@@ -213,13 +213,19 @@ export async function createCalendarImage() {
   const minutes = now.getMinutes();
   const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
 
-  const boxGradient = ctx.createLinearGradient(0, 80, 0, 460);
-  boxGradient.addColorStop(0, "rgba(100, 100, 100, 0.6)");
-  boxGradient.addColorStop(1, "rgba(80, 80, 80, 0.5)");
-  ctx.fillStyle = boxGradient;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+  ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.roundRect(45, 80, width - 90, 380, 20);
   ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(45, 80, width - 90, 380, 20);
+  ctx.stroke();
 
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 32px 'BeVietnamPro', Arial";
@@ -256,28 +262,33 @@ export async function createCalendarImage() {
     
     ctx.beginPath();
     ctx.moveTo(45 + radius, yPos);
-    ctx.lineTo(45 + 190 - radius, yPos);
-    ctx.quadraticCurveTo(45 + 190, yPos, 45 + 190, yPos + radius);
-    ctx.lineTo(45 + 190, yPos + boxH - radius);
-    ctx.quadraticCurveTo(45 + 190, yPos + boxH, 45 + 190 - radius, yPos + boxH);
+    ctx.lineTo(width - 45 - radius, yPos);
+    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
+    ctx.lineTo(width - 45, yPos + boxH - radius);
+    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
+    ctx.lineTo(45 + radius, yPos + boxH);
+    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
+    ctx.lineTo(45, yPos + radius);
+    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
+    ctx.closePath();
+    
+    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.fill();
+    
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(45 + radius, yPos);
+    ctx.lineTo(45 + 190, yPos);
+    ctx.lineTo(45 + 190, yPos + boxH);
     ctx.lineTo(45 + radius, yPos + boxH);
     ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
     ctx.lineTo(45, yPos + radius);
     ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
     ctx.closePath();
     ctx.fillStyle = "#FFA500";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(45 + 190, yPos);
-    ctx.lineTo(width - 45 - radius, yPos);
-    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
-    ctx.lineTo(width - 45, yPos + boxH - radius);
-    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
-    ctx.lineTo(45 + 190, yPos + boxH);
-    ctx.lineTo(45 + 190, yPos);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
     ctx.fill();
     
     ctx.fillStyle = "#FFFFFF";
@@ -297,10 +308,20 @@ export async function createCalendarImage() {
   const gioHacDao = getGioHacDao(dd, mm, yyyy);
 
   yPos += 20;
-  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+  
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+  ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 140, 12);
   ctx.fill();
+  ctx.shadowBlur = 0;
+  
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 140, 12);
+  ctx.stroke();
 
   const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   hdGradient.addColorStop(0, "#FFD700");
@@ -322,10 +343,20 @@ export async function createCalendarImage() {
   }
 
   yPos += 160;
-  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+  
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+  ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 160, 12);
   ctx.fill();
+  ctx.shadowBlur = 0;
+  
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 160, 12);
+  ctx.stroke();
 
   const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   hacGradient.addColorStop(0, "#FF4500");
@@ -348,10 +379,20 @@ export async function createCalendarImage() {
 
   yPos += 180;
   const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
-  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+  
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
+  ctx.shadowBlur = 20;
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 180, 12);
   ctx.fill();
+  ctx.shadowBlur = 0;
+  
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 180, 12);
+  ctx.stroke();
 
   const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   huongGradient.addColorStop(0, "#FFD700");
