@@ -195,22 +195,25 @@ export async function createCalendarImage() {
   const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
 
   const boxGradient = ctx.createLinearGradient(0, 80, 0, 460);
-  boxGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
-  boxGradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
+  boxGradient.addColorStop(0, "rgba(100, 100, 100, 0.6)");
+  boxGradient.addColorStop(1, "rgba(80, 80, 80, 0.5)");
   ctx.fillStyle = boxGradient;
   ctx.beginPath();
   ctx.roundRect(45, 80, width - 90, 380, 20);
   ctx.fill();
 
-  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 32px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
   ctx.fillText(`${dayName}, Ngày ${dd} ${monthNames[mm - 1]} Năm ${yyyy}`, width / 2, 140);
 
   ctx.font = "bold 120px 'BeVietnamPro', Arial";
-  const timeGradient = ctx.createLinearGradient(0, 0, width, 0);
-  timeGradient.addColorStop(0, "#4ECB71");
-  timeGradient.addColorStop(1, "#1E90FF");
+  const timeGradient = ctx.createLinearGradient(200, 220, 700, 220);
+  timeGradient.addColorStop(0, "#66FFCC");
+  timeGradient.addColorStop(0.3, "#99FF99");
+  timeGradient.addColorStop(0.5, "#99CCFF");
+  timeGradient.addColorStop(0.7, "#FFFF99");
+  timeGradient.addColorStop(1, "#FFCC99");
   ctx.fillStyle = timeGradient;
   ctx.fillText(timeStr, width / 2, 280);
 
@@ -229,36 +232,40 @@ export async function createCalendarImage() {
   let yPos = 520;
   
   holidays.forEach(holiday => {
-    const boxH = 80;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+    const boxH = 70;
+    ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
     ctx.beginPath();
     ctx.roundRect(45, yPos, width - 90, boxH, 12);
     ctx.fill();
 
-    ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.font = "bold 24px 'BeVietnamPro', Arial";
-    ctx.textAlign = "left";
-    ctx.fillText(`${holiday.days} ngày nữa`, 70, yPos + 32);
+    ctx.fillStyle = "#FFA500";
+    ctx.fillRect(45, yPos, 190, boxH);
+    
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 22px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`${holiday.days} ngày nữa`, 140, yPos + 42);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 28px 'BeVietnamPro', Arial";
+    ctx.font = "bold 26px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
-    ctx.fillText(holiday.name, 70, yPos + 65);
+    ctx.fillText(holiday.name, 250, yPos + 44);
 
-    yPos += boxH + 15;
+    yPos += boxH + 12;
   });
 
   const gioHD = getGioHoangDao(dd, mm, yyyy);
   const gioHacDao = getGioHacDao(dd, mm, yyyy);
 
   yPos += 20;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
   ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 180, 12);
+  ctx.roundRect(45, yPos, width - 90, 140, 12);
   ctx.fill();
 
   const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  hdGradient.addColorStop(0, "#32CD32");
+  hdGradient.addColorStop(0, "#FFD700");
+  hdGradient.addColorStop(0.5, "#32CD32");
   hdGradient.addColorStop(1, "#00CED1");
   ctx.fillStyle = hdGradient;
   ctx.font = "bold 28px 'BeVietnamPro', Arial";
@@ -268,15 +275,17 @@ export async function createCalendarImage() {
   ctx.fillStyle = "#ffffff";
   ctx.font = "18px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
-  const gioHDText1 = `${gioHD[0]}    ${gioHD[1]}`;
-  const gioHDText2 = `${gioHD[2]}    ${gioHD[3] || ''}`;
+  const gioHDText1 = `${gioHD[0]}    ${gioHD[1]}    ${gioHD[2]}`;
+  const gioHDText2 = `${gioHD[3] || ''}`;
   ctx.fillText(gioHDText1, width / 2, yPos + 80);
-  ctx.fillText(gioHDText2, width / 2, yPos + 110);
+  if (gioHD[3]) {
+    ctx.fillText(gioHDText2, width / 2, yPos + 110);
+  }
 
-  yPos += 200;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+  yPos += 160;
+  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
   ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 200, 12);
+  ctx.roundRect(45, yPos, width - 90, 160, 12);
   ctx.fill();
 
   const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
@@ -291,10 +300,12 @@ export async function createCalendarImage() {
   ctx.font = "16px 'BeVietnamPro', Arial";
   const gioHacText1 = `${gioHacDao[0]}  ${gioHacDao[1]}  ${gioHacDao[2]}`;
   const gioHacText2 = `${gioHacDao[3]}  ${gioHacDao[4]}  ${gioHacDao[5]}`;
-  const gioHacText3 = `${gioHacDao[6] || ''}`;
-  ctx.fillText(gioHacText1, width / 2, yPos + 80);
-  ctx.fillText(gioHacText2, width / 2, yPos + 110);
-  ctx.fillText(gioHacText3, width / 2, yPos + 140);
+  const gioHacText3 = `${gioHacDao[6] || ''}  ${gioHacDao[7] || ''}`;
+  ctx.fillText(gioHacText1, width / 2, yPos + 75);
+  ctx.fillText(gioHacText2, width / 2, yPos + 105);
+  if (gioHacDao[6]) {
+    ctx.fillText(gioHacText3, width / 2, yPos + 135);
+  }
 
   const filePath = path.resolve(`./assets/temp/calendar_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
