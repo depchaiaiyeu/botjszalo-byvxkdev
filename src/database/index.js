@@ -4,10 +4,12 @@ import fs from "fs/promises";
 import path from "path";
 import { claimDailyReward, getMyCard } from "./player.js";
 import { getTopPlayers } from "./jdbc.js";
-
+import { getBotInfo } from "../utils/env.js";
 export * from "./player.js";
 export * from "./jdbc.js";
 
+const botInfo = await getBotInfo();
+const configPath = botInfo.databaseFile;
 let nameServer = "";
 let connection;
 let NAME_TABLE_PLAYERS;
@@ -15,15 +17,10 @@ let NAME_TABLE_ACCOUNT;
 let DAILY_REWARD;
 
 async function loadConfig() {
-  const configPath = path.join(
-    process.cwd(),
-    "assets",
-    "json-data",
-    "database-config.json"
-  );
   const configFile = await fs.readFile(configPath, "utf8");
   return JSON.parse(configFile);
 }
+
 export async function getNameServer() {
   const config = await loadConfig(); 
   return config.nameServer;
