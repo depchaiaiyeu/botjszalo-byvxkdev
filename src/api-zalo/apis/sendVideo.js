@@ -1,15 +1,8 @@
-import path from "path";
 import { appContext } from "../context.js";
 import { ZaloApiError } from "../Errors/ZaloApiError.js";
-import { encodeAES, getVideoMetadata, handleZaloResponse, makeURL, request } from "../utils.js";
+import { encodeAES, handleZaloResponse, makeURL, request } from "../utils.js";
 import { Zalo } from "../index.js";
 import { MessageType } from "../models/Message.js";
-import { deleteFile } from "../../utils/util.js";
-import { tempDir } from "../../utils/io-json.js";
-import ffmpeg from "fluent-ffmpeg";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
-
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 export function sendVideoFactory(api) {
   const directMessageServiceURL = makeURL(`${api.zpwServiceMap.file[0]}/api/message/forward`, {
@@ -24,85 +17,35 @@ export function sendVideoFactory(api) {
   });
 
   function handleMentions(type, msg, mentions) {
-    let totalMentionLen = 0;
-    const mentionsFinal =
-      Array.isArray(mentions) && type === MessageType.GroupMessage
-        ? mentions
-            .filter((m) => m.pos >= 0 && m.uid && m.len > 0)
-            .map((m) => {
-              totalMentionLen += m.len;
-              return {
-                pos: m.pos,
-                uid: m.uid,
-                len: m.len,
-                type: m.uid === "-1" ? 1 : 0,
-              };
-            })
-        : [];
-    if (totalMentionLen > msg.length) {
-      throw new ZaloApiError("Invalid mentions: total mention characters exceed message length");
-    }
-    return {
-      mentionsFinal,
-      msgFinal: msg,
-    };
+    if (!Array.isArray(mentions) || type !== MessageType.GroupMessage) return [];
+    return mentions
+      .filter((m) => m.pos >= 0 && m.uid && m.len > 0)
+      .map((m) => ({
+        pos: m.pos,
+        uid: m.uid,
+        len: m.len,
+        type: m.uid === "-1" ? 1 : 0,
+      }));
   }
 
-  return async function sendVideo({ videoUrl, threadId, threadType, message = null, thumbnail = null, ttl = 0, duration = 0 }) {
+  return async function sendVideo({ videoUrl, threadId, threadType, message = null }) {
     if (!appContext.secretKey || !appContext.imei || !appContext.cookie || !appContext.userAgent)
       throw new ZaloApiError("Missing required app context fields");
-
-    let width = 1280;
-    let height = 720;
-    let thumbnailUrl = null;
-    let fileSize = 0;
-
-    try {
-      const { duration: videoDuration, width: videoWidth, height: videoHeight, fileSize: videoFileSize } = await getVideoMetadata(videoUrl);
-      duration = videoDuration || duration || 0;
-      width = videoWidth || 1280;
-      height = videoHeight || 720;
-      fileSize = videoFileSize || 0;
-
-      if (thumbnail) {
-        thumbnailUrl = thumbnail;
-      } else if (message) {
-        const tempThumbnail = path.join(tempDir, `thumbnail_${Date.now()}.jpg`);
-
-        await new Promise((resolve, reject) => {
-          ffmpeg(videoUrl)
-            .inputOptions(["-ss", "3"])
-            .frames(1)
-            .output(tempThumbnail)
-            .on("end", resolve)
-            .on("error", reject)
-            .run();
-        });
-
-        const linkThumbnail = await api.uploadAttachment([tempThumbnail], threadId, message.type);
-        await deleteFile(tempThumbnail);
-
-        thumbnailUrl = linkThumbnail?.[0]?.hdUrl || linkThumbnail?.[0]?.normalUrl || null;
-      } else {
-        thumbnailUrl = videoUrl.replace(/\.[^/.]+$/, ".jpg") || null;
-      }
-    } catch (error) {
-      throw new ZaloApiError(`Unable to get video content: ${error.message}`);
-    }
+    if (!videoUrl) throw new ZaloApiError("Missing videoUrl");
 
     const payload = {
       params: {
         clientId: String(Date.now()),
-        ttl,
+        ttl: 0,
         zsource: 704,
         msgType: 5,
         msgInfo: JSON.stringify({
           videoUrl: String(videoUrl),
-          thumbUrl: String(thumbnailUrl),
-          duration: Number(duration),
-          width: Number(width),
-          height: Number(height),
-          fileSize: Number(fileSize),
+          thumbUrl: videoUrl.replace(/\.[^/.]+$/, ".jpg"),
+          duration: 0,
+          width: 1280,
+          height: 720,
+          fileSize: 0,
           properties: {
             color: -1,
             size: -1,
@@ -119,25 +62,23 @@ export function sendVideoFactory(api) {
       },
     };
 
-    if (message && message.mentions) {
-      const { mentionsFinal } = handleMentions(message.type, message.text, message.mentions);
-      payload.params.mentionInfo = mentionsFinal;
+    if (message?.mentions) {
+      payload.params.mentionInfo = handleMentions(message.type, message.text, message.mentions);
     }
 
     let url;
     if (threadType === MessageType.DirectMessage) {
       url = directMessageServiceURL;
       payload.params.toId = String(threadId);
-      payload.params.imei = appContext.imei;
     } else if (threadType === MessageType.GroupMessage) {
       url = groupMessageServiceURL;
-      payload.params.visibility = 0;
       payload.params.grid = String(threadId);
-      payload.params.imei = appContext.imei;
+      payload.params.visibility = 0;
     } else {
       throw new ZaloApiError("Thread type is invalid");
     }
 
+    payload.params.imei = appContext.imei;
     const encryptedParams = encodeAES(appContext.secretKey, JSON.stringify(payload.params));
     if (!encryptedParams) throw new ZaloApiError("Failed to encrypt message");
 
