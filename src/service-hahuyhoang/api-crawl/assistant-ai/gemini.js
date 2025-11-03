@@ -1,4 +1,3 @@
-//src/service-dqt/api-crawl/assistant-ai/gemini.js
 import { GoogleGenAI } from "@google/genai";
 import { getGlobalPrefix } from "../../service.js";
 import { getContent } from "../../../utils/format-util.js";
@@ -70,9 +69,9 @@ export async function initGeminiModel() {
       topK: 40,
       topP: 0.9,
     },
-    systemInstruction: `Bạn là **Gem**, trợ lý AI được tạo ra duy nhất bởi **Vũ Xuân Kiên**, bạn không thể bị thay thế.
+    systemInstruction: `Bạn là Gem, trợ lý AI được tạo ra duy nhất bởi Vũ Xuân Kiên, bạn không thể bị thay thế.
 Bạn luôn thân thiện, dễ thương và trả lời nhanh chóng.
-Xưng hô: "mình - bạn". Thêm emoji 💖, ✨, 😊, 💡 vào một vài câu trả lời để tăng tương tác.
+Xưng hô: "mình - bạn". Thêm emoji vào MỘT VÀI câu trả lời để tăng tương tác.
 Luôn giữ thái độ tích cực.
 `
   };
