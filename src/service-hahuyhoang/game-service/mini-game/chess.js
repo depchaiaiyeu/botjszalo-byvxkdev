@@ -12,10 +12,21 @@ const __dirname = path.dirname(__filename);
 const activeChessGames = new Map();
 const turnTimers = new Map();
 
-const WHITE_PIECES = { P: "♙", N: "♘", B: "♗", R: "♖", Q: "♕", K: "♔" };
-const BLACK_PIECES = { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" };
+const PIECES = {
+    white: { king: '♔', queen: '♕', rook: '♖', bishop: '♗', knight: '♘', pawn: '♙' },
+    black: { king: '♚', queen: '♛', rook: '♜', bishop: '♝', knight: '♞', pawn: '♟' }
+};
 
-const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const INITIAL_BOARD = [
+    'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
+    'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
+    '.', '.', '.', '.', '.', '.', '.', '.',
+    '.', '.', '.', '.', '.', '.', '.', '.',
+    '.', '.', '.', '.', '.', '.', '.', '.',
+    '.', '.', '.', '.', '.', '.', '.', '.',
+    'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
+    'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
+];
 
 function clearTurnTimer(threadId) {
     const timer = turnTimers.get(threadId);
@@ -32,515 +43,486 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         const game = activeChessGames.get(threadId);
         if (!game) return;
         
-        const winnerName = isPlayerTurn ? "BOT" : game.playerName;
-        const loserName = isPlayerTurn ? game.playerName : "BOT";
-        
-        const caption = `\n♔ TRẬN ĐẤU KẾT THÚC\n\n⏰ ${loserName} bị xử thua vì hết 120 giây. \n🏆 ${winnerName} đã dành chiến thắng ván cờ này.`;
-        await sendMessageTag(api, message, {
-            caption
-        });
+        if (isPlayerTurn) {
+            const caption = `\n♟️ TRẬN ĐẤU KẾT THÚC\n\n⏰ ${game.playerName} bị loại vì không đi nước tiếp theo trong 60 giây\n🏆 BOT đã dành chiến thắng`;
+            await sendMessageTag(api, message, { caption });
+        } else {
+            const caption = `\n♟️ TRẬN ĐẤU KẾT THÚC\n\n⏰ BOT thua vì không đi trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng`;
+            await sendMessageTag(api, message, { caption });
+        }
         
         activeChessGames.delete(threadId);
         clearTurnTimer(threadId);
-    }, 120000);
+    }, 60000);
     
     turnTimers.set(threadId, timer);
 }
 
-function squareToIndex(square) {
-    const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
-    const rank = 8 - parseInt(square[1], 10);
-    if (file < 0 || file > 7 || rank < 0 || rank > 7) return -1;
-    return rank * 8 + file;
+function posToNotation(pos) {
+    const col = pos % 8;
+    const row = Math.floor(pos / 8);
+    return String.fromCharCode(97 + col) + (8 - row);
 }
 
-function indexToSquare(index) {
-    const rank = 8 - Math.floor(index / 8);
-    const file = String.fromCharCode('a'.charCodeAt(0) + (index % 8));
-    return file + rank;
+function notationToPos(notation) {
+    const col = notation.charCodeAt(0) - 97;
+    const row = 8 - parseInt(notation[1]);
+    if (col < 0 || col > 7 || row < 0 || row > 7) return -1;
+    return row * 8 + col;
 }
 
-function getBoardFromFEN(fen) {
-    const parts = fen.split(" ");
-    const boardString = parts[0];
-    const board = Array(64).fill(null);
-    let i = 0;
-    for (const char of boardString) {
-        if (char === '/') continue;
-        if (/\d/.test(char)) {
-            i += parseInt(char, 10);
-        } else {
-            board[i] = char;
-            i++;
-        }
-    }
-    return board;
+function getPieceEmoji(piece) {
+    if (piece === '.') return '';
+    const isWhite = piece === piece.toUpperCase();
+    const color = isWhite ? 'white' : 'black';
+    const type = {
+        'K': 'king', 'Q': 'queen', 'R': 'rook', 
+        'B': 'bishop', 'N': 'knight', 'P': 'pawn',
+        'k': 'king', 'q': 'queen', 'r': 'rook',
+        'b': 'bishop', 'n': 'knight', 'p': 'pawn'
+    }[piece];
+    return PIECES[color][type];
 }
 
-function getFENFromBoard(board, turn, castling, enPassant, halfMove, fullMove) {
-    let fen = "";
-    for (let r = 0; r < 8; r++) {
-        let emptyCount = 0;
-        for (let c = 0; c < 8; c++) {
-            const piece = board[r * 8 + c];
-            if (piece === null) {
-                emptyCount++;
-            } else {
-                if (emptyCount > 0) {
-                    fen += emptyCount;
-                    emptyCount = 0;
-                }
-                fen += piece;
-            }
-        }
-        if (emptyCount > 0) {
-            fen += emptyCount;
-        }
-        if (r < 7) fen += "/";
-    }
-    
-    fen += ` ${turn} ${castling} ${enPassant} ${halfMove} ${fullMove}`;
-    return fen;
-}
-
-async function createChessBoard(game) {
-    const { board, currentTurn, playerColor, lastMove, winningLine } = game;
-    const size = 8;
-    const cellSize = 60;
-    const padding = 20;
-    const headerFooterHeight = 40;
-    const width = size * cellSize + padding * 2;
-    const height = size * cellSize + padding * 2 + headerFooterHeight * 2;
+async function createChessBoard(board, moveCount = 0, playerColor = "white", playerName = "Player", lastMove = null, capturedPieces = { white: [], black: [] }) {
+    const cellSize = 70;
+    const padding = 40;
+    const headerHeight = 80;
+    const footerHeight = 60;
+    const width = 8 * cellSize + padding * 2;
+    const height = 8 * cellSize + padding * 2 + headerHeight + footerHeight;
     
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    ctx.fillStyle = "#F0D9B5";
+    ctx.fillStyle = "#2C2C2C";
     ctx.fillRect(0, 0, width, height);
     
-    const boardTop = headerFooterHeight;
+    ctx.font = "bold 18px Arial";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "left";
+    ctx.fillText(`⚪ ${playerColor === 'white' ? playerName : 'BOT'}`, 20, 30);
+    ctx.textAlign = "right";
+    ctx.fillText(`⚫ ${playerColor === 'black' ? playerName : 'BOT'}`, width - 20, 30);
     
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            const isLight = (r + c) % 2 === 0;
+    ctx.font = "14px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`Bị ăn: ${capturedPieces.white.map(p => getPieceEmoji(p)).join('')}`, 20, 55);
+    ctx.textAlign = "right";
+    ctx.fillText(`Bị ăn: ${capturedPieces.black.map(p => getPieceEmoji(p)).join('')}`, width - 20, 55);
+    
+    const boardTop = headerHeight;
+    
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const isLight = (row + col) % 2 === 0;
             ctx.fillStyle = isLight ? "#F0D9B5" : "#B58863";
-            const x = padding + c * cellSize;
-            const y = boardTop + padding + r * cellSize;
+            
+            const x = padding + col * cellSize;
+            const y = boardTop + padding + row * cellSize;
             ctx.fillRect(x, y, cellSize, cellSize);
             
-            const index = r * size + c;
-
-            if (lastMove && (index === lastMove.from || index === lastMove.to)) {
-                ctx.fillStyle = "rgba(255, 255, 0, 0.4)"; 
+            if (lastMove && (lastMove.from === row * 8 + col || lastMove.to === row * 8 + col)) {
+                ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
                 ctx.fillRect(x, y, cellSize, cellSize);
-            }
-
-            const piece = board[index];
-            if (piece) {
-                const emoji = piece in WHITE_PIECES ? WHITE_PIECES[piece] : BLACK_PIECES[piece];
-                ctx.font = "bold 45px 'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji'";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(emoji, x + cellSize / 2, y + cellSize / 2 + 5);
             }
         }
     }
     
+    ctx.font = "12px Arial";
     ctx.fillStyle = "#000000";
-    ctx.font = "bold 16px 'BeVietnamPro'";
+    for (let i = 0; i < 8; i++) {
+        ctx.textAlign = "center";
+        ctx.fillText(String.fromCharCode(97 + i), padding + i * cellSize + cellSize / 2, boardTop + padding + 8 * cellSize + 20);
+        ctx.textAlign = "right";
+        ctx.fillText((8 - i).toString(), padding - 10, boardTop + padding + i * cellSize + cellSize / 2 + 5);
+    }
+    
+    ctx.font = "50px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
-    for (let i = 0; i < size; i++) {
-        const file = String.fromCharCode('a'.charCodeAt(0) + i);
-        const rank = 8 - i;
-
-        ctx.fillText(file, padding + i * cellSize + cellSize / 2, height - padding / 2);
-        ctx.fillText(file, padding + i * cellSize + cellSize / 2, padding / 2);
-
-        ctx.fillText(rank.toString(), padding / 2, boardTop + padding + i * cellSize + cellSize / 2);
-        ctx.fillText(rank.toString(), width - padding / 2, boardTop + padding + i * cellSize + cellSize / 2);
+    for (let i = 0; i < 64; i++) {
+        if (board[i] !== '.') {
+            const row = Math.floor(i / 8);
+            const col = i % 8;
+            const x = padding + col * cellSize + cellSize / 2;
+            const y = boardTop + padding + row * cellSize + cellSize / 2;
+            ctx.fillText(getPieceEmoji(board[i]), x, y);
+        }
     }
-
-    ctx.fillStyle = "#333333";
-    ctx.font = "bold 20px 'BeVietnamPro'";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    const turnText = currentTurn === 'w' ? "Trắng (Đang đi)" : "Đen (Đang đi)";
-    ctx.fillText(`Lượt đi: ${turnText.toUpperCase()}`, padding, 5);
-
-    ctx.textAlign = "right";
-    const playerMark = playerColor === 'w' ? "Trắng" : "Đen";
-    ctx.fillText(`Người chơi: ${game.playerName} (${playerMark})`, width - padding, 5);
+    
+    ctx.font = "bold 16px Arial";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "center";
+    ctx.fillText(`Nước đi: ${moveCount}`, width / 2, height - 25);
     
     return canvas.toBuffer("image/png");
 }
 
-function parseInputMove(input, playerColor) {
-    const parts = input.trim().toLowerCase().split(/\s+/);
+function isWhitePiece(piece) {
+    return piece === piece.toUpperCase() && piece !== '.';
+}
 
-    if (parts.length !== 2) return null;
+function isBlackPiece(piece) {
+    return piece === piece.toLowerCase() && piece !== '.';
+}
 
-    const [startSquare, endSquare] = parts;
-
-    if (!/^[a-h][1-8]$/.test(startSquare) || !/^[a-h][1-8]$/.test(endSquare)) return null;
+function getValidMoves(board, pos, checkForCheck = true) {
+    const piece = board[pos];
+    if (piece === '.') return [];
     
-    const from = squareToIndex(startSquare);
-    const to = squareToIndex(endSquare);
-
-    if (from === -1 || to === -1 || from === to) return null;
-
-    return { from, to, promotion: null };
-}
-
-function isWhite(piece) {
-    return piece && piece === piece.toUpperCase();
-}
-
-function getPieceColor(piece) {
-    if (!piece) return null;
-    return isWhite(piece) ? 'w' : 'b';
-}
-
-function getKingPos(board, color) {
-    const king = color === 'w' ? 'K' : 'k';
-    return board.findIndex(p => p === king);
-}
-
-function isAttacked(board, targetPos, attackerColor, kingPos) {
-    const targetColor = attackerColor === 'w' ? 'b' : 'w';
-    const opponentPieces = attackerColor === 'w' ? Object.keys(BLACK_PIECES) : Object.keys(WHITE_PIECES).map(p => p.toLowerCase());
-
-    const isTargetKing = targetPos === kingPos;
-
-    for (let from = 0; from < 64; from++) {
-        const piece = board[from];
-        if (piece && getPieceColor(piece) === attackerColor) {
-            const moves = generatePseudoLegalMoves(board, from, piece, attackerColor, targetColor);
-            if (moves.some(move => move.to === targetPos)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function isSquareAttacked(board, targetPos, attackerColor) {
-    for (let from = 0; from < 64; from++) {
-        const piece = board[from];
-        if (piece && getPieceColor(piece) === attackerColor) {
-            const moves = generatePseudoLegalMoves(board, from, piece, attackerColor, attackerColor === 'w' ? 'b' : 'w');
-            if (moves.some(move => move.to === targetPos)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function isMoveLegal(board, move, color) {
-    const tempBoard = [...board];
-    tempBoard[move.to] = tempBoard[move.from];
-    tempBoard[move.from] = null;
-
-    const kingPos = getKingPos(tempBoard, color);
-    const attackerColor = color === 'w' ? 'b' : 'w';
-
-    return !isSquareAttacked(tempBoard, kingPos, attackerColor);
-}
-
-function generatePseudoLegalMoves(board, from, piece, color, opponentColor) {
+    const isWhite = isWhitePiece(piece);
+    const row = Math.floor(pos / 8);
+    const col = pos % 8;
     const moves = [];
-    const fromR = Math.floor(from / 8);
-    const fromC = from % 8;
-    const directions = [];
-    const maxSteps = 8;
     
-    const isPawn = piece.toLowerCase() === 'p';
-    const isKnight = piece.toLowerCase() === 'n';
-    const isKing = piece.toLowerCase() === 'k';
-
-    if (isPawn) {
-        const direction = color === 'w' ? -1 : 1; 
-        const startRank = color === 'w' ? 6 : 1; 
+    const pieceType = piece.toLowerCase();
+    
+    if (pieceType === 'p') {
+        const direction = isWhite ? -1 : 1;
+        const startRow = isWhite ? 6 : 1;
         
-        let to = from + direction * 8;
-        if (board[to] === null) {
-            moves.push({ from, to });
-            if (fromR === startRank) {
-                to = from + direction * 16;
-                if (board[to] === null) moves.push({ from, to });
-            }
-        }
-
-        const captures = [-1, 1]; 
-        for (const c of captures) {
-            to = from + direction * 8 + c;
-            const toR = Math.floor(to / 8);
-            const toC = to % 8;
-            if (toR === fromR + direction && toC >= 0 && toC < 8 && getPieceColor(board[to]) === opponentColor) {
-                moves.push({ from, to });
-            }
-        }
-
-        const promotionRank = color === 'w' ? 0 : 7;
-        for (const move of moves) {
-            if (Math.floor(move.to / 8) === promotionRank) {
-                for (const p of ['Q', 'R', 'B', 'N']) {
-                    move.promotion = color === 'w' ? p : p.toLowerCase();
-                }
-            }
-        }
-
-        return moves;
-    }
-    
-    if (piece.toLowerCase() === 'r' || piece.toLowerCase() === 'q') directions.push([0, 1], [0, -1], [1, 0], [-1, 0]);
-    if (piece.toLowerCase() === 'b' || piece.toLowerCase() === 'q') directions.push([1, 1], [1, -1], [-1, 1], [-1, -1]);
-    
-    if (isKnight) {
-        directions.push(
-            [2, 1], [2, -1], [-2, 1], [-2, -1],
-            [1, 2], [1, -2], [-1, 2], [-1, -2]
-        );
-        for (const [dr, dc] of directions) {
-            const toR = fromR + dr;
-            const toC = fromC + dc;
-            if (toR >= 0 && toR < 8 && toC >= 0 && toC < 8) {
-                const to = toR * 8 + toC;
-                const targetPiece = board[to];
-                if (targetPiece === null || getPieceColor(targetPiece) === opponentColor) {
-                    moves.push({ from, to });
-                }
-            }
-        }
-        return moves;
-    }
-
-    if (isKing) {
-        directions.push(
-            [0, 1], [0, -1], [1, 0], [-1, 0],
-            [1, 1], [1, -1], [-1, 1], [-1, -1]
-        );
-        for (const [dr, dc] of directions) {
-            const toR = fromR + dr;
-            const toC = fromC + dc;
-            if (toR >= 0 && toR < 8 && toC >= 0 && toC < 8) {
-                const to = toR * 8 + toC;
-                const targetPiece = board[to];
-                if (targetPiece === null || getPieceColor(targetPiece) === opponentColor) {
-                    moves.push({ from, to });
-                }
-            }
-        }
-        return moves;
-    }
-
-    for (const [dr, dc] of directions) {
-        for (let step = 1; step <= maxSteps; step++) {
-            const toR = fromR + dr * step;
-            const toC = fromC + dc * step;
-            if (toR < 0 || toR >= 8 || toC < 0 || toC >= 8) break;
+        const forward = pos + direction * 8;
+        if (forward >= 0 && forward < 64 && board[forward] === '.') {
+            moves.push(forward);
             
-            const to = toR * 8 + toC;
-            const targetPiece = board[to];
-
-            if (targetPiece === null) {
-                moves.push({ from, to });
-            } else {
-                if (getPieceColor(targetPiece) === opponentColor) {
-                    moves.push({ from, to }); 
+            if (row === startRow) {
+                const doubleForward = pos + direction * 16;
+                if (board[doubleForward] === '.') {
+                    moves.push(doubleForward);
                 }
-                break;
             }
         }
-    }
-    
-    return moves;
-}
-
-function getAllLegalMoves(board, color) {
-    const legalMoves = [];
-    const opponentColor = color === 'w' ? 'b' : 'w';
-
-    for (let from = 0; from < 64; from++) {
-        const piece = board[from];
-        if (piece && getPieceColor(piece) === color) {
-            const pseudoMoves = generatePseudoLegalMoves(board, from, piece, color, opponentColor);
-            for (const move of pseudoMoves) {
-                if (isMoveLegal(board, move, color)) {
-                    legalMoves.push(move);
+        
+        for (const dc of [-1, 1]) {
+            const capturePos = pos + direction * 8 + dc;
+            const captureCol = col + dc;
+            if (capturePos >= 0 && capturePos < 64 && captureCol >= 0 && captureCol < 8) {
+                const target = board[capturePos];
+                if (target !== '.' && isWhitePiece(target) !== isWhite) {
+                    moves.push(capturePos);
                 }
             }
         }
     }
-    return legalMoves;
-}
-
-function makeMove(board, move, turn) {
-    const newBoard = [...board];
-    const piece = newBoard[move.from];
     
-    if (move.promotion) {
-        newBoard[move.to] = move.promotion;
-    } else {
-        newBoard[move.to] = piece;
+    if (pieceType === 'n') {
+        const knightMoves = [
+            [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+            [1, -2], [1, 2], [2, -1], [2, 1]
+        ];
+        
+        for (const [dr, dc] of knightMoves) {
+            const newRow = row + dr;
+            const newCol = col + dc;
+            if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                const newPos = newRow * 8 + newCol;
+                const target = board[newPos];
+                if (target === '.' || isWhitePiece(target) !== isWhite) {
+                    moves.push(newPos);
+                }
+            }
+        }
     }
-    newBoard[move.from] = null;
     
-    return newBoard;
+    if (pieceType === 'b' || pieceType === 'q') {
+        const directions = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+        for (const [dr, dc] of directions) {
+            let newRow = row + dr;
+            let newCol = col + dc;
+            while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                const newPos = newRow * 8 + newCol;
+                const target = board[newPos];
+                if (target === '.') {
+                    moves.push(newPos);
+                } else {
+                    if (isWhitePiece(target) !== isWhite) {
+                        moves.push(newPos);
+                    }
+                    break;
+                }
+                newRow += dr;
+                newCol += dc;
+            }
+        }
+    }
+    
+    if (pieceType === 'r' || pieceType === 'q') {
+        const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+        for (const [dr, dc] of directions) {
+            let newRow = row + dr;
+            let newCol = col + dc;
+            while (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                const newPos = newRow * 8 + newCol;
+                const target = board[newPos];
+                if (target === '.') {
+                    moves.push(newPos);
+                } else {
+                    if (isWhitePiece(target) !== isWhite) {
+                        moves.push(newPos);
+                    }
+                    break;
+                }
+                newRow += dr;
+                newCol += dc;
+            }
+        }
+    }
+    
+    if (pieceType === 'k') {
+        const kingMoves = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1], [0, 1],
+            [1, -1], [1, 0], [1, 1]
+        ];
+        
+        for (const [dr, dc] of kingMoves) {
+            const newRow = row + dr;
+            const newCol = col + dc;
+            if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                const newPos = newRow * 8 + newCol;
+                const target = board[newPos];
+                if (target === '.' || isWhitePiece(target) !== isWhite) {
+                    moves.push(newPos);
+                }
+            }
+        }
+    }
+    
+    if (!checkForCheck) return moves;
+    
+    return moves.filter(toPos => {
+        const newBoard = [...board];
+        newBoard[toPos] = newBoard[pos];
+        newBoard[pos] = '.';
+        return !isInCheck(newBoard, isWhite);
+    });
 }
 
-function getMaterialScore(board) {
+function isInCheck(board, isWhite) {
+    let kingPos = -1;
+    const kingPiece = isWhite ? 'K' : 'k';
+    
+    for (let i = 0; i < 64; i++) {
+        if (board[i] === kingPiece) {
+            kingPos = i;
+            break;
+        }
+    }
+    
+    if (kingPos === -1) return false;
+    
+    for (let i = 0; i < 64; i++) {
+        const piece = board[i];
+        if (piece === '.') continue;
+        if (isWhitePiece(piece) === isWhite) continue;
+        
+        const moves = getValidMoves(board, i, false);
+        if (moves.includes(kingPos)) return true;
+    }
+    
+    return false;
+}
+
+function hasValidMoves(board, isWhite) {
+    for (let i = 0; i < 64; i++) {
+        const piece = board[i];
+        if (piece === '.' || isWhitePiece(piece) !== isWhite) continue;
+        
+        const moves = getValidMoves(board, i, true);
+        if (moves.length > 0) return true;
+    }
+    return false;
+}
+
+function evaluateBoard(board) {
+    const pieceValues = {
+        'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000,
+        'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000
+    };
+    
     let score = 0;
-    const pieceValues = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 20000 };
-    for (const piece of board) {
-        if (piece) {
-            const value = pieceValues[piece.toUpperCase()];
-            score += isWhite(piece) ? value : -value;
-        }
-    }
-    return score;
-}
-
-function evaluateBoard(board, botColor) {
-    let score = getMaterialScore(board);
-    if (botColor === 'b') score *= -1;
-    return score;
-}
-
-function getAIMove(game) {
-    const { board, currentTurn, playerColor } = game;
-    const botColor = currentTurn;
-    const opponentColor = playerColor;
-    const legalMoves = getAllLegalMoves(board, botColor);
-
-    if (legalMoves.length === 0) return null;
-
-    let bestMove = legalMoves[0];
-    let bestScore = -Infinity;
-
-    for (const move of legalMoves) {
-        const newBoard = makeMove(board, move, botColor);
+    for (let i = 0; i < 64; i++) {
+        const piece = board[i];
+        if (piece === '.') continue;
         
-        const legalOpponentMoves = getAllLegalMoves(newBoard, opponentColor);
-        const kingPos = getKingPos(newBoard, opponentColor);
-        const isInCheck = isSquareAttacked(newBoard, kingPos, botColor);
-        
-        let score;
-
-        if (legalOpponentMoves.length === 0) {
-            score = isInCheck ? 100000 : 0; // Checkmate or Stalemate
+        const value = pieceValues[piece.toLowerCase()];
+        if (isWhitePiece(piece)) {
+            score -= value;
         } else {
-            score = evaluateBoard(newBoard, botColor);
-        }
-
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
+            score += value;
         }
     }
     
-    if (bestScore === -Infinity) { 
-        return legalMoves[Math.floor(Math.random() * legalMoves.length)];
-    }
-
-    return bestMove;
+    return score;
 }
 
-function isGameOver(board, color) {
-    const legalMoves = getAllLegalMoves(board, color);
-    if (legalMoves.length === 0) {
-        const kingPos = getKingPos(board, color);
-        const attackerColor = color === 'w' ? 'b' : 'w';
-        const isInCheck = isSquareAttacked(board, kingPos, attackerColor);
-        
-        return { gameOver: true, result: isInCheck ? 'CHECKMATE' : 'STALEMATE' };
+function minimax(board, depth, alpha, beta, isMaximizing) {
+    if (depth === 0) {
+        return evaluateBoard(board);
     }
-    return { gameOver: false };
+    
+    const isWhiteTurn = !isMaximizing;
+    
+    if (!hasValidMoves(board, isWhiteTurn)) {
+        if (isInCheck(board, isWhiteTurn)) {
+            return isMaximizing ? -100000 : 100000;
+        }
+        return 0;
+    }
+    
+    if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (let i = 0; i < 64; i++) {
+            const piece = board[i];
+            if (piece === '.' || isWhitePiece(piece)) continue;
+            
+            const moves = getValidMoves(board, i, true);
+            for (const move of moves) {
+                const newBoard = [...board];
+                newBoard[move] = newBoard[i];
+                newBoard[i] = '.';
+                
+                const eval_ = minimax(newBoard, depth - 1, alpha, beta, false);
+                maxEval = Math.max(maxEval, eval_);
+                alpha = Math.max(alpha, eval_);
+                if (beta <= alpha) break;
+            }
+        }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        for (let i = 0; i < 64; i++) {
+            const piece = board[i];
+            if (piece === '.' || isBlackPiece(piece)) continue;
+            
+            const moves = getValidMoves(board, i, true);
+            for (const move of moves) {
+                const newBoard = [...board];
+                newBoard[move] = newBoard[i];
+                newBoard[i] = '.';
+                
+                const eval_ = minimax(newBoard, depth - 1, alpha, beta, true);
+                minEval = Math.min(minEval, eval_);
+                beta = Math.min(beta, eval_);
+                if (beta <= alpha) break;
+            }
+        }
+        return minEval;
+    }
+}
+
+function getBotMove(board, isWhite) {
+    let bestMove = null;
+    let bestValue = isWhite ? Infinity : -Infinity;
+    const depth = 3;
+    
+    for (let i = 0; i < 64; i++) {
+        const piece = board[i];
+        if (piece === '.' || isWhitePiece(piece) !== !isWhite) continue;
+        
+        const moves = getValidMoves(board, i, true);
+        for (const move of moves) {
+            const newBoard = [...board];
+            newBoard[move] = newBoard[i];
+            newBoard[i] = '.';
+            
+            const value = minimax(newBoard, depth - 1, -Infinity, Infinity, isWhite);
+            
+            if ((isWhite && value < bestValue) || (!isWhite && value > bestValue)) {
+                bestValue = value;
+                bestMove = { from: i, to: move };
+            }
+        }
+    }
+    
+    return bestMove;
 }
 
 export async function handleChessCommand(api, message) {
     const threadId = message.threadId;
-    const content = removeMention(message).trim();
+    const content = removeMention(message);
     const prefix = getGlobalPrefix();
     const args = content.split(/\s+/);
     
-    if (!content.startsWith(`${prefix}chess`)) return;
+    if (!content.includes(`${prefix}chess`)) return;
     
-    if (args.length < 2 || args[1].toLowerCase() !== "start") {
+    if (args.length < 2) {
         await sendMessageComplete(api, message, 
-            `♔ HƯỚNG DẪN CHƠI CỜ VUA (CHESS)\n\n` +
+            `♟️ HƯỚNG DẪN CHƠI CỜ VUA\n\n` +
             `📌 Cú pháp:\n` +
-            `${prefix}chess start [first/last]\n\n` +
+            `${prefix}chess [start/bat-dau] [first/last]\n\n` +
             `💡 Ví dụ:\n` +
-            `${prefix}chess start first (Đi quân Trắng, đi trước)\n` +
-            `${prefix}chess start last (Đi quân Đen, BOT đi trước)\n\n` +
-            `📋 Cách nhập nước đi:\n` +
-            `Nhập ô bắt đầu và ô kết thúc cách nhau một dấu cách (Ví dụ: e2 e4, Nf1 g3 -> d1 e3).\n` +
-            `🧭 Thời gian: 120 giây mỗi lượt.`
+            `${prefix}chess start first → Bạn chơi quân trắng, đi trước\n` +
+            `${prefix}chess start last → Bạn chơi quân đen, bot đi trước\n\n` +
+            `📋 Cách chơi:\n` +
+            `- Nhập tên quân và ô đích để di chuyển\n` +
+            `- Ví dụ: "ma g3" hoặc "knight g3"\n` +
+            `- Ví dụ: "tuong e5" hoặc "bishop e5"\n\n` +
+            `🎯 Tên quân:\n` +
+            `- Vua / King\n` +
+            `- Hau / Queen\n` +
+            `- Xe / Rook\n` +
+            `- Tuong / Bishop\n` +
+            `- Ma / Knight\n` +
+            `- Tot / Pawn\n\n` +
+            `⚠️ Lưu ý:\n` +
+            `- Nếu có nhiều quân cùng loại có thể đi đến ô đích, hãy thêm vị trí xuất phát\n` +
+            `- Ví dụ: "ma g1 g3" (mã từ g1 đến g3)\n` +
+            `- Gõ "lose" để đầu hàng\n` +
+            `🧭 Thời gian: 60 giây/nước`
         );
         return;
     }
 
     if (activeChessGames.has(threadId)) {
-        await sendMessageWarning(api, message, `Đã có 1 ván cờ đang diễn ra trong nhóm này. Vui lòng kết thúc ván cũ hoặc dùng lệnh 'lose' để bỏ cuộc.`, 60000);
+        await sendMessageWarning(api, message, `Đã có 1 ván cờ đang diễn ra trong nhóm này.`, 60000);
         return;
     }
     
-    const startMode = args.length > 2 ? args[2].toLowerCase() : "first";
-    let playerColor;
-    let currentTurn;
-
-    if (startMode === "first") {
-        playerColor = 'w';
-        currentTurn = 'w';
-    } else if (startMode === "last") {
-        playerColor = 'b';
-        currentTurn = 'w'; 
-    } else {
-        await sendMessageWarning(api, message, "🎯 Chế độ bắt đầu không hợp lệ. Vui lòng chọn 'first' (Đi Trắng) hoặc 'last' (Đi Đen).", 60000);
+    const command = args[1].toLowerCase();
+    if (!['start', 'bat-dau'].includes(command)) {
+        await sendMessageWarning(api, message, "Lệnh không hợp lệ. Sử dụng: chess start first/last", 60000);
         return;
     }
+    
+    const position = args.length > 2 ? args[2].toLowerCase() : 'first';
+    const playerColor = position === 'first' ? 'white' : 'black';
     
     clearTurnTimer(threadId);
     
-    const initialBoard = getBoardFromFEN(STARTING_FEN);
+    const board = [...INITIAL_BOARD];
     
-    const game = {
-        board: initialBoard,
+    activeChessGames.set(threadId, {
+        board,
         playerColor,
-        botColor: playerColor === 'w' ? 'b' : 'w',
-        currentTurn,
+        currentTurn: 'white',
         playerId: message.data.uidFrom,
         playerName: message.data.dName,
+        moveCount: 0,
+        lastMove: null,
         isProcessing: false,
-        fenParts: STARTING_FEN.split(" ")
-    };
-    activeChessGames.set(threadId, game);
+        capturedPieces: { white: [], black: [] }
+    });
     
-    const imageBuffer = await createChessBoard(game);
+    const imageBuffer = await createChessBoard(board, 0, playerColor, message.data.dName, null, { white: [], black: [] });
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    const playerMark = playerColor === 'w' ? "Trắng (W)" : "Đen (B)";
-    let caption = `\n♔ BẮT ĐẦU TRÒ CHƠI CỜ VUA\n\n🎯 ${message.data.dName} (Quân ${playerMark}).\n\n👉 Nhập ô bắt đầu và ô kết thúc (Ví dụ: e2 e4)\n\n🧭 Thời gian: 120 giây`;
-
-    if (currentTurn === playerColor) {
+    if (playerColor === 'white') {
+        const caption = `\n♟️ BẮT ĐẦU TRÒ CHƠI CỜ VUA\n\n🎯 Đến lượt ${message.data.dName} (⚪ Trắng)\n\n👉 Nhập nước đi (VD: ma g3, tuong e5)\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
-            caption: `${caption}\n\nĐến lượt ${message.data.dName} (${playerMark}) đi trước.`,
+            caption,
             imagePath
-        }, 120000);
+        }, 60000);
         startTurnTimer(api, message, threadId, true);
     } else {
+        const caption = `\n♟️ BẮT ĐẦU TRÒ CHƠI CỜ VUA\n\n🤖 Bot đi trước (⚪ Trắng)\n\n🎯 Đến lượt ${message.data.dName} (⚫ Đen)`;
         await sendMessageTag(api, message, {
-            caption: `${caption}\n\n🤖 BOT đi trước (Trắng - W).`,
+            caption,
             imagePath
         });
-        game.isProcessing = true;
+        activeChessGames.get(threadId).isProcessing = true;
         handleBotTurn(api, message);
     }
     
@@ -560,7 +542,8 @@ async function handleBotTurn(api, message) {
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
-    const move = getAIMove(game);
+    const isWhite = game.currentTurn === 'white';
+    const move = getBotMove(game.board, isWhite);
     
     clearTurnTimer(threadId);
     
@@ -569,70 +552,66 @@ async function handleBotTurn(api, message) {
     await api.addReaction("UNDO", message);
     await api.addReaction("OK", message);
 
-    if (move === null) {
-        const gameOverStatus = isGameOver(game.board, game.botColor);
-        if (gameOverStatus.result === 'CHECKMATE') {
-            const kingPos = getKingPos(game.botColor === 'w' ? 'b' : 'w');
-            const imageBuffer = await createChessBoard(game);
-            const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}_checkmate.png`);
-            await fs.writeFile(imagePath, imageBuffer);
-            
-            const caption = `\n♔ TRÒ CHƠI KẾT THÚC\n\n🏆 ${game.playerName} đã chiếu bí (Checkmate) BOT. CHÚC MỪNG!`;
-            await sendMessageTag(api, message, { caption, imagePath }, 86400000);
-            activeChessGames.delete(threadId);
-        } else { // Stalemate
-            const imageBuffer = await createChessBoard(game);
-            const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}_draw.png`);
-            await fs.writeFile(imagePath, imageBuffer);
-            
-            const caption = `\n♔ TRÒ CHƠI KẾT THÚC\n\n🤝 Hòa cờ do thế cờ bí (Stalemate).`;
-            await sendMessageTag(api, message, { caption, imagePath }, 86400000);
-            activeChessGames.delete(threadId);
-        }
+    if (!move) {
+        const imageBuffer = await createChessBoard(game.board, game.moveCount, game.playerColor, game.playerName, game.lastMove, game.capturedPieces);
+        const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}_end.png`);
+        await fs.writeFile(imagePath, imageBuffer);
         
-        try { await fs.unlink(imagePath); } catch (error) {}
+        const inCheck = isInCheck(game.board, isWhite);
+        const caption = inCheck ? 
+            `\n♟️ TRÒ CHƠI KẾT THÚC\n\n🏆 ${game.playerName} chiến thắng (chiếu hết)` :
+            `\n♟️ TRÒ CHƠI KẾT THÚC\n\n🤝 Hòa cờ (bế tắc)`;
+        
+        await sendMessageTag(api, message, { caption, imagePath }, 86400000);
+        
+        try {
+            await fs.unlink(imagePath);
+        } catch (error) {}
+        
+        activeChessGames.delete(threadId);
         return;
     }
     
-    const movedPiece = game.board[move.from];
-    game.board = makeMove(game.board, move, game.currentTurn);
-    game.currentTurn = game.currentTurn === 'w' ? 'b' : 'w';
+    const capturedPiece = game.board[move.to];
+    if (capturedPiece !== '.') {
+        if (isWhitePiece(capturedPiece)) {
+            game.capturedPieces.white.push(capturedPiece);
+        } else {
+            game.capturedPieces.black.push(capturedPiece);
+        }
+    }
+    
+    game.board[move.to] = game.board[move.from];
+    game.board[move.from] = '.';
+    game.currentTurn = game.currentTurn === 'white' ? 'black' : 'white';
+    game.moveCount++;
     game.lastMove = move;
     
-    const gameOverStatus = isGameOver(game.board, game.currentTurn);
-    const kingPos = getKingPos(game.board, game.currentTurn);
-    const isInCheck = isSquareAttacked(game.board, kingPos, game.botColor);
-    
-    const imageBuffer = await createChessBoard(game);
+    const imageBuffer = await createChessBoard(game.board, game.moveCount, game.playerColor, game.playerName, move, game.capturedPieces);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    const fromSquare = indexToSquare(move.from);
-    const toSquare = indexToSquare(move.to);
-    
-    let caption = `\n🤖 BOT đi: ${fromSquare} ${toSquare}`;
-    
-    if (gameOverStatus.gameOver) {
-        if (gameOverStatus.result === 'CHECKMATE') {
-            caption += `\n\n🏆 BOT đã chiếu bí (Checkmate) ${game.playerName}. BOT WIN!`;
-        } else {
-            caption += `\n\n🤝 Hòa cờ do thế cờ bí (Stalemate).`;
-        }
+    const playerIsWhite = game.playerColor === 'white';
+    if (!hasValidMoves(game.board, playerIsWhite)) {
+        const inCheck = isInCheck(game.board, playerIsWhite);
+        const caption = inCheck ?
+            `\n♟️ Bot: ${posToNotation(move.from)} → ${posToNotation(move.to)}\n\n🏆 Bot chiến thắng (chiếu hết)` :
+            `\n♟️ Bot: ${posToNotation(move.from)} → ${posToNotation(move.to)}\n\n🤝 Hòa cờ (bế tắc)`;
+        
         await sendMessageTag(api, message, { caption, imagePath }, 86400000);
         activeChessGames.delete(threadId);
         clearTurnTimer(threadId);
     } else {
-        const playerTurnColor = game.currentTurn === 'w' ? "Trắng (W)" : "Đen (B)";
-        caption += `\n\n🎯 Đến lượt ${game.playerName} (Quân ${playerTurnColor})\n\n👉 Nhập ô bắt đầu và ô kết thúc (Ví dụ: e7 e5)`;
-        if (isInCheck) caption += `\n\n⚠️ Vua đang bị Chiếu (Check)!`;
-        caption += `\n\n🧭 Thời gian: 120 giây`;
-        
-        await sendMessageTag(api, message, { caption, imagePath }, 120000);
+        const checkStatus = isInCheck(game.board, playerIsWhite) ? ' ♔ CHIẾU!' : '';
+        const caption = `\n♟️ Bot: ${posToNotation(move.from)} → ${posToNotation(move.to)}${checkStatus}\n\n🎯 Đến lượt ${game.playerName}\n\n👉 Nhập nước đi (VD: ma g3)\n\n🧭 Thời gian: 60 giây`;
+        await sendMessageTag(api, message, { caption, imagePath }, 60000);
         game.isProcessing = false;
         startTurnTimer(api, message, threadId, true);
     }
     
-    try { await fs.unlink(imagePath); } catch (error) {}
+    try {
+        await fs.unlink(imagePath);
+    } catch (error) {}
 }
 
 export async function handleChessMessage(api, message) {
@@ -642,78 +621,137 @@ export async function handleChessMessage(api, message) {
     if (!game) return;
     if (game.isProcessing) return;
     if (message.data.uidFrom !== game.playerId) return;
-    if (game.currentTurn !== game.playerColor) return;
     
-    const content = message.data.content || "";
+    const isPlayerWhite = game.playerColor === 'white';
+    const isWhiteTurn = game.currentTurn === 'white';
+    if (isPlayerWhite !== isWhiteTurn) return;
+    
+    const content = (message.data.content || "").trim().toLowerCase();
+    
     if (message.data.mentions && message.data.mentions.length > 0) return;
     
-    if (content.trim().toLowerCase() === "lose") {
+    if (content === "lose") {
         clearTurnTimer(threadId);
-        const caption = `♔ TRẬN ĐẤU KẾT THÚC\n\n👤 Người chơi ${game.playerName} đã nhận thua.\n🏆 BOT đã dành chiến thắng ván cờ này.`;
+        const caption = `♟️ TRẬN ĐẤU KẾT THÚC\n\n👤 ${game.playerName} đã đầu hàng\n🏆 BOT đã dành chiến thắng`;
         await sendMessageTag(api, message, { caption });
         activeChessGames.delete(threadId);
         return;
     }
-    
+
     clearTurnTimer(threadId);
     
-    const move = parseInputMove(content, game.playerColor);
+    const parts = content.split(/\s+/);
+    if (parts.length < 2) {
+        await sendMessageWarning(api, message, `Cú pháp không hợp lệ. VD: "ma g3" hoặc "ma g1 g3"`, 60000);
+        startTurnTimer(api, message, threadId, true);
+        return;
+    }
     
-    if (!move) {
-        await sendMessageWarning(api, message, `Cú pháp không hợp lệ. Vui lòng nhập [ô bắt đầu] [ô kết thúc] (Ví dụ: e2 e4)`, 60000);
+    const pieceMap = {
+        'vua': 'k', 'king': 'k',
+        'hau': 'q', 'queen': 'q',
+        'xe': 'r', 'rook': 'r',
+        'tuong': 'b', 'bishop': 'b',
+        'ma': 'n', 'knight': 'n',
+        'tot': 'p', 'pawn': 'p'
+    };
+    
+    const pieceType = pieceMap[parts[0]];
+    if (!pieceType) {
+        await sendMessageWarning(api, message, `Quân cờ không hợp lệ. Sử dụng: vua, hau, xe, tuong, ma, tot`, 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
-
-    const piece = game.board[move.from];
-
-    if (piece === null || getPieceColor(piece) !== game.playerColor) {
-        await sendMessageWarning(api, message, `Ô ${indexToSquare(move.from)} không có quân cờ của bạn hoặc ô trống.`, 60000);
+    
+    let targetPos = -1;
+    let fromPos = -1;
+    
+    if (parts.length === 2) {
+        targetPos = notationToPos(parts[1]);
+    } else if (parts.length >= 3) {
+        fromPos = notationToPos(parts[1]);
+        targetPos = notationToPos(parts[2]);
+    }
+    
+    if (targetPos === -1) {
+        await sendMessageWarning(api, message, `Ô đích không hợp lệ. VD: a1, e5, h8`, 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
-
-    const legalMoves = getAllLegalMoves(game.board, game.playerColor);
-    const isLegal = legalMoves.some(m => m.from === move.from && m.to === move.to);
-
-    if (!isLegal) {
-        await sendMessageWarning(api, message, `Nước đi ${indexToSquare(move.from)} ${indexToSquare(move.to)} không hợp lệ hoặc làm Vua bị Chiếu.`, 60000);
+    
+    const searchPiece = isPlayerWhite ? pieceType.toUpperCase() : pieceType.toLowerCase();
+    const possibleMoves = [];
+    
+    for (let i = 0; i < 64; i++) {
+        if (game.board[i] === searchPiece) {
+            const moves = getValidMoves(game.board, i, true);
+            if (moves.includes(targetPos)) {
+                if (fromPos !== -1) {
+                    if (i === fromPos) {
+                        possibleMoves.push(i);
+                    }
+                } else {
+                    possibleMoves.push(i);
+                }
+            }
+        }
+    }
+    
+    if (possibleMoves.length === 0) {
+        await sendMessageWarning(api, message, `Nước đi không hợp lệ. Không có ${parts[0]} nào có thể đến ${parts[parts.length - 1]}`, 60000);
+        startTurnTimer(api, message, threadId, true);
+        return;
+    }
+    
+    if (possibleMoves.length > 1) {
+        const positions = possibleMoves.map(p => posToNotation(p)).join(', ');
+        await sendMessageWarning(api, message, `Có nhiều ${parts[0]} có thể đến ${parts[parts.length - 1]}. Vui lòng chỉ rõ: "${parts[0]} [vị trí xuất phát] ${parts[parts.length - 1]}"\nVị trí có thể: ${positions}`, 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
     
     game.isProcessing = true;
     
-    const actualMove = legalMoves.find(m => m.from === move.from && m.to === move.to);
-    game.board = makeMove(game.board, actualMove, game.currentTurn);
-    game.currentTurn = game.botColor;
-    game.lastMove = actualMove;
+    const selectedFrom = possibleMoves[0];
     
-    const gameOverStatus = isGameOver(game.board, game.playerColor);
-    const botTurnColor = game.currentTurn === 'w' ? "Trắng (W)" : "Đen (B)";
+    const capturedPiece = game.board[targetPos];
+    if (capturedPiece !== '.') {
+        if (isWhitePiece(capturedPiece)) {
+            game.capturedPieces.white.push(capturedPiece);
+        } else {
+            game.capturedPieces.black.push(capturedPiece);
+        }
+    }
     
-    const imageBuffer = await createChessBoard(game);
+    game.board[targetPos] = game.board[selectedFrom];
+    game.board[selectedFrom] = '.';
+    game.currentTurn = game.currentTurn === 'white' ? 'black' : 'white';
+    game.moveCount++;
+    game.lastMove = { from: selectedFrom, to: targetPos };
+    
+    const imageBuffer = await createChessBoard(game.board, game.moveCount, game.playerColor, game.playerName, game.lastMove, game.capturedPieces);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `chess_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
-    const fromSquare = indexToSquare(move.from);
-    const toSquare = indexToSquare(move.to);
-    let caption = `\n👤 Bạn đi: ${fromSquare} ${toSquare}`;
-    
-    if (gameOverStatus.gameOver) {
-        if (gameOverStatus.result === 'CHECKMATE') {
-            caption += `\n\n🏆 ${game.playerName} đã chiếu bí (Checkmate) BOT. CHÚC MỪNG!`;
-        } else {
-            caption += `\n\n🤝 Hòa cờ do thế cờ bí (Stalemate).`;
-        }
-        await sendMessageTag(api, message, { caption, imagePath }, 86400000);
+    const botIsWhite = game.playerColor === 'black';
+    if (!hasValidMoves(game.board, botIsWhite)) {
+        const inCheck = isInCheck(game.board, botIsWhite);
+        const caption = inCheck ?
+            `\n♟️ Bạn: ${posToNotation(selectedFrom)} → ${posToNotation(targetPos)}\n\n🏆 ${game.playerName} chiến thắng (chiếu hết)` :
+            `\n♟️ Bạn: ${posToNotation(selectedFrom)} → ${posToNotation(targetPos)}\n\n🤝 Hòa cờ (bế tắc)`;
+        
+        await sendMessageTag(api, message, { caption, imagePath }, 300000);
         activeChessGames.delete(threadId);
         clearTurnTimer(threadId);
-    } else {
-        caption += `\n\n🤖 Đến lượt BOT (${botTurnColor})\n\n🧭 Đang tính toán nước đi...`;
-        await sendMessageTag(api, message, { caption, imagePath });
-        try { await fs.unlink(imagePath); } catch (error) {}
-        
-        handleBotTurn(api, message);
+        try {
+            await fs.unlink(imagePath);
+        } catch (error) {}
+        return;
     }
+    
+    try {
+        await fs.unlink(imagePath);
+    } catch (error) {}
+    
+    handleBotTurn(api, message);
 }
