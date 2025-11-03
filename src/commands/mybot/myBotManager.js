@@ -6,7 +6,7 @@ import { stopBot } from "./stopBot.js";
 import { startBot } from "./startBot.js";
 import { deleteBot } from "./deleteBot.js";
 import { infoBot, detailBot } from "./infoBot.js";
-import { getGlobalPrefix } from "../../service-dqt/service.js";
+import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { createBotListImage } from "../../utils/canvas/listbots-canvas.js";
 import { sendMessageFailed, sendMessageComplete, sendMessageWarning, sendMessageResultRequest } from "./chat-style-fake.js";
 import { MessageType } from "zlbotdqt";
