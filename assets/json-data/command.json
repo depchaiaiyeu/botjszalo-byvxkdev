@@ -2282,6 +2282,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "mybot",
+      "description": "Quản lý danh sách bot con VXK",
+      "syntax": "{p}mybot",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "🤖",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
