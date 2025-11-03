@@ -17,6 +17,12 @@ let NAME_TABLE_ACCOUNT;
 let DAILY_REWARD;
 
 async function loadConfig() {
+  const configPath = path.join(
+    process.cwd(),
+    "assets",
+    "json-data",
+    "database-config.json"
+  );
   const configFile = await fs.readFile(configPath, "utf8");
   return JSON.parse(configFile);
 }
