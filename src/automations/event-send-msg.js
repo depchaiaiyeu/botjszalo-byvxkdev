@@ -19,6 +19,7 @@ import { handleGuessNumberGame } from "../service-hahuyhoang/game-service/mini-g
 import { handleVuaTiengVietMessage } from "../service-hahuyhoang/game-service/mini-game/vuaTiengViet.js";
 import { handleFishingMessage } from "../service-hahuyhoang/game-service/mini-game/fishing.js";
 import { handleCaroMessage } from "../service-hahuyhoang/game-service/mini-game/caro.js";
+import { handleChessMessage } from "../service-hahuyhoang/game-service/mini-game/chess.js";
 
 import { Reactions } from "../api-zalo/index.js";
 import { handleOnChatUser, handleOnReplyFromUser } from "../service-hahuyhoang/service.js";
@@ -234,6 +235,7 @@ export async function messagesUser(api, message) {
         handleVuaTiengVietMessage(api, message),
         handleFishingMessage(api, message),
         handleCaroMessage(api, message),
+        handleChessMessage(api, message),
       ]);
       break;
     }
