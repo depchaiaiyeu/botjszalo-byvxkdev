@@ -108,6 +108,25 @@ function getGioHacDao(dd, mm, yyyy) {
   return gioHacDao[chiOfDay].map(i => all[i]);
 }
 
+function getHuongXuatHanh(dd, mm, yyyy) {
+  const chiOfDay = (jdFromDate(dd, mm, yyyy) + 1) % 12;
+  const huongMap = [
+    "Xuất hành hướng Chính Nam để đón 'Hỷ Thần' Xuất hành hướng Chính Đông để đón 'Tài Thần' Tránh xuất hành hướng Chính Tây gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Đông Nam để đón 'Hỷ Thần' Xuất hành hướng Nam để đón 'Tài Thần' Tránh xuất hành hướng Bắc gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Đông Bắc để đón 'Hỷ Thần' Xuất hành hướng Đông Nam để đón 'Tài Thần' Tránh xuất hành hướng Nam gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Tây Bắc để đón 'Hỷ Thần' Xuất hành hướng Đông để đón 'Tài Thần' Tránh xuất hành hướng Đông gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Tây Nam để đón 'Hỷ Thần' Xuất hành hướng Bắc để đón 'Tài Thần' Tránh xuất hành hướng Đông Nam gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Chính Nam để đón 'Hỷ Thần' Xuất hành hướng Chính Bắc để đón 'Tài Thần' Tránh xuất hành hướng Chính Bắc gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Đông Nam để đón 'Hỷ Thần' Xuất hành hướng Tây Nam để đón 'Tài Thần' Tránh xuất hành hướng Tây gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Đông Bắc để đón 'Hỷ Thần' Xuất hành hướng Nam để đón 'Tài Thần' Tránh xuất hành hướng Tây Bắc gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Tây Bắc để đón 'Hỷ Thần' Xuất hành hướng Đông Nam để đón 'Tài Thần' Tránh xuất hành hướng Tây Nam gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Tây Nam để đón 'Hỷ Thần' Xuất hành hướng Đông để đón 'Tài Thần' Tránh xuất hành hướng Nam gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Chính Nam để đón 'Hỷ Thần' Xuất hành hướng Bắc để đón 'Tài Thần' Tránh xuất hành hướng Đông gặp Hắc Thần (xấu)",
+    "Xuất hành hướng Đông Nam để đón 'Hỷ Thần' Xuất hành hướng Tây Nam để đón 'Tài Thần' Tránh xuất hành hướng Đông Nam gặp Hắc Thần (xấu)"
+  ];
+  return huongMap[chiOfDay];
+}
+
 async function getVietnameseHolidays(year) {
   const holidays = [];
   
@@ -174,7 +193,7 @@ async function getUpcomingHolidays(currentDate) {
 
 export async function createCalendarImage() {
   const width = 900;
-  const height = 1400;
+  const height = 1600;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -233,13 +252,33 @@ export async function createCalendarImage() {
   
   holidays.forEach(holiday => {
     const boxH = 70;
-    ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+    const radius = 12;
+    
     ctx.beginPath();
-    ctx.roundRect(45, yPos, width - 90, boxH, 12);
+    ctx.moveTo(45 + radius, yPos);
+    ctx.lineTo(45 + 190 - radius, yPos);
+    ctx.quadraticCurveTo(45 + 190, yPos, 45 + 190, yPos + radius);
+    ctx.lineTo(45 + 190, yPos + boxH - radius);
+    ctx.quadraticCurveTo(45 + 190, yPos + boxH, 45 + 190 - radius, yPos + boxH);
+    ctx.lineTo(45 + radius, yPos + boxH);
+    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
+    ctx.lineTo(45, yPos + radius);
+    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
+    ctx.closePath();
+    ctx.fillStyle = "#FFA500";
     ctx.fill();
 
-    ctx.fillStyle = "#FFA500";
-    ctx.fillRect(45, yPos, 190, boxH);
+    ctx.beginPath();
+    ctx.moveTo(45 + 190, yPos);
+    ctx.lineTo(width - 45 - radius, yPos);
+    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
+    ctx.lineTo(width - 45, yPos + boxH - radius);
+    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
+    ctx.lineTo(45 + 190, yPos + boxH);
+    ctx.lineTo(45 + 190, yPos);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+    ctx.fill();
     
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 22px 'BeVietnamPro', Arial";
@@ -306,6 +345,43 @@ export async function createCalendarImage() {
   if (gioHacDao[6]) {
     ctx.fillText(gioHacText3, width / 2, yPos + 135);
   }
+
+  yPos += 180;
+  const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
+  ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 180, 12);
+  ctx.fill();
+
+  const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
+  huongGradient.addColorStop(0, "#FFD700");
+  huongGradient.addColorStop(1, "#FFA500");
+  ctx.fillStyle = huongGradient;
+  ctx.font = "bold 28px 'BeVietnamPro', Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("Hướng xuất hành", width / 2, yPos + 40);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "16px 'BeVietnamPro', Arial";
+  ctx.textAlign = "left";
+  const maxWidth = width - 130;
+  const lineHeight = 24;
+  const words = huongXuatHanh.split(' ');
+  let line = '';
+  let y = yPos + 75;
+  
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, 70, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, 70, y);
 
   const filePath = path.resolve(`./assets/temp/calendar_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
