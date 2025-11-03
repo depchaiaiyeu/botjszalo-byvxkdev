@@ -1430,7 +1430,11 @@ export async function handleCommand(
             case "caro":
               await startGame(api, message, groupSettings, "caro", commandParts.slice(1), isAdminBox);
               break;
-
+              
+            case "chess":
+              await startGame(api, message, groupSettings, "chess", commandParts.slice(1), isAdminBox);
+              break
+              
             case "baucua":
               await handleBauCua(api, message, groupSettings);
               break;
