@@ -65,9 +65,10 @@ function posToNotation(pos) {
 }
 
 function notationToPos(notation) {
+    if (!notation || notation.length < 2) return -1;
     const col = notation.charCodeAt(0) - 97;
     const row = 8 - parseInt(notation[1]);
-    if (col < 0 || col > 7 || row < 0 || row > 7) return -1;
+    if (col < 0 || col > 7 || row < 0 || row > 7 || isNaN(row)) return -1;
     return row * 8 + col;
 }
 
@@ -86,7 +87,7 @@ function getPieceEmoji(piece) {
 
 async function createChessBoard(board, moveCount = 0, playerColor = "white", playerName = "Player", lastMove = null, capturedPieces = { white: [], black: [] }) {
     const cellSize = 70;
-    const padding = 40;
+    const padding = 50;
     const headerHeight = 80;
     const footerHeight = 60;
     const width = 8 * cellSize + padding * 2;
@@ -98,14 +99,14 @@ async function createChessBoard(board, moveCount = 0, playerColor = "white", pla
     ctx.fillStyle = "#2C2C2C";
     ctx.fillRect(0, 0, width, height);
     
-    ctx.font = "bold 18px Arial";
+    ctx.font = "bold 18px 'BeVietnamPro'";
     ctx.fillStyle = "#FFFFFF";
     ctx.textAlign = "left";
     ctx.fillText(`⚪ ${playerColor === 'white' ? playerName : 'BOT'}`, 20, 30);
     ctx.textAlign = "right";
     ctx.fillText(`⚫ ${playerColor === 'black' ? playerName : 'BOT'}`, width - 20, 30);
     
-    ctx.font = "14px Arial";
+    ctx.font = "14px 'BeVietnamPro'";
     ctx.textAlign = "left";
     ctx.fillText(`Bị ăn: ${capturedPieces.white.map(p => getPieceEmoji(p)).join('')}`, 20, 55);
     ctx.textAlign = "right";
@@ -123,19 +124,20 @@ async function createChessBoard(board, moveCount = 0, playerColor = "white", pla
             ctx.fillRect(x, y, cellSize, cellSize);
             
             if (lastMove && (lastMove.from === row * 8 + col || lastMove.to === row * 8 + col)) {
-                ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
+                ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
                 ctx.fillRect(x, y, cellSize, cellSize);
             }
         }
     }
     
-    ctx.font = "12px Arial";
-    ctx.fillStyle = "#000000";
+    ctx.font = "bold 14px 'BeVietnamPro'";
+    ctx.fillStyle = "#FFFFFF";
     for (let i = 0; i < 8; i++) {
         ctx.textAlign = "center";
-        ctx.fillText(String.fromCharCode(97 + i), padding + i * cellSize + cellSize / 2, boardTop + padding + 8 * cellSize + 20);
-        ctx.textAlign = "right";
-        ctx.fillText((8 - i).toString(), padding - 10, boardTop + padding + i * cellSize + cellSize / 2 + 5);
+        ctx.textBaseline = "middle";
+        ctx.fillText(String.fromCharCode(97 + i), padding + i * cellSize + cellSize / 2, boardTop + padding + 8 * cellSize + 25);
+        ctx.textAlign = "center";
+        ctx.fillText((8 - i).toString(), padding - 25, boardTop + padding + i * cellSize + cellSize / 2);
     }
     
     ctx.font = "50px Arial";
@@ -151,7 +153,7 @@ async function createChessBoard(board, moveCount = 0, playerColor = "white", pla
         }
     }
     
-    ctx.font = "bold 16px Arial";
+    ctx.font = "bold 16px 'BeVietnamPro'";
     ctx.fillStyle = "#FFFFFF";
     ctx.textAlign = "center";
     ctx.fillText(`Nước đi: ${moveCount}`, width / 2, height - 25);
@@ -388,6 +390,7 @@ function minimax(board, depth, alpha, beta, isMaximizing) {
                 alpha = Math.max(alpha, eval_);
                 if (beta <= alpha) break;
             }
+            if (beta <= alpha) break;
         }
         return maxEval;
     } else {
@@ -407,6 +410,7 @@ function minimax(board, depth, alpha, beta, isMaximizing) {
                 beta = Math.min(beta, eval_);
                 if (beta <= alpha) break;
             }
+            if (beta <= alpha) break;
         }
         return minEval;
     }
@@ -456,19 +460,18 @@ export async function handleChessCommand(api, message) {
             `${prefix}chess start first → Bạn chơi quân trắng, đi trước\n` +
             `${prefix}chess start last → Bạn chơi quân đen, bot đi trước\n\n` +
             `📋 Cách chơi:\n` +
-            `- Nhập tên quân và ô đích để di chuyển\n` +
-            `- Ví dụ: "ma g3" hoặc "knight g3"\n` +
-            `- Ví dụ: "tuong e5" hoặc "bishop e5"\n\n` +
+            `- Cách 1: Nhập tên quân và ô đích\n` +
+            `  VD: "ma g3", "tuong e5"\n` +
+            `- Cách 2: Nhập vị trí xuất phát và ô đích\n` +
+            `  VD: "g1 f3", "e2 e4"\n\n` +
             `🎯 Tên quân:\n` +
-            `- Vua / King\n` +
-            `- Hau / Queen\n` +
-            `- Xe / Rook\n` +
-            `- Tuong / Bishop\n` +
-            `- Ma / Knight\n` +
-            `- Tot / Pawn\n\n` +
+            `- Vua / King (K)\n` +
+            `- Hau / Queen (Q)\n` +
+            `- Xe / Rook (R)\n` +
+            `- Tuong / Bishop (B)\n` +
+            `- Ma / Knight (N)\n` +
+            `- Tot / Pawn (P)\n\n` +
             `⚠️ Lưu ý:\n` +
-            `- Nếu có nhiều quân cùng loại có thể đi đến ô đích, hãy thêm vị trí xuất phát\n` +
-            `- Ví dụ: "ma g1 g3" (mã từ g1 đến g3)\n` +
             `- Gõ "lose" để đầu hàng\n` +
             `🧭 Thời gian: 60 giây/nước`
         );
@@ -510,7 +513,7 @@ export async function handleChessCommand(api, message) {
     await fs.writeFile(imagePath, imageBuffer);
     
     if (playerColor === 'white') {
-        const caption = `\n♟️ BẮT ĐẦU TRÒ CHƠI CỜ VUA\n\n🎯 Đến lượt ${message.data.dName} (⚪ Trắng)\n\n👉 Nhập nước đi (VD: ma g3, tuong e5)\n\n🧭 Thời gian: 60 giây`;
+        const caption = `\n♟️ BẮT ĐẦU TRÒ CHƠI CỜ VUA\n\n🎯 Đến lượt ${message.data.dName} (⚪ Trắng)\n\n👉 Nhập nước đi (VD: e2 e4, ma g3)\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -603,7 +606,7 @@ async function handleBotTurn(api, message) {
         clearTurnTimer(threadId);
     } else {
         const checkStatus = isInCheck(game.board, playerIsWhite) ? ' ♔ CHIẾU!' : '';
-        const caption = `\n♟️ Bot: ${posToNotation(move.from)} → ${posToNotation(move.to)}${checkStatus}\n\n🎯 Đến lượt ${game.playerName}\n\n👉 Nhập nước đi (VD: ma g3)\n\n🧭 Thời gian: 60 giây`;
+        const caption = `\n♟️ Bot: ${posToNotation(move.from)} → ${posToNotation(move.to)}${checkStatus}\n\n🎯 Đến lượt ${game.playerName}\n\n👉 Nhập nước đi (VD: e7 e5)\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, { caption, imagePath }, 60000);
         game.isProcessing = false;
         startTurnTimer(api, message, threadId, true);
@@ -640,9 +643,9 @@ export async function handleChessMessage(api, message) {
 
     clearTurnTimer(threadId);
     
-    const parts = content.split(/\s+/);
+    const parts = content.split(/\s+/).filter(p => p);
     if (parts.length < 2) {
-        await sendMessageWarning(api, message, `Cú pháp không hợp lệ. VD: "ma g3" hoặc "ma g1 g3"`, 60000);
+        await sendMessageWarning(api, message, `Cú pháp không hợp lệ. VD: "e2 e4" hoặc "ma g3"`, 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
@@ -655,13 +658,6 @@ export async function handleChessMessage(api, message) {
         'ma': 'n', 'knight': 'n',
         'tot': 'p', 'pawn': 'p'
     };
-    
-    const pieceType = pieceMap[parts[0]];
-    if (!pieceType) {
-        await sendMessageWarning(api, message, `Quân cờ không hợp lệ. Sử dụng: vua, hau, xe, tuong, ma, tot`, 60000);
-        startTurnTimer(api, message, threadId, true);
-        return;
-    }
     
     let targetPos = -1;
     let fromPos = -1;
