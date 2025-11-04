@@ -4,6 +4,7 @@ import fs from "fs";
 let _botName = null;
 let _cfgPath = null;
 let _projectRoot = null;
+
 function debugEnv() {
   console.log("=== ENVIRONMENT DEBUG ===");
   console.log("process.argv:", process.argv);
@@ -13,6 +14,7 @@ function debugEnv() {
   console.log("process.cwd():", process.cwd());
   console.log("=========================");
 }
+
 export function getBotName() {
   if (_botName === null) {
     _botName = process.env.BOT_NAME;
@@ -24,6 +26,7 @@ export function getBotName() {
   }
   return _botName;
 }
+
 export function getProjectRoot() {
   if (_projectRoot === null) {
     _projectRoot = process.env.PROJECT_ROOT;
@@ -34,18 +37,25 @@ export function getProjectRoot() {
   }
   return _projectRoot;
 }
+
 export function getCfgPath() {
   if (_cfgPath === null) {
     _cfgPath = process.env.CONFIG_PATH;
     if (!_cfgPath) {
       const botName = getBotName();
       const projectRoot = getProjectRoot();
-      _cfgPath = path.join(projectRoot, "mybot", "bots", `${botName}.json`);
+      const botCfgPath = path.join(projectRoot, "mybot", "bots", `${botName}.json`);
+      if (fs.existsSync(botCfgPath)) {
+        _cfgPath = botCfgPath;
+      } else {
+        _cfgPath = path.join(projectRoot, "assets", "config.json");
+      }
       console.warn(`CONFIG_PATH không có trong env, sử dụng fallback: ${_cfgPath}`);
     }
   }
   return _cfgPath;
 }
+
 export function getConfig() {
   return {
     botName: getBotName(),
@@ -53,6 +63,7 @@ export function getConfig() {
     projectRoot: getProjectRoot()
   };
 }
+
 export function validateConfigFile() {
   const cfgPath = getCfgPath();
   if (!fs.existsSync(cfgPath)) {
@@ -68,24 +79,20 @@ export function validateConfigFile() {
     return false;
   }
 }
+
 export function validateEnv(showDebug = false) {
-  if (showDebug) {
-    debugEnv();
-  }
+  if (showDebug) debugEnv();
   try {
     const config = getConfig();
-    if (!validateConfigFile()) {
-      return false;
-    }
+    if (!validateConfigFile()) return false;
     return true;
   } catch (error) {
     console.error("Environment validation failed:", error.message);
-    if (showDebug) {
-      debugEnv();
-    }
+    if (showDebug) debugEnv();
     return false;
   }
 }
+
 export function loadConfig() {
   const cfgPath = getCfgPath();
   try {
@@ -103,31 +110,39 @@ export function loadConfig() {
     throw error;
   }
 }
+
 export function resetCache() {
   _botName = null;
   _cfgPath = null;
   _projectRoot = null;
 }
+
 export function setEnvVars(envVars) {
   if (envVars.BOT_NAME) process.env.BOT_NAME = envVars.BOT_NAME;
   if (envVars.CONFIG_PATH) process.env.CONFIG_PATH = envVars.CONFIG_PATH;
   if (envVars.PROJECT_ROOT) process.env.PROJECT_ROOT = envVars.PROJECT_ROOT;
   resetCache();
 }
+
 export async function getBotInfo() {
   const cfgPath = getCfgPath();
+  let cfgData;
   if (!fs.existsSync(cfgPath)) {
-    console.trace(`Không tìm thấy file cấu hình bot: ${cfgPath}`);
-    return null;
+    const fallback = path.join(getProjectRoot(), "assets", "config.json");
+    console.warn(`Không tìm thấy file cấu hình bot: ${cfgPath}, fallback: ${fallback}`);
+    if (!fs.existsSync(fallback)) return null;
+    cfgData = await fs.promises.readFile(fallback, "utf8");
+  } else {
+    cfgData = await fs.promises.readFile(cfgPath, "utf8");
   }
   try {
-    const cfgData = await fs.promises.readFile(cfgPath, "utf8");
     return JSON.parse(cfgData);
   } catch (error) {
     console.error(error);
     return null;
   }
 }
+
 if (!process.env.SKIP_ENV_VALIDATION) {
   process.nextTick(() => {
     try {
