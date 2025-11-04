@@ -314,7 +314,7 @@ export async function createCalendarImage() {
   ctx.fillStyle = "#ffffff";
   ctx.font = "16px 'BeVietnamPro', Arial";
   ctx.textAlign = "left";
-  const maxWidth = width - 130;
+  const maxHuongWidth = width - 130;
   const lineHeight = 24;
   const words = huongXuatHanh.split(' ');
   let line = '';
@@ -323,7 +323,7 @@ export async function createCalendarImage() {
   for (let i = 0; i < words.length; i++) {
     const testLine = line + words[i] + ' ';
     const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && i > 0) {
+    if (metrics.width > maxHuongWidth && i > 0) {
       ctx.fillText(line, 70, y);
       line = words[i] + ' ';
       y += lineHeight;
