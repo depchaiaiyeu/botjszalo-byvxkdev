@@ -309,7 +309,7 @@ async function prepareAndSendMusic(api, message, songData, linkMusic, quality, c
   const objectMusic = {
     trackId: songData.encodeId,
     title: songData.title,
-    artists: songData.artistsNames,
+    artists: `Artist: ${songData.artistsNames}`,
     like: songData.like,
     listen: songData.listen,
     comment: songData.comment,
@@ -690,7 +690,7 @@ export async function handleRandomChartZingMp3(
     const object = {
       trackId: randomSong.encodeId,
       title: randomSong.title,
-      artists: randomSong.artistsNames,
+      artists: `Artist: ${randomSong.artistsNames}`,
       like: randomSong.like,
       listen: randomSong.listen,
       comment: randomSong.comment,
