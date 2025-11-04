@@ -148,7 +148,7 @@ async function getVietnameseHolidays(year) {
   if (tetTrungThu) holidays.push({ name: "Tết Trung thu", date: tetTrungThu });
   
   const tetDoanNgo = await lunarToSolar(5, 5, year);
-  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNo });
+  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNgo });
   
   const ramThangGieng = await lunarToSolar(15, 1, year);
   if (ramThangGieng) holidays.push({ name: "Rằm tháng Giêng", date: ramThangGieng });
@@ -191,46 +191,6 @@ async function getUpcomingHolidays(currentDate) {
   return upcoming;
 }
 
-function drawGlassBox(ctx, x, y, w, h, radius) {
-  ctx.save();
-  
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-  
-  const gradient = ctx.createLinearGradient(x, y, x, y + h);
-  gradient.addColorStop(0, "rgba(255, 255, 255, 0.15)");
-  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
-  gradient.addColorStop(1, "rgba(255, 255, 255, 0.12)");
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  
-  const borderGradient = ctx.createLinearGradient(x, y, x, y + h);
-  borderGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
-  borderGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.2)");
-  borderGradient.addColorStop(1, "rgba(255, 255, 255, 0.3)");
-  ctx.strokeStyle = borderGradient;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  
-  ctx.globalCompositeOperation = 'overlay';
-  const highlightGradient = ctx.createLinearGradient(x, y, x, y + h * 0.5);
-  highlightGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
-  highlightGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = highlightGradient;
-  ctx.fill();
-  
-  ctx.restore();
-}
-
 export async function createCalendarImage() {
   const width = 900;
   const height = 1600;
@@ -253,7 +213,10 @@ export async function createCalendarImage() {
   const minutes = now.getMinutes();
   const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
 
-  drawGlassBox(ctx, 45, 80, width - 90, 380, 20);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.beginPath();
+  ctx.roundRect(45, 80, width - 90, 380, 20);
+  ctx.fill();
 
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 32px 'BeVietnamPro', Arial";
@@ -299,7 +262,7 @@ export async function createCalendarImage() {
     ctx.lineTo(45, yPos + radius);
     ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
     ctx.closePath();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
     ctx.fill();
 
     ctx.beginPath();
@@ -334,7 +297,7 @@ export async function createCalendarImage() {
   
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 140, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
   ctx.fill();
 
   const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
@@ -360,7 +323,7 @@ export async function createCalendarImage() {
   
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 160, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
   ctx.fill();
 
   const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
@@ -387,7 +350,7 @@ export async function createCalendarImage() {
   
   ctx.beginPath();
   ctx.roundRect(45, yPos, width - 90, 180, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
   ctx.fill();
 
   const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
