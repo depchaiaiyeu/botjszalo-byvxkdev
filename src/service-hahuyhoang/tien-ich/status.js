@@ -12,7 +12,7 @@ async function createStatusImage(text, userInfo) {
 	const width = 900;
 	const tempCanvas = createCanvas(width, 1);
 	const tempCtx = tempCanvas.getContext("2d");
-	tempCtx.font = "bold 48px Arial";
+	tempCtx.font = "bold 48px BeVietnamPro, Arial";
 
 	const paragraphs = text.split("\n");
 	let lines = [];
@@ -169,11 +169,11 @@ async function createStatusImage(text, userInfo) {
 
 	const now = new Date();
 	const timeStr = now.toLocaleString("vi-VN");
-	ctx.font = "26px Arial";
+	ctx.font = "26px BeVietnamPro, Arial";
 	ctx.fillStyle = "#666666";
 	ctx.fillText(timeStr + " 🌍", textX, timeY);
 
-	ctx.font = "bold 48px Arial";
+	ctx.font = "bold 48px BeVietnamPro, Arial";
 	ctx.fillStyle = "#FFFFFF";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle";
