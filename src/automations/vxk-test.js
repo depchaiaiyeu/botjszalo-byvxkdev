@@ -2,7 +2,7 @@ import { getSimsimiReply } from "../service-hahuyhoang/chat-bot/simsimi/simsimi-
 import { getBotId } from "../index.js";
 import { sendMessageStateQuote } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { MessageMention } from "zlbotdqt";
-import { ReactionMap } from "../api-zalo/Models/Reaction.js";
+import { ReactionMap } from "../api-zalo/models/Reaction.js";
 
 const lastAutoReplyMap = new Map();
 const AUTO_REPLY_COOLDOWN = 5 * 60 * 1000;
