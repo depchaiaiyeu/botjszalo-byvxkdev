@@ -150,49 +150,49 @@ export async function createCalendarImage() {
   ctx.fillText(timeStr, width / 2, 280);
 
   const quotes = [
-  { text: "Cách duy nhất để làm việc vĩ đại là yêu thích công việc bạn làm.", author: "- Steve Jobs" },
-  { text: "Cuộc sống là những gì xảy ra khi bạn đang bận rộn lên kế hoạch khác.", author: "- John Lennon" },
-  { text: "Hãy bận rộn mà sống, hoặc bận rộn mà chết.", author: "- Stephen King" },
-  { text: "Tương lai thuộc về những người tin vào vẻ đẹp của ước mơ.", author: "- Eleanor Roosevelt" },
-  { text: "Bạn bỏ lỡ 100% những cơ hội mà bạn không dám thử.", author: "- Wayne Gretzky" },
-  { text: "Thời điểm tốt nhất để trồng một cái cây là 20 năm trước. Thời điểm tốt thứ hai là ngay bây giờ.", author: "- Tục ngữ Trung Hoa" },
-  { text: "Hãy luôn khát khao, hãy luôn dại khờ.", author: "- Steve Jobs" },
-  { text: "Đổi mới là khả năng nhìn thấy sự thay đổi như một cơ hội – chứ không phải mối đe dọa.", author: "- Steve Jobs" },
-  { text: "Thành công không đến từ những gì bạn làm thỉnh thoảng, mà đến từ những gì bạn làm kiên định mỗi ngày.", author: "- Marie Forleo" },
-  { text: "Đừng sợ thất bại. Sợ nhất là không dám thử.", author: "- Roy T. Bennett" },
-  { text: "Cuộc sống không phải là tìm thấy chính mình, mà là tạo ra chính mình.", author: "- George Bernard Shaw" },
-  { text: "Hạnh phúc không phụ thuộc vào bạn có bao nhiêu, mà phụ thuộc vào bạn biết trân trọng bao nhiêu.", author: "- Khuyết danh" },
-  { text: "Nếu bạn muốn bay, hãy từ bỏ mọi thứ níu giữ bạn lại.", author: "- Khuyết danh" },
-  { text: "Đừng đếm ngày, hãy khiến mỗi ngày đều đáng nhớ.", author: "- Muhammad Ali" },
-  { text: "Người mạnh mẽ không phải là người không bao giờ gục ngã, mà là người luôn đứng dậy sau mỗi lần vấp ngã.", author: "- Khuyết danh" }
+    { text: "Cách duy nhất để làm việc vĩ đại là yêu thích công việc bạn làm.", author: "- Steve Jobs" },
+    { text: "Cuộc sống là những gì xảy ra khi bạn đang bận rộn lên kế hoạch khác.", author: "- John Lennon" },
+    { text: "Hãy bận rộn mà sống, hoặc bận rộn mà chết.", author: "- Stephen King" },
+    { text: "Tương lai thuộc về những người tin vào vẻ đẹp của ước mơ.", author: "- Eleanor Roosevelt" },
+    { text: "Bạn bỏ lỡ 100% những cơ hội mà bạn không dám thử.", author: "- Wayne Gretzky" },
+    { text: "Thời điểm tốt nhất để trồng một cái cây là 20 năm trước. Thời điểm tốt thứ hai là ngay bây giờ.", author: "- Tục ngữ Trung Hoa" },
+    { text: "Hãy luôn khát khao, hãy luôn dại khờ.", author: "- Steve Jobs" },
+    { text: "Đổi mới là khả năng nhìn thấy sự thay đổi như một cơ hội – chứ không phải mối đe dọa.", author: "- Steve Jobs" },
+    { text: "Thành công không đến từ những gì bạn làm thỉnh thoảng, mà đến từ những gì bạn làm kiên định mỗi ngày.", author: "- Marie Forleo" },
+    { text: "Đừng sợ thất bại. Sợ nhất là không dám thử.", author: "- Roy T. Bennett" },
+    { text: "Cuộc sống không phải là tìm thấy chính mình, mà là tạo ra chính mình.", author: "- George Bernard Shaw" },
+    { text: "Hạnh phúc không phụ thuộc vào bạn có bao nhiêu, mà phụ thuộc vào bạn biết trân trọng bao nhiêu.", author: "- Khuyết danh" },
+    { text: "Nếu bạn muốn bay, hãy từ bỏ mọi thứ níu giữ bạn lại.", author: "- Khuyết danh" },
+    { text: "Đừng đếm ngày, hãy khiến mỗi ngày đều đáng nhớ.", author: "- Muhammad Ali" },
+    { text: "Người mạnh mẽ không phải là người không bao giờ gục ngã, mà là người luôn đứng dậy sau mỗi lần vấp ngã.", author: "- Khuyết danh" }
   ];
   const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
   ctx.font = "bold 24px 'BeVietnamPro', Arial";
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
-  const maxWidth = width - 100;
-  const lineHeight = 28;
-  const words = randomQuote.text.split(' ');
-  let line = '';
-  let y = 340;
+  const quoteMaxWidth = width - 100;
+  const quoteLineHeight = 28;
+  const quoteWords = randomQuote.text.split(' ');
+  let quoteLine = '';
+  let quoteY = 340;
   
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
+  for (let i = 0; i < quoteWords.length; i++) {
+    const testLine = quoteLine + quoteWords[i] + ' ';
     const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line, width / 2, y);
-      line = words[i] + ' ';
-      y += lineHeight;
+    if (metrics.width > quoteMaxWidth && i > 0) {
+      ctx.fillText(quoteLine, width / 2, quoteY);
+      quoteLine = quoteWords[i] + ' ';
+      quoteY += quoteLineHeight;
     } else {
-      line = testLine;
+      quoteLine = testLine;
     }
   }
-  ctx.fillText(line, width / 2, y);
+  ctx.fillText(quoteLine, width / 2, quoteY);
 
   ctx.font = "bold 22px 'BeVietnamPro', Arial";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.fillText(randomQuote.author, width / 2, y + 40);
+  ctx.fillText(randomQuote.author, width / 2, quoteY + 40);
 
   const holidays = await getUpcomingHolidays(now);
   let yPos = 520;
@@ -314,24 +314,24 @@ export async function createCalendarImage() {
   ctx.fillStyle = "#ffffff";
   ctx.font = "16px 'BeVietnamPro', Arial";
   ctx.textAlign = "left";
-  const maxHuongWidth = width - 130;
-  const lineHeight = 24;
-  const words = huongXuatHanh.split(' ');
-  let line = '';
-  let y = yPos + 75;
+  const huongMaxWidth = width - 130;
+  const huongLineHeight = 24;
+  const huongWords = huongXuatHanh.split(' ');
+  let huongLine = '';
+  let huongY = yPos + 75;
   
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
+  for (let i = 0; i < huongWords.length; i++) {
+    const testLine = huongLine + huongWords[i] + ' ';
     const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxHuongWidth && i > 0) {
-      ctx.fillText(line, 70, y);
-      line = words[i] + ' ';
-      y += lineHeight;
+    if (metrics.width > huongMaxWidth && i > 0) {
+      ctx.fillText(huongLine, 70, huongY);
+      huongLine = huongWords[i] + ' ';
+      huongY += huongLineHeight;
     } else {
-      line = testLine;
+      huongLine = testLine;
     }
   }
-  ctx.fillText(line, 70, y);
+  ctx.fillText(huongLine, 70, huongY);
 
   const filePath = path.resolve(`./assets/temp/calendar_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
