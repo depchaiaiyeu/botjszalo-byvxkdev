@@ -4,30 +4,31 @@ import { createCalendarImage, clearImagePath } from "../../utils/canvas/lich-van
 
 export async function handleCalendarCommand(api, message) {
   const threadId = message.threadId;
-  
+
+  const commandBody = message.data?.content || message.body || "";
+  const parts = commandBody.toLowerCase().split(/\s+/).filter(p => p.length > 0);
+
+  let requestedMonth = undefined;
+
+  const monthKeywordIndex = parts.findIndex(p => p === 'month');
+
+  if (monthKeywordIndex !== -1) {
+    const potentialMonthToken = parts[monthKeywordIndex + 1];
+    const monthNum = parseInt(potentialMonthToken, 10);
+
+    if (!isNaN(monthNum) && monthNum >= 1 && monthNum <= 12) {
+      requestedMonth = monthNum;
+    }
+  }
+
   try {
-    const command = (message.data.content || "").toLowerCase().trim();
-    
     let imagePath;
-    
-    if (command.includes("month")) {
-      const monthMatch = command.match(/month\s+(\d+)/);
-      
-      if (monthMatch) {
-        const inputMonth = parseInt(monthMatch[1]);
-        if (inputMonth >= 1 && inputMonth <= 12) {
-          imagePath = await createCalendarImage(inputMonth, true);
-        } else {
-          imagePath = await createCalendarImage();
-        }
-      } else {
-        const currentMonth = new Date().getMonth() + 1;
-        imagePath = await createCalendarImage(currentMonth, true);
-      }
+    if (requestedMonth) {
+      imagePath = await createCalendarImage(requestedMonth);
     } else {
       imagePath = await createCalendarImage();
     }
-    
+
     await api.sendMessage(
       {
         attachments: [imagePath],
@@ -35,7 +36,7 @@ export async function handleCalendarCommand(api, message) {
       threadId,
       message.type
     );
-    
+
     await clearImagePath(imagePath);
   } catch (error) {
     console.error("Lỗi khi tạo lịch vạn niên:", error);
@@ -45,6 +46,5 @@ export async function handleCalendarCommand(api, message) {
       "Đã xảy ra lỗi khi tạo lịch vạn niên. Vui lòng thử lại sau."
     );
   }
-  
   return true;
 }
