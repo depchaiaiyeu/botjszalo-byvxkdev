@@ -4,51 +4,59 @@ import path from "path";
 import * as cv from "./index.js";
 
 export function createHelpBackground(ctx, width, height) {
-  const stars = Array.from({ length: 50 }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    radius: Math.random() * 2 + 0.5,
-    speedX: (Math.random() - 0.5) * 0.3,
-    speedY: (Math.random() - 0.5) * 0.3,
-    opacity: Math.random() * 0.3 + 0.05
-  }));
+  const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width);
+  gradient.addColorStop(0, "#2E1E66");
+  gradient.addColorStop(0.4, "#1E1B4B");
+  gradient.addColorStop(0.7, "#172554");
+  gradient.addColorStop(1, "#0F172A");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
 
-  let hue = 230;
-  let direction = 1;
+  const glowGradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
+  glowGradient.addColorStop(0, "rgba(80, 120, 255, 0.25)");
+  glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, 0, width, height);
 
-  function drawFrame() {
-    hue += direction * 0.3;
-    if (hue > 260 || hue < 200) direction *= -1;
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, `hsl(${hue}, 70%, 25%)`);
-    gradient.addColorStop(0.5, `hsl(${hue + 10}, 70%, 18%)`);
-    gradient.addColorStop(1, `hsl(${hue + 20}, 70%, 10%)`);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    for (const star of stars) {
-      star.x += star.speedX;
-      star.y += star.speedY;
-
-      if (star.x < 0) star.x = width;
-      if (star.x > width) star.x = 0;
-      if (star.y < 0) star.y = height;
-      if (star.y > height) star.y = 0;
-
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
-      ctx.shadowColor = `rgba(255, 255, 255, ${star.opacity * 1.5})`;
-      ctx.shadowBlur = star.radius * 3;
-      ctx.fill();
-    }
-
-    ctx.shadowBlur = 0;
-    requestAnimationFrame(drawFrame);
+  const numNodes = Math.floor(Math.random() * 51) + 50;
+  const nodes = [];
+  for (let i = 0; i < numNodes; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const radius = Math.random() * 1.5 + 0.5;
+    const opacity = Math.random() * 0.4 + 0.1;
+    nodes.push({ x, y, radius, opacity });
   }
 
-  drawFrame();
+  const maxDistance = 100;
+  ctx.lineWidth = 0.5;
+
+  for (let i = 0; i < numNodes; i++) {
+    for (let j = i + 1; j < numNodes; j++) {
+      const node1 = nodes[i];
+      const node2 = nodes[j];
+      const dist = Math.sqrt(Math.pow(node1.x - node2.x, 2) + Math.pow(node1.y - node2.y, 2));
+
+      if (dist < maxDistance) {
+        ctx.beginPath();
+        ctx.moveTo(node1.x, node1.y);
+        ctx.lineTo(node2.x, node2.y);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 * (1 - dist / maxDistance)})`;
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity})`;
+    ctx.shadowColor = `rgba(255, 255, 255, ${node.opacity * 1.5})`;
+    ctx.shadowBlur = node.radius * 2;
+    ctx.fill();
+  }
+
+  ctx.shadowBlur = 0;
 }
 
 export async function createInstructionsImage(helpContent, isAdminBox, width = 800) {
