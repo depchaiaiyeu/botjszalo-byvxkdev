@@ -26,18 +26,18 @@ if (!botInfo) {
   }
 }
 
-const adminFilePath = botInfo.adminFilePath
-const groupSettingsPath = botInfo.groupSettingsPath
-const configFilePath = botInfo.configFilePath
-const commandFilePath = botInfo.commandFilePath
-const logDir = botInfo.logDir
-export const resourceDir = botInfo.resourceDir
-export const tempDir = botInfo.tempDir
-export const dataGifPath = botInfo.dataGifPath
+const adminFilePath = botInfo.adminFilePath || path.resolve("./assets/data/list_admin.json")
+const groupSettingsPath = botInfo.groupSettingsPath || path.resolve("./assets/data/group_settings.json")
+const configFilePath = botInfo.configFilePath || path.resolve("./assets/config.json")
+const commandFilePath = botInfo.commandFilePath || path.resolve("./assets/json-data/command.json")
+const logDir = botInfo.logDir || path.resolve("./logs")
+export const resourceDir = botInfo.resourceDir || path.resolve("./resources")
+export const tempDir = botInfo.tempDir || path.resolve("./temp")
+export const dataGifPath = botInfo.dataGifPath || path.resolve("./assets/gif")
 const logManagerBotFilePath = path.join(logDir, "bot-manager.log")
 const loggingMessageFilePath = path.join(logDir, "message.txt")
 const loggingMessageJsonPath = path.join(logDir, "message.json")
-const dataGamePath = botInfo.DATA_GAME_FILE_PATH
+const dataGamePath = botInfo.DATA_GAME_FILE_PATH || path.resolve("./assets/data/game.json")
 
 export async function ensureLogFiles() {
   try {
@@ -133,7 +133,7 @@ export function writeCommandConfig(config) {
   }
 }
 
-const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH
+const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH || path.resolve("./assets/json-data/web-config.json")
 export function readWebConfig() {
   try {
     const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8")
@@ -148,7 +148,7 @@ export function writeWebConfig(config) {
   fs.writeFileSync(WEB_CONFIG_PATH, JSON.stringify(config, null, 2))
 }
 
-const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH
+const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH || path.resolve("./assets/json-data/manager-bot.json")
 export function readManagerFile() {
   try {
     const data = fs.readFileSync(MANAGER_FILE_PATH, "utf8")
@@ -173,7 +173,7 @@ export function pushMessageToWebLog(io, nameType, senderName, content, avtGroup)
   }
 }
 
-const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH
+const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH || path.resolve("./assets/json-data/prophylactic.json")
 export function readProphylacticConfig() {
   try {
     const data = fs.readFileSync(PROPHYLACTIC_CONFIG_PATH, "utf8")
