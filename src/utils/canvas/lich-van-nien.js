@@ -185,10 +185,50 @@ async function getUpcomingHolidays(currentDate) {
   const upcoming = holidays
     .map(h => ({ ...h, days: Math.ceil((h.date - currentDate) / (1000 * 60 * 60 * 24)) }))
     .filter(h => h.days > 0)
-    .sort((a, b) => a.days - b.days)
+    .sort((a, b) => a.days - b.sides)
     .slice(0, 5);
   
   return upcoming;
+}
+
+function drawGlassBox(ctx, x, y, w, h, radius) {
+  ctx.save();
+  
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+  ctx.lineTo(x + radius, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  
+  const gradient = ctx.createLinearGradient(x, y, x, y + h);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 0.15)");
+  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.08)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0.12)");
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  const borderGradient = ctx.createLinearGradient(x, y, x, y + h);
+  borderGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
+  borderGradient.addColorStop(0.5, "rgba(255, 255, 255, 0.2)");
+  borderGradient.addColorStop(1, "rgba(255, 255, 255, 0.3)");
+  ctx.strokeStyle = borderGradient;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  ctx.globalCompositeOperation = 'overlay';
+  const highlightGradient = ctx.createLinearGradient(x, y, x, y + h * 0.5);
+  highlightGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
+  highlightGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = highlightGradient;
+  ctx.fill();
+  
+  ctx.restore();
 }
 
 export async function createCalendarImage() {
@@ -213,19 +253,7 @@ export async function createCalendarImage() {
   const minutes = now.getMinutes();
   const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
-  ctx.shadowBlur = 20;
-  ctx.beginPath();
-  ctx.roundRect(45, 80, width - 90, 380, 20);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(45, 80, width - 90, 380, 20);
-  ctx.stroke();
+  drawGlassBox(ctx, 45, 80, width - 90, 380, 20);
 
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 32px 'BeVietnamPro', Arial";
@@ -260,25 +288,9 @@ export async function createCalendarImage() {
     const boxH = 70;
     const radius = 12;
     
-    ctx.beginPath();
-    ctx.moveTo(45 + radius, yPos);
-    ctx.lineTo(width - 45 - radius, yPos);
-    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
-    ctx.lineTo(width - 45, yPos + boxH - radius);
-    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
-    ctx.lineTo(45 + radius, yPos + boxH);
-    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
-    ctx.lineTo(45, yPos + radius);
-    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
-    ctx.closePath();
-    
-    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-    ctx.fill();
-    
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    drawGlassBox(ctx, 45, yPos, width - 90, boxH, radius);
 
+    ctx.save();
     ctx.beginPath();
     ctx.moveTo(45 + radius, yPos);
     ctx.lineTo(45 + 190, yPos);
@@ -290,6 +302,7 @@ export async function createCalendarImage() {
     ctx.closePath();
     ctx.fillStyle = "#FFA500";
     ctx.fill();
+    ctx.restore();
     
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 22px 'BeVietnamPro', Arial";
@@ -309,19 +322,7 @@ export async function createCalendarImage() {
 
   yPos += 20;
   
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
-  ctx.shadowBlur = 20;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 140, 12);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 140, 12);
-  ctx.stroke();
+  drawGlassBox(ctx, 45, yPos, width - 90, 140, 12);
 
   const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   hdGradient.addColorStop(0, "#FFD700");
@@ -344,19 +345,7 @@ export async function createCalendarImage() {
 
   yPos += 160;
   
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
-  ctx.shadowBlur = 20;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 160, 12);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 160, 12);
-  ctx.stroke();
+  drawGlassBox(ctx, 45, yPos, width - 90, 160, 12);
 
   const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   hacGradient.addColorStop(0, "#FF4500");
@@ -380,19 +369,7 @@ export async function createCalendarImage() {
   yPos += 180;
   const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
   
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-  ctx.shadowColor = "rgba(255, 255, 255, 0.3)";
-  ctx.shadowBlur = 20;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 180, 12);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 180, 12);
-  ctx.stroke();
+  drawGlassBox(ctx, 45, yPos, width - 90, 180, 12);
 
   const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
   huongGradient.addColorStop(0, "#FFD700");
