@@ -107,8 +107,17 @@ export async function handleRankCommand(api, message, aliasCommand) {
   let filePath = null;
 
   try {
-    const groupInfo = await getGroupInfoData(api, threadId);
-    const groupName = groupInfo.name || "Nhóm";
+    const groupSettings = readGroupSettings();
+    let groupName = groupSettings[threadId]?.nameGroup;
+
+    if (!groupName) {
+      try {
+        const groupInfo = await getGroupInfoData(api, threadId);
+        groupName = groupInfo.name || "Nhóm";
+      } catch (error) {
+        groupName = "Nhóm";
+      }
+    }
 
     let usersToList;
     
@@ -186,8 +195,16 @@ export async function sendTaskTopChat(api, caption, timeToLive) {
           messageCount: user.messageCountToday
         }));
 
-        const groupInfo = await getGroupInfoData(api, threadId);
-        const groupName = groupInfo.name || "Nhóm";
+        let groupName = groupSettings[threadId]?.nameGroup;
+
+        if (!groupName) {
+          try {
+            const groupInfo = await getGroupInfoData(api, threadId);
+            groupName = groupInfo.name || "Nhóm";
+          } catch (error) {
+            groupName = "Nhóm";
+          }
+        }
 
         filePath = await drawTopChatImage(top10Users, lastMessageTime, groupName, isToday);
 
