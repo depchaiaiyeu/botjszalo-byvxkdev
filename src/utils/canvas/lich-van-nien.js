@@ -191,7 +191,198 @@ async function getUpcomingHolidays(currentDate) {
   return upcoming;
 }
 
-export async function createCalendarImage() {
+function getDaysInMonth(month, year) {
+  return new Date(year, month, 0).getDate();
+}
+
+function getFirstDayOfMonth(month, year) {
+  return new Date(year, month - 1, 1).getDay();
+}
+
+async function createMonthCalendarImage(month, year) {
+  const width = 1300;
+  const height = 1000;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+
+  createHelpBackground(ctx, width, height);
+
+  const monthNames = ["THÁNG 1", "THÁNG 2", "THÁNG 3", "THÁNG 4", "THÁNG 5", "THÁNG 6", "THÁNG 7", "THÁNG 8", "THÁNG 9", "THÁNG 10", "THÁNG 11", "THÁNG 12"];
+  const dayNames = ["Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy", "Chủ nhật"];
+
+  ctx.fillStyle = "#4CAF50";
+  ctx.fillRect(0, 0, width, 100);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 48px 'BeVietnamPro', Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(`${monthNames[month - 1]} - ${year}`, width / 2, 65);
+
+  const startY = 130;
+  const cellWidth = (width - 40) / 7;
+  const cellHeight = 140;
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 20px 'BeVietnamPro', Arial";
+  for (let i = 0; i < 7; i++) {
+    ctx.fillText(dayNames[i], 20 + cellWidth * i + cellWidth / 2, startY);
+  }
+
+  ctx.strokeStyle = "#333333";
+  ctx.lineWidth = 2;
+
+  const daysInMonth = getDaysInMonth(month, year);
+  const firstDay = getFirstDayOfMonth(month, year);
+  const startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
+
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const daysInPrevMonth = getDaysInMonth(prevMonth, prevYear);
+
+  const holidays = await getVietnameseHolidays(year);
+  const holidayMap = {};
+  holidays.forEach(h => {
+    const key = `${h.date.getDate()}-${h.date.getMonth() + 1}`;
+    holidayMap[key] = h.name;
+  });
+
+  let currentRow = 0;
+  let currentCol = 0;
+
+  for (let i = 0; i < startDayIndex; i++) {
+    const day = daysInPrevMonth - startDayIndex + i + 1;
+    const x = 20 + currentCol * cellWidth;
+    const y = startY + 20 + currentRow * cellHeight;
+
+    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+    ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
+    ctx.font = "bold 32px 'BeVietnamPro', Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(day, x + 15, y + 45);
+
+    const lunar = await solarToLunar(day, prevMonth, prevYear);
+    if (lunar) {
+      ctx.fillStyle = "rgba(150, 150, 150, 0.7)";
+      ctx.font = "16px 'BeVietnamPro', Arial";
+      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
+
+      ctx.font = "14px 'BeVietnamPro', Arial";
+      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
+    }
+
+    currentCol++;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const x = 20 + currentCol * cellWidth;
+    const y = startY + 20 + currentRow * cellHeight;
+
+    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+    const isWeekend = currentCol === 5 || currentCol === 6;
+    const holidayKey = `${day}-${month}`;
+    const hasHoliday = holidayMap[holidayKey];
+
+    ctx.fillStyle = hasHoliday || isWeekend ? "#FF0000" : "#000000";
+    ctx.font = "bold 32px 'BeVietnamPro', Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(day, x + 15, y + 45);
+
+    const lunar = await solarToLunar(day, month, year);
+    if (lunar) {
+      ctx.fillStyle = "#666666";
+      ctx.font = "16px 'BeVietnamPro', Arial";
+      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
+
+      ctx.font = "14px 'BeVietnamPro', Arial";
+      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
+    }
+
+    if (hasHoliday) {
+      ctx.fillStyle = "#FF0000";
+      ctx.font = "bold 14px 'BeVietnamPro', Arial";
+      const lines = wrapText(ctx, hasHoliday, cellWidth - 30);
+      lines.forEach((line, idx) => {
+        ctx.fillText(line, x + 15, y + 115 + idx * 16);
+      });
+    }
+
+    currentCol++;
+    if (currentCol === 7) {
+      currentCol = 0;
+      currentRow++;
+    }
+  }
+
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  let nextDay = 1;
+
+  while (currentRow < 5) {
+    const x = 20 + currentCol * cellWidth;
+    const y = startY + 20 + currentRow * cellHeight;
+
+    ctx.strokeRect(x, y, cellWidth, cellHeight);
+
+    ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
+    ctx.font = "bold 32px 'BeVietnamPro', Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(nextDay, x + 15, y + 45);
+
+    const lunar = await solarToLunar(nextDay, nextMonth, nextYear);
+    if (lunar) {
+      ctx.fillStyle = "rgba(150, 150, 150, 0.7)";
+      ctx.font = "16px 'BeVietnamPro', Arial";
+      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
+
+      ctx.font = "14px 'BeVietnamPro', Arial";
+      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
+    }
+
+    nextDay++;
+    currentCol++;
+    if (currentCol === 7) {
+      currentCol = 0;
+      currentRow++;
+    }
+  }
+
+  const filePath = path.resolve(`./assets/temp/calendar_month_${Date.now()}.png`);
+  const out = fs.createWriteStream(filePath);
+  const stream = canvas.createPNGStream();
+  stream.pipe(out);
+  return new Promise((resolve, reject) => {
+    out.on("finish", () => resolve(filePath));
+    out.on("error", reject);
+  });
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const testLine = currentLine + ' ' + words[i];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth) {
+      lines.push(currentLine);
+      currentLine = words[i];
+    } else {
+      currentLine = testLine;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+
+export async function createCalendarImage(month, isMonth) {
+  if (isMonth && month) {
+    const year = new Date().getFullYear();
+    return await createMonthCalendarImage(month, year);
+  }
+
   const width = 900;
   const height = 1600;
   const canvas = createCanvas(width, height);
