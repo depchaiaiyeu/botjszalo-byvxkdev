@@ -25,7 +25,7 @@ export async function drawTopChatImage(topUsers, lastMessageTime, groupName, isT
   const ctx = canvas.getContext('2d');
   createHelpBackground(ctx, WIDTH, totalHeight);
 
-  const titleText = isToday ? "🏆 BXH TƯƠNG TÁC HÔM NAY 🏆" : "🏆 BXH TƯƠNG TÁC 🏆";
+  const titleText = isToday ? "🏆 BXH Tương Tác Hôm Nay 🏆" : "🏆 BXH Tương Tác 🏆";
   ctx.textAlign = 'center';
   ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
   ctx.font = 'bold 45px "BeVietnamPro", Arial';
