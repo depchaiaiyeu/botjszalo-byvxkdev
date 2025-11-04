@@ -5,17 +5,11 @@ import * as cv from "./index.js";
 
 export function createHelpBackground(ctx, width, height) {
   const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width);
-  gradient.addColorStop(0, "#2E1E66");
-  gradient.addColorStop(0.4, "#1E1B4B");
-  gradient.addColorStop(0.7, "#172554");
-  gradient.addColorStop(1, "#0F172A");
+  gradient.addColorStop(0, "#3A2A82");
+  gradient.addColorStop(0.4, "#292569");
+  gradient.addColorStop(0.7, "#1D3270");
+  gradient.addColorStop(1, "#122040");
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-
-  const glowGradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
-  glowGradient.addColorStop(0, "rgba(80, 120, 255, 0.25)");
-  glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = glowGradient;
   ctx.fillRect(0, 0, width, height);
 
   const numNodes = Math.floor(Math.random() * 51) + 50;
