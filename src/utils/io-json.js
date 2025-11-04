@@ -2,13 +2,19 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 import { mkdir } from "fs/promises";
-
+import { getBotInfo } from "./env.js";
 import { getTimeToString, getTimeNow } from "./format-util.js";
 
-const adminFilePath = path.resolve("./assets/data/list_admin.json");
-const groupSettingsPath = path.resolve("./assets/data/group_settings.json");
-const configFilePath = path.resolve("./assets/config.json");
-const commandFilePath = path.resolve("./assets/json-data/command.json");
+const botInfo = await getBotInfo();
+const adminFilePath = botInfo.adminFilePath;
+const groupSettingsPath = botInfo.groupSettingsPath;
+const configFilePath = botInfo.configFilePath;
+const commandFilePath = botInfo.commandFilePath;
+
+// const adminFilePath = path.resolve("./assets/data/list_admin.json");
+// const groupSettingsPath = path.resolve("./assets/data/group_settings.json");
+// const configFilePath = path.resolve("./assets/config.json");
+// const commandFilePath = path.resolve("./assets/json-data/command.json");
 
 export function readConfig() {
   let config = {};
@@ -34,15 +40,15 @@ export function readAdmins() {
   return admins;
 }
 
-const logDir = path.join(process.cwd(), "logs");
-export const resourceDir = path.join(process.cwd(), "assets", "resources");
-export const tempDir = path.join(process.cwd(), "assets", "temp");
-export const dataGifPath = path.join(process.cwd(), "assets", "resources", "gif");
+const logDir = botInfo.logDir;
+export const resourceDir = botInfo.resourceDir;
+export const tempDir = botInfo.tempDir;
+export const dataGifPath = botInfo.dataGifPath;
 
 const logManagerBotFilePath = path.join(logDir, "bot-manager.log");
 const loggingMessageFilePath = path.join(logDir, "message.txt");
 const loggingMessageJsonPath = path.join(logDir, "message.json");
-const dataGamePath = path.join(process.cwd(), "assets", "json-data", "data-game.json");
+const dataGamePath = botInfo.DATA_GAME_FILE_PATH;
 
 export async function ensureLogFiles() {
   try {
@@ -131,7 +137,7 @@ export function writeCommandConfig(config) {
   }
 }
 
-const WEB_CONFIG_PATH = path.join(process.cwd(), "assets", "web-config", "web-config.json");
+const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH;
 export function readWebConfig() {
   try {
     const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8");
@@ -146,7 +152,8 @@ export function writeWebConfig(config) {
   fs.writeFileSync(WEB_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
-const MANAGER_FILE_PATH = path.join(process.cwd(), "assets", "json-data", "manager-bot.json");
+const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH;
+// const MANAGER_FILE_PATH = path.join(process.cwd(), "assets", "json-data", "manager-bot.json");
 
 export function readManagerFile() {
   try {
@@ -176,7 +183,7 @@ export function pushMessageToWebLog(io, nameType, senderName, content, avtGroup)
   }
 }
 
-const PROPHYLACTIC_CONFIG_PATH = path.join(process.cwd(), "assets", "json-data", "prophylactic.json");
+const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH;
 
 export function readProphylacticConfig() {
   try {
