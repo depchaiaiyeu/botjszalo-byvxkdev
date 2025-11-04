@@ -4,33 +4,51 @@ import path from "path";
 import * as cv from "./index.js";
 
 export function createHelpBackground(ctx, width, height) {
-  const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width);
-  gradient.addColorStop(0, "#2E1E66");
-  gradient.addColorStop(0.4, "#1E1B4B");
-  gradient.addColorStop(0.7, "#172554");
-  gradient.addColorStop(1, "#0F172A");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
+  const stars = Array.from({ length: 50 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    radius: Math.random() * 2 + 0.5,
+    speedX: (Math.random() - 0.5) * 0.3,
+    speedY: (Math.random() - 0.5) * 0.3,
+    opacity: Math.random() * 0.3 + 0.05
+  }));
 
-  const glowGradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
-  glowGradient.addColorStop(0, "rgba(80, 120, 255, 0.25)");
-  glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = glowGradient;
-  ctx.fillRect(0, 0, width, height);
-  for (let i = 0; i < 80; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const radius = Math.random() * 2 + 0.5;
-    const opacity = Math.random() * 0.3 + 0.05;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-    ctx.shadowColor = `rgba(255, 255, 255, ${opacity * 1.5})`;
-    ctx.shadowBlur = radius * 2;
-    ctx.fill();
+  let hue = 230;
+  let direction = 1;
+
+  function drawFrame() {
+    hue += direction * 0.3;
+    if (hue > 260 || hue < 200) direction *= -1;
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, `hsl(${hue}, 70%, 25%)`);
+    gradient.addColorStop(0.5, `hsl(${hue + 10}, 70%, 18%)`);
+    gradient.addColorStop(1, `hsl(${hue + 20}, 70%, 10%)`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    for (const star of stars) {
+      star.x += star.speedX;
+      star.y += star.speedY;
+
+      if (star.x < 0) star.x = width;
+      if (star.x > width) star.x = 0;
+      if (star.y < 0) star.y = height;
+      if (star.y > height) star.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+      ctx.shadowColor = `rgba(255, 255, 255, ${star.opacity * 1.5})`;
+      ctx.shadowBlur = star.radius * 3;
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    requestAnimationFrame(drawFrame);
   }
 
-  ctx.shadowBlur = 0;
+  drawFrame();
 }
 
 export async function createInstructionsImage(helpContent, isAdminBox, width = 800) {
