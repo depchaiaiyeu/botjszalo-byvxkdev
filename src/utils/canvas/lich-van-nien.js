@@ -148,7 +148,7 @@ async function getVietnameseHolidays(year) {
   if (tetTrungThu) holidays.push({ name: "Tết Trung thu", date: tetTrungThu });
   
   const tetDoanNgo = await lunarToSolar(5, 5, year);
-  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNgo });
+  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNo });
   
   const ramThangGieng = await lunarToSolar(15, 1, year);
   if (ramThangGieng) holidays.push({ name: "Rằm tháng Giêng", date: ramThangGieng });
@@ -185,7 +185,7 @@ async function getUpcomingHolidays(currentDate) {
   const upcoming = holidays
     .map(h => ({ ...h, days: Math.ceil((h.date - currentDate) / (1000 * 60 * 60 * 24)) }))
     .filter(h => h.days > 0)
-    .sort((a, b) => a.days - b.sides)
+    .sort((a, b) => a.days - b.days)
     .slice(0, 5);
   
   return upcoming;
@@ -288,9 +288,20 @@ export async function createCalendarImage() {
     const boxH = 70;
     const radius = 12;
     
-    drawGlassBox(ctx, 45, yPos, width - 90, boxH, radius);
+    ctx.beginPath();
+    ctx.moveTo(45 + radius, yPos);
+    ctx.lineTo(width - 45 - radius, yPos);
+    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
+    ctx.lineTo(width - 45, yPos + boxH - radius);
+    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
+    ctx.lineTo(45 + radius, yPos + boxH);
+    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
+    ctx.lineTo(45, yPos + radius);
+    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.fill();
 
-    ctx.save();
     ctx.beginPath();
     ctx.moveTo(45 + radius, yPos);
     ctx.lineTo(45 + 190, yPos);
@@ -302,7 +313,6 @@ export async function createCalendarImage() {
     ctx.closePath();
     ctx.fillStyle = "#FFA500";
     ctx.fill();
-    ctx.restore();
     
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "bold 22px 'BeVietnamPro', Arial";
@@ -322,12 +332,15 @@ export async function createCalendarImage() {
 
   yPos += 20;
   
-  drawGlassBox(ctx, 45, yPos, width - 90, 140, 12);
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 140, 12);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fill();
 
   const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  hdGradient.addColorStop(0, "#FFD700");
-  hdGradient.addColorStop(0.5, "#32CD32");
-  hdGradient.addColorStop(1, "#00CED1");
+  hdGradient.addColorStop(0, "#FFE66D");
+  hdGradient.addColorStop(0.5, "#4ECDC4");
+  hdGradient.addColorStop(1, "#44CFCB");
   ctx.fillStyle = hdGradient;
   ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
@@ -345,11 +358,14 @@ export async function createCalendarImage() {
 
   yPos += 160;
   
-  drawGlassBox(ctx, 45, yPos, width - 90, 160, 12);
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 160, 12);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fill();
 
   const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  hacGradient.addColorStop(0, "#FF4500");
-  hacGradient.addColorStop(1, "#FF6347");
+  hacGradient.addColorStop(0, "#FF6B6B");
+  hacGradient.addColorStop(1, "#FF8E53");
   ctx.fillStyle = hacGradient;
   ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
@@ -369,11 +385,14 @@ export async function createCalendarImage() {
   yPos += 180;
   const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
   
-  drawGlassBox(ctx, 45, yPos, width - 90, 180, 12);
+  ctx.beginPath();
+  ctx.roundRect(45, yPos, width - 90, 180, 12);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+  ctx.fill();
 
   const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  huongGradient.addColorStop(0, "#FFD700");
-  huongGradient.addColorStop(1, "#FFA500");
+  huongGradient.addColorStop(0, "#FFD93D");
+  huongGradient.addColorStop(1, "#FFAA33");
   ctx.fillStyle = huongGradient;
   ctx.font = "bold 28px 'BeVietnamPro', Arial";
   ctx.textAlign = "center";
