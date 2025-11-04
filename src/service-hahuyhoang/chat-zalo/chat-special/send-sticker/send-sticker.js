@@ -3,6 +3,7 @@ import https from "https"
 import http from "http"
 import { getGlobalPrefix } from "../../../service.js"
 import { deleteFile, downloadFileFake } from "../../../../utils/util.js"
+import { removeMention } from "../../../../utils/format-util.js"
 import { MessageType } from "../../../../api-zalo/index.js"
 import { tempDir } from "../../../../utils/io-json.js"
 import { appContext } from "../../../../api-zalo/context.js"
@@ -92,23 +93,22 @@ async function processStickerImage(api, message, mediaUrl) {
 export async function handleStickerCommand(api, message) {
   const quote = message.data?.quote
   const senderName = message.data.dName
-  const threadId = message.threadId
   const prefix = getGlobalPrefix()
-  const msgContent = message.data?.content || ""
-  const args = msgContent.split(/\s+/).filter(arg => arg.length > 0)
-  const action = args[0]?.toLowerCase() || "normal"
+  const msgContent = removeMention(message)
+  const isSpinDisk = msgContent.includes("spindisk")
 
   if (!quote) {
-    await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}sticker ${action}.`, true)
+    const cmdType = isSpinDisk ? "sticker spindisk" : "sticker"
+    await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}${cmdType}.`, true)
     return
   }
 
   const cliMsgType = message.data?.quote?.cliMsgType
-  const validTypes = action === "spindisk" ? [32, 49] : [44, 32, 49]
+  const validTypes = isSpinDisk ? [32, 49] : [44, 32, 49]
   
   if (!validTypes.includes(cliMsgType)) {
-    const typeMsg = action === "spindisk" 
-      ? "Vui lòng reply vào tin nhắn có ảnh để tạo spin disk sticker!"
+    const typeMsg = isSpinDisk 
+      ? "Vui lòng reply vào tin nhắn có ảnh để tạo sticker spindisk!"
       : "Vui lòng reply vào tin nhắn có ảnh, video hoặc GIF để tạo sticker!"
     await sendMessageWarning(api, message, `${senderName}, ${typeMsg}`, true)
     return
@@ -136,7 +136,7 @@ export async function handleStickerCommand(api, message) {
 
     const decodedUrl = decodeURIComponent(mediaUrl.replace(/\\\//g, "/"))
 
-    if (action === "spindisk") {
+    if (isSpinDisk) {
       const idImage = Date.now()
       await sendMessageWarning(api, message, `Đang tạo sticker spindisk cho ${senderName}, vui lòng chờ một chút!`, true)
       const result = await handleSpinDiskSticker(api, message, decodedUrl, idImage)
@@ -145,9 +145,9 @@ export async function handleStickerCommand(api, message) {
         const staticUrl = result.url + "?creator=VXK-Service-BOT.webp"
         const animUrl = result.url + "?createdBy=VXK-Service-BOT.Webp"
         await api.sendCustomSticker(message, staticUrl, animUrl, 512, 512)
-        await sendMessageComplete(api, message, `Spin disk sticker của bạn đây!`, true)
+        await sendMessageComplete(api, message, `Sticker spindisk của bạn đây!`, true)
       } else {
-        await sendMessageFailed(api, message, `${senderName}, Tạo spin disk sticker thất bại!`, true)
+        await sendMessageFailed(api, message, `${senderName}, Tạo sticker spindisk thất bại!`, true)
       }
     } else {
       const params = attachData.params || {}
