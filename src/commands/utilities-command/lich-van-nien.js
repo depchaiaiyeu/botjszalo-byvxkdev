@@ -7,11 +7,10 @@ export async function handleCalendarCommand(api, message) {
 
   try {
     const imagePath = await createCalendarImage();
-
     await api.sendMessage(
       {
+        msg: "📆",
         attachments: [imagePath],
-        ttl: 86400000,
       },
       threadId,
       message.type
