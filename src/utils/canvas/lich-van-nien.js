@@ -150,21 +150,21 @@ export async function createCalendarImage() {
   ctx.fillText(timeStr, width / 2, 280);
 
   const quotes = [
-    { text: "Cách duy nhất để làm việc vĩ đại là yêu thích công việc bạn làm.", author: "- Steve Jobs -" },
-    { text: "Cuộc sống là những gì xảy ra khi bạn đang bận rộn lên kế hoạch khác.", author: "- John Lennon -" },
-    { text: "Hãy bận rộn mà sống, hoặc bận rộn mà chết.", author: "- Stephen King -" },
-    { text: "Tương lai thuộc về những người tin vào vẻ đẹp của ước mơ.", author: "- Eleanor Roosevelt -" },
-    { text: "Bạn bỏ lỡ 100% những cơ hội mà bạn không dám thử.", author: "- Wayne Gretzky -" },
-    { text: "Thời điểm tốt nhất để trồng một cái cây là 20 năm trước. Thời điểm tốt thứ hai là ngay bây giờ.", author: "- Tục ngữ Trung Hoa -" },
-    { text: "Hãy luôn khát khao, hãy luôn dại khờ.", author: "- Steve Jobs -" },
-    { text: "Đổi mới là khả năng nhìn thấy sự thay đổi như một cơ hội – chứ không phải mối đe dọa.", author: "- Steve Jobs -" },
-    { text: "Thành công không đến từ những gì bạn làm thỉnh thoảng, mà đến từ những gì bạn làm kiên định mỗi ngày.", author: "- Marie Forleo -" },
-    { text: "Đừng sợ thất bại. Sợ nhất là không dám thử.", author: "- Roy T. Bennett -" },
-    { text: "Cuộc sống không phải là tìm thấy chính mình, mà là tạo ra chính mình.", author: "- George Bernard Shaw -" },
-    { text: "Hạnh phúc không phụ thuộc vào bạn có bao nhiêu, mà phụ thuộc vào bạn biết trân trọng bao nhiêu.", author: "- Khuyết danh -" },
-    { text: "Nếu bạn muốn bay, hãy từ bỏ mọi thứ níu giữ bạn lại.", author: "- Khuyết danh -" },
-    { text: "Đừng đếm ngày, hãy khiến mỗi ngày đều đáng nhớ.", author: "- Muhammad Ali -" },
-    { text: "Người mạnh mẽ không phải là người không bao giờ gục ngã, mà là người luôn đứng dậy sau mỗi lần vấp ngã.", author: "- Khuyết danh -" }
+    { text: "Cách duy nhất để làm việc vĩ đại là yêu thích công việc bạn làm.", author: "Steve Jobs" },
+    { text: "Cuộc sống là những gì xảy ra khi bạn đang bận rộn lên kế hoạch khác.", author: "John Lennon" },
+    { text: "Hãy bận rộn mà sống, hoặc bận rộn mà chết.", author: "Stephen King" },
+    { text: "Tương lai thuộc về những người tin vào vẻ đẹp của ước mơ.", author: "Eleanor Roosevelt" },
+    { text: "Bạn bỏ lỡ 100% những cơ hội mà bạn không dám thử.", author: "Wayne Gretzky" },
+    { text: "Thời điểm tốt nhất để trồng một cái cây là 20 năm trước. Thời điểm tốt thứ hai là ngay bây giờ.", author: "Tục ngữ Trung Hoa" },
+    { text: "Hãy luôn khát khao, hãy luôn dại khờ.", author: "Steve Jobs" },
+    { text: "Đổi mới là khả năng nhìn thấy sự thay đổi như một cơ hội – chứ không phải mối đe dọa.", author: "Steve Jobs" },
+    { text: "Thành công không đến từ những gì bạn làm thỉnh thoảng, mà đến từ những gì bạn làm kiên định mỗi ngày.", author: "Marie Forleo" },
+    { text: "Đừng sợ thất bại. Sợ nhất là không dám thử.", author: "Roy T. Bennett" },
+    { text: "Cuộc sống không phải là tìm thấy chính mình, mà là tạo ra chính mình.", author: "George Bernard Shaw" },
+    { text: "Hạnh phúc không phụ thuộc vào bạn có bao nhiêu, mà phụ thuộc vào bạn biết trân trọng bao nhiêu.", author: "Khuyết danh" },
+    { text: "Nếu bạn muốn bay, hãy từ bỏ mọi thứ níu giữ bạn lại.", author: "Khuyết danh" },
+    { text: "Đừng đếm ngày, hãy khiến mỗi ngày đều đáng nhớ.", author: "Muhammad Ali" },
+    { text: "Người mạnh mẽ không phải là người không bao giờ gục ngã, mà là người luôn đứng dậy sau mỗi lần vấp ngã.", author: "Khuyết danh" }
   ];
   const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
