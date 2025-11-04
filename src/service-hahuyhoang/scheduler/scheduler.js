@@ -104,9 +104,9 @@ const scheduledTasks = [
     },
   },
   {
-    time: "21:35",
+    time: "21:05",
     task: async (api) => {
-      const caption = `-> SendTask 21:05 <-\nTổng kết tương tác trong ngày 📝\n\n`;
+      const caption = `-> SendTask 21:05 <-\nTổng kết lại tương tác trong ngày\n\nChúc bạn có một buổi tối ngủ ngon!!!`;
       const timeToLive = 1000 * 60 * 60 * 8;
       await sendTaskTopChat(api, caption, timeToLive);
     },
