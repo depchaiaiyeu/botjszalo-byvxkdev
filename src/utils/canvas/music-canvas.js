@@ -4,6 +4,7 @@ import path from "path";
 import fsPromises from "fs/promises";
 import { loadImageBuffer } from "../util.js";
 import { formatStatistic } from "../format-util.js";
+import { createHelpBackground } from "./help.js";
 
 const CARD_WIDTH = 700;
 const PADDING = 25;
@@ -60,14 +61,6 @@ const dataIconPlatform = {
         "shape": "circle"
     }
 };
-
-function drawDefaultBackground(ctx, width, height) {
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "#3a4a5a");
-    gradient.addColorStop(1, "#2c3e50");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-}
 
 function truncateText(ctx, text, font, maxWidth) {
     ctx.font = font;
@@ -162,36 +155,17 @@ export async function createMusicCard(musicInfo) {
     const ctx = canvas.getContext("2d");
 
     try {
+        createHelpBackground(ctx, CARD_WIDTH, finalHeight);
+
         let thumbnailImage = null;
         if (musicInfo.thumbnailPath) {
             try {
                 const processedThumbnail = await loadImageBuffer(musicInfo.thumbnailPath);
                 if (processedThumbnail) {
                     thumbnailImage = await loadImage(processedThumbnail);
-
-                    ctx.save();
-                    ctx.filter = 'blur(18px)';
-                    const bgScale = 1.15;
-                    const bgWidth = CARD_WIDTH * bgScale;
-                    const bgHeight = finalHeight * bgScale;
-                    ctx.drawImage(thumbnailImage, -(bgWidth - CARD_WIDTH) / 2, -(bgHeight - finalHeight) / 2, bgWidth, bgHeight);
-                    ctx.restore();
-
-                    const overlay = ctx.createLinearGradient(0, 0, 0, finalHeight);
-                    overlay.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
-                    overlay.addColorStop(0.6, 'rgba(0, 0, 0, 0.65)');
-                    overlay.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
-                    ctx.fillStyle = overlay;
-                    ctx.fillRect(0, 0, CARD_WIDTH, finalHeight);
-
-                } else {
-                    drawDefaultBackground(ctx, CARD_WIDTH, finalHeight);
                 }
             } catch (thumbError) {
-                drawDefaultBackground(ctx, CARD_WIDTH, finalHeight);
             }
-        } else {
-            drawDefaultBackground(ctx, CARD_WIDTH, finalHeight);
         }
 
         if (thumbnailImage) {
