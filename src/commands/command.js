@@ -165,9 +165,7 @@ import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
 import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-virus.js";
 import { handleJoinLeaveGroup } from "../service-hahuyhoang/tien-ich/spam-join.js";
 import { handleLotteryCommand } from "../service-hahuyhoang/tien-ich/lottery.js";
-
 const lastCommandUsage = {};
-const pendingRetries = {};
 
 export const permissionLevels = {
   all: 0,
@@ -210,7 +208,7 @@ async function checkPermission(api, message, commandName, userPermissionLevel, i
   return false;
 }
 
-export async function checkCommandCountdown(api, message, userId, commandName, commandUsage, isAdminLevelHighest = false) {
+export async function checkCommandCountdown(api, message, userId, commandName, commandUsage) {
   const commandConfig = getCommandConfig().commands;
   const command = getCommand(commandName, commandConfig);
 
@@ -218,47 +216,15 @@ export async function checkCommandCountdown(api, message, userId, commandName, c
     return true;
   }
 
-  if (isAdminLevelHighest) {
-    return true;
-  }
-
   const currentTime = Date.now();
   const lastUsage = commandUsage[userId]?.[command.name] || 0;
   const countdown = command.countdown * 1000;
 
-  const pendingKey = `${userId}_${command.name}`;
-
   if (currentTime - lastUsage < countdown) {
-    const remainingTime = countdown - (currentTime - lastUsage);
-    
-    if (!pendingRetries[pendingKey]) {
-      pendingRetries[pendingKey] = {
-        message: message,
-        api: api,
-        scheduledTime: lastUsage + countdown
-      };
-
-      await sendReactionWaitingCountdown(api, message, Math.ceil(remainingTime / 1000));
-
-      setTimeout(async () => {
-        const retryData = pendingRetries[pendingKey];
-        if (retryData) {
-          delete pendingRetries[pendingKey];
-          
-          if (!commandUsage[userId]) {
-            commandUsage[userId] = {};
-          }
-          commandUsage[userId][command.name] = Date.now();
-          
-          await handleCommandPrivate(retryData.api, retryData.message);
-        }
-      }, remainingTime);
-    }
-    
+    const remainingTime = Math.ceil((countdown - (currentTime - lastUsage)) / 1000);
+    await sendReactionWaitingCountdown(api, message, remainingTime);
     return false;
   }
-
-  delete pendingRetries[pendingKey];
 
   if (!commandUsage[userId]) {
     commandUsage[userId] = {};
@@ -373,14 +339,17 @@ export async function handleCommandPrivate(api, message) {
     let command;
     let commandParts;
 
+    // Kiểm tra xem có phải là lệnh prefix Không
     if (content.startsWith(`${prefix}prefix`) || content.startsWith(`prefix`)) {
       return await handlePrefixCommand(api, message, threadId, isAdminLevelHighest);
     }
 
+    // Kiểm tra xem tin nhắn có bắt đầu bằng prefix Không
     if (!content.startsWith(prefix)) {
       return 1;
     }
 
+    // Xử lý lệnh dịch đặc biệt
     if (checkSpecialCommand(content, prefix)) {
       commandParts = content.split("_");
       command = commandParts[0].slice(prefix.length).toLowerCase();
@@ -389,7 +358,7 @@ export async function handleCommandPrivate(api, message) {
       command = commandParts[0].toLowerCase();
     }
 
-    if (!(await checkCommandCountdown(api, message, senderId, `${prefix}${command}`, lastCommandUsage, isAdminLevelHighest))) {
+    if (!(await checkCommandCountdown(api, message, senderId, `${prefix}${command}`, lastCommandUsage))) {
       return;
     }
 
@@ -407,6 +376,7 @@ export async function handleCommandPrivate(api, message) {
     const commandInfo = getCommand(command, commandConfig);
     command = commandInfo?.name || command;
     let numHandleCommand = commandInfo?.type || 99;
+
     if (numHandleCommand === 5) {
       if (managerData.data.onGamePrivate) {
         await sendReactionConfirmReceive(api, message, numHandleCommand);
@@ -420,9 +390,9 @@ export async function handleCommandPrivate(api, message) {
           case "dangky":
             await handleRegisterPlayer(api, message);
             return 0;
-          case "logout":
-            await handleLogoutPlayer(api, message);
-            return 0;
+          // case "logout":
+          //   await handleLogoutPlayer(api, message);
+          //   return 0;
           case "nap":
             await handleNapCommand(api, message);
             return 0;
@@ -455,6 +425,7 @@ export async function handleCommandPrivate(api, message) {
     }
 
     if (numHandleCommand === 3) {
+      await sendReactionConfirmReceive(api, message, numHandleCommand);
       switch (command) {
         case "bot":
           await handleActiveBotUser(api, message);
@@ -1390,7 +1361,7 @@ export async function handleCommand(
           } else {
             if (isAdminBot) {
               let text = `Tính năng \"Tương Tác Thành Viên\" chưa được kích hoạt trong nhóm này.\n\n` +
-                `Quản trị viên hãy dùng lệnh ${prefix}bot on để kích hoạt tương tác cho nhóm!`;
+                `Quản trị viên hãy dùng lệnh "${prefix}bot on" để kích hoạt tương tác cho nhóm!`;
               const result = {
                 success: false,
                 message: text,
