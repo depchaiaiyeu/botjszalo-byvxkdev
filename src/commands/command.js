@@ -49,32 +49,32 @@ import { handleGoogleCommand } from "../service-hahuyhoang/api-crawl/google/goog
 import { handleSendVoice } from "../service-hahuyhoang/chat-zalo/chat-special/send-voice/send-voice-download.js"
 import { handleSendCustomerStickerVideo } from "../service-hahuyhoang/chat-zalo/chat-special/send-sticker/customer-sticker.js";
 import {
-  handleBanCommand,
-  handleBankCommand,
-  handleBuffCommand,
-  handleClaimDailyReward,
-  handleLoginPlayer,
-  handleLogoutPlayer,
-  handleMyCard,
-  handleNapCommand,
-  handleRegisterPlayer,
-  handleRutCommand,
-  handleTopPlayers,
-  handleUnbanCommand,
+  handleBanCommand,
+  handleBankCommand,
+  handleBuffCommand,
+  handleClaimDailyReward,
+  handleLoginPlayer,
+  handleLogoutPlayer,
+  handleMyCard,
+  handleNapCommand,
+  handleRegisterPlayer,
+  handleRutCommand,
+  handleTopPlayers,
+  handleUnbanCommand,
 } from "../service-hahuyhoang/game-service/index.js";
 import { handleAntiLinkCommand } from "../service-hahuyhoang/anti-service/anti-link.js";
 import { getCommandConfig, isAdmin } from "../index.js";
 import {
-  sendMessageFromSQL,
-  sendMessageInsufficientAuthority,
+  sendMessageFromSQL,
+  sendMessageInsufficientAuthority,
 } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { handleAdminHighLevelCommands, handleListAdmin } from "./bot-manager/admin-manager.js";
 import { handleAntiSpamCommand } from "../service-hahuyhoang/anti-service/anti-spam.js";
 import {
-  handleKeyCommands,
-  handleBlockBot,
-  handleUnblockBot,
-  handleListBlockBot,
+  handleKeyCommands,
+  handleBlockBot,
+  handleUnblockBot,
+  handleListBlockBot,
 } from "./bot-manager/group-manage.js";
 import { listCommands } from "./instructions/help.js";
 import { handleTaiXiuCommand } from "../service-hahuyhoang/game-service/tai-xiu/tai-xiu.js";
@@ -84,30 +84,30 @@ import { handleNongTraiCommand } from "../service-hahuyhoang/game-service/nong-t
 import { userBussinessCardCommand } from "../service-hahuyhoang/info-service/bussiness-card.js";
 import { handleStickerCommand } from "../service-hahuyhoang/chat-zalo/chat-special/send-sticker/send-sticker.js";
 import {
-  checkNotFindCommand,
-  handleAliasCommand,
-  handleChangeGroupLink,
-  handleGetLinkInQuote,
-  handleSendMessagePrivate,
-  handleSendTaskCommand,
-  handleSendToDo,
-  handleUndoMessage,
-  handleSetAvatarFromReply,
-  handleRunDDoSCommand,
-  handleUploadFromReply,
-  handle4KImage,
-  spamMessagesInGroup,
-  testMediaCommand,
-  handleGetGroupMembers,
-  handleRunPythonCommand,
-  handleBlockedMembers,
-  handleSendFriendRequest,
-  handleUpdateProfileName,
-  spamCallInGroup,
-  handleCallGroupCommand,
-  handleEval,
-  handleGetUID,
-  handleEncodeParamsCommand,
+  checkNotFindCommand,
+  handleAliasCommand,
+  handleChangeGroupLink,
+  handleGetLinkInQuote,
+  handleSendMessagePrivate,
+  handleSendTaskCommand,
+  handleSendToDo,
+  handleUndoMessage,
+  handleSetAvatarFromReply,
+  handleRunDDoSCommand,
+  handleUploadFromReply,
+  handle4KImage,
+  spamMessagesInGroup,
+  testMediaCommand,
+  handleGetGroupMembers,
+  handleRunPythonCommand,
+  handleBlockedMembers,
+  handleSendFriendRequest,
+  handleUpdateProfileName,
+  spamCallInGroup,
+  handleCallGroupCommand,
+  handleEval,
+  handleGetUID,
+  handleEncodeParamsCommand,
 } from "./bot-manager/utilities.js";
 import { handleBauCua } from "../service-hahuyhoang/game-service/bau-cua/bau-cua.js";
 import { handleKBBCommand } from "../service-hahuyhoang/game-service/keobuabao/keobuabao.js";
@@ -117,10 +117,10 @@ import { handleAntiForwardCommand } from "../service-hahuyhoang/anti-service/ant
 
 import { handleChanLe } from "../service-hahuyhoang/game-service/chan-le/chan-le.js";
 import {
-  handleGetVoiceCommand,
-  handleStoryCommand,
-  handleTarrotCommand,
-  handleVoiceCommand,
+  handleGetVoiceCommand,
+  handleStoryCommand,
+  handleTarrotCommand,
+  handleVoiceCommand,
 } from "../service-hahuyhoang/chat-zalo/chat-special/send-voice/send-voice.js";
 import { handleMusicCommand } from "../service-hahuyhoang/api-crawl/music/soundcloud.js";
 import { handleAntiNudeCommand } from "../service-hahuyhoang/anti-service/anti-nude/anti-nude.js";
@@ -166,217 +166,256 @@ import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-vir
 import { handleJoinLeaveGroup } from "../service-hahuyhoang/tien-ich/spam-join.js";
 import { handleLotteryCommand } from "../service-hahuyhoang/tien-ich/lottery.js";
 const lastCommandUsage = {};
+const pendingCommands = {};
 
 export const permissionLevels = {
-  all: 0,
-  adminBox: 1,
-  adminBot: 2,
-  adminLevelHigh: 3,
+  all: 0,
+  adminBox: 1,
+  adminBot: 2,
+  adminLevelHigh: 3,
 };
 
 export function getCommand(command, commandConfig) {
-  let commandConfigFinal = null;
-  if (commandConfig) {
-    commandConfigFinal = commandConfig;
-  } else {
-    commandConfigFinal = getCommandConfig().commands;
-  }
+  let commandConfigFinal = null;
+  if (commandConfig) {
+    commandConfigFinal = commandConfig;
+  } else {
+    commandConfigFinal = getCommandConfig().commands;
+  }
 
-  return commandConfigFinal.find((cmd) => cmd.name === command || (cmd.alias && cmd.alias.includes(command)));
+  return commandConfigFinal.find((cmd) => cmd.name === command || (cmd.alias && cmd.alias.includes(command)));
 }
 
 async function checkPermission(api, message, commandName, userPermissionLevel, isNotify = true) {
-  const commandConfig = getCommandConfig().commands;
-  const command = getCommand(commandName, commandConfig);
+  const commandConfig = getCommandConfig().commands;
+  const command = getCommand(commandName, commandConfig);
 
-  if (!command) {
-    return true;
-  }
+  if (!command) {
+    return true;
+  }
 
-  const requiredPermission = permissionLevels[command.permission];
-  const userPermission = permissionLevels[userPermissionLevel];
+  const requiredPermission = permissionLevels[command.permission];
+  const userPermission = permissionLevels[userPermissionLevel];
 
-  if (userPermission >= requiredPermission) {
-    return true;
-  }
+  if (userPermission >= requiredPermission) {
+    return true;
+  }
 
-  const permissionName = getPermissionCommandName(command);
-  if (isNotify) {
-    const caption = `Bạn không có đủ quyền để sử dụng lệnh này\nYêu cầu quyền hạn: ${permissionName}`;
-    await sendMessageInsufficientAuthority(api, message, caption);
-  }
-  return false;
+  const permissionName = getPermissionCommandName(command);
+  if (isNotify) {
+    const caption = `Bạn không có đủ quyền để sử dụng lệnh này\nYêu cầu quyền hạn: ${permissionName}`;
+    await sendMessageInsufficientAuthority(api, message, caption);
+  }
+  return false;
 }
 
 export async function checkCommandCountdown(api, message, userId, commandName, commandUsage) {
-  const commandConfig = getCommandConfig().commands;
-  const command = getCommand(commandName, commandConfig);
+  const commandConfig = getCommandConfig().commands;
+  const command = getCommand(commandName, commandConfig);
 
-  if (!command) {
-    return true;
-  }
+  if (!command) {
+    return true;
+  }
 
-  const currentTime = Date.now();
-  const lastUsage = commandUsage[userId]?.[command.name] || 0;
-  const countdown = command.countdown * 1000;
+  const currentTime = Date.now();
+  const lastUsage = commandUsage[userId]?.[command.name] || 0;
+  const countdown = command.countdown * 1000;
 
-  if (currentTime - lastUsage < countdown) {
-    const remainingTime = Math.ceil((countdown - (currentTime - lastUsage)) / 1000);
-    await sendReactionWaitingCountdown(api, message, remainingTime);
-    return false;
-  }
+  if (currentTime - lastUsage < countdown) {
+    const remainingTime = Math.ceil((countdown - (currentTime - lastUsage)) / 1000);
+    await sendReactionWaitingCountdown(api, message, remainingTime);
+    return false;
+  }
 
-  if (!commandUsage[userId]) {
-    commandUsage[userId] = {};
-  }
-  commandUsage[userId][command.name] = currentTime;
+  if (!commandUsage[userId]) {
+    commandUsage[userId] = {};
+  }
+  commandUsage[userId][command.name] = currentTime;
 
-  return true;
+  return true;
 }
 
 export async function sendReactionConfirmReceive(api, message, numHandleCommand) {
-  if (numHandleCommand === 1 || numHandleCommand === 5 || numHandleCommand === 99 ) {
-    await api.addReaction("OK", message);
-  }
+  if (numHandleCommand === 1 || numHandleCommand === 5 || numHandleCommand === 99 ) {
+    await api.addReaction("OK", message);
+  }
 }
 
 export function initGroupSettings(groupSettings, threadId, nameGroup) {
-  const defaultSettings = {
-    adminList: {},
-    muteList: {},
-    whileList: {},
-    blackList: {},
-    activeBot: false,
-    activeGame: false,
-    welcomeGroup: false,
-    byeGroup: false,
-    antiSpam: false,
-    filterBadWords: false,
-    filterBot: false,
-    removeLinks: false,
-    learnEnabled: false,
-    replyEnabled: false,
-    onlyText: false,
-    memberApprove: false,
-    antiNude: false,
-    autoLockChat: {},
-    antiMedia: false,
-    antiSticker: false,
-    autoReply: false,
-    autoDownload: false,
-    removeLinkKeywords: false,
-    blockForward: false
-  };
+  const defaultSettings = {
+    adminList: {},
+    muteList: {},
+    whileList: {},
+    blackList: {},
+    activeBot: false,
+    activeGame: false,
+    welcomeGroup: false,
+    byeGroup: false,
+    antiSpam: false,
+    filterBadWords: false,
+    filterBot: false,
+    removeLinks: false,
+    learnEnabled: false,
+    replyEnabled: false,
+    onlyText: false,
+    memberApprove: false,
+    antiNude: false,
+    autoLockChat: {},
+    antiMedia: false,
+    antiSticker: false,
+    autoReply: false,
+    autoDownload: false,
+    removeLinkKeywords: false,
+    blockForward: false
+  };
 
-  if (!groupSettings[threadId]) {
-    groupSettings[threadId] = { nameGroup: nameGroup };
-  }
+  if (!groupSettings[threadId]) {
+    groupSettings[threadId] = { nameGroup: nameGroup };
+  }
 
-  Object.assign(
-    groupSettings[threadId],
-    Object.fromEntries(Object.entries(defaultSettings).filter(([key]) => !(key in groupSettings[threadId])))
-  );
+  Object.assign(
+    groupSettings[threadId],
+    Object.fromEntries(Object.entries(defaultSettings).filter(([key]) => !(key in groupSettings[threadId])))
+  );
 
-  if (!groupSettings[threadId].nameGroup || groupSettings[threadId].nameGroup != nameGroup) {
-    groupSettings[threadId].nameGroup = nameGroup;
-    writeGroupSettings(groupSettings);
-  }
+  if (!groupSettings[threadId].nameGroup || groupSettings[threadId].nameGroup != nameGroup) {
+    groupSettings[threadId].nameGroup = nameGroup;
+    writeGroupSettings(groupSettings);
+  }
 }
 
 export async function checkAdminLevelHighest(api, message, isAdminLevelHighest) {
-  if (!isAdminLevelHighest) {
-    await sendMessageInsufficientAuthority(
-      api,
-      message,
-      "Chỉ có quản trị viên bot mới được sử dụng lệnh này!"
-    );
-    return false;
-  }
-  return true;
+  if (!isAdminLevelHighest) {
+    await sendMessageInsufficientAuthority(
+      api,
+      message,
+      "Chỉ có quản trị viên bot mới được sử dụng lệnh này!"
+    );
+    return false;
+  }
+  return true;
 }
 
 export async function checkAdminBotPermission(
-  api,
-  message,
-  isAdminBot
+  api,
+  message,
+  isAdminBot
 ) {
-  if (!isAdminBot) {
-    await sendMessageInsufficientAuthority(
-      api,
-      message,
-      "Chỉ có quản trị viên bot mới được sử dụng lệnh này!"
-    );
-    return false;
-  }
-  return true;
+  if (!isAdminBot) {
+    await sendMessageInsufficientAuthority(
+      api,
+      message,
+      "Chỉ có quản trị viên bot mới được sử dụng lệnh này!"
+    );
+    return false;
+  }
+  return true;
 }
 
 export async function checkAdminBoxPermission(api, message, isAdminBox) {
-  if (!isAdminBox) {
-    await sendMessageInsufficientAuthority(
-      api,
-      message,
-      "Chỉ có trưởng / phó cộng đồng hoặc quản trị bot mới được sử dụng lệnh này!"
-    );
-    return false;
-  }
-  return true;
+  if (!isAdminBox) {
+    await sendMessageInsufficientAuthority(
+      api,
+      message,
+      "Chỉ có trưởng / phó cộng đồng hoặc quản trị bot mới được sử dụng lệnh này!"
+    );
+    return false;
+  }
+  return true;
 }
 
 function checkSpecialCommand(content, prefix) {
-  const specialCommands = ["todo", "learnnow", "sendp"];
-  return specialCommands.some((cmd) => content.startsWith(`${prefix}${cmd}`));
+  const specialCommands = ["todo", "learnnow", "sendp"];
+  return specialCommands.some((cmd) => content.startsWith(`${prefix}${cmd}`));
 }
 
 export async function handleCommandPrivate(api, message) {
-  const threadId = message.threadId;
-  const senderId = message.data.uidFrom;
-  const content = message.data.content.trim();
-  const prefix = getGlobalPrefix();
-  const isAdminLevelHighest = isAdmin(senderId);
+  const threadId = message.threadId;
+  const senderId = message.data.uidFrom;
+  const content = message.data.content.trim();
+  const prefix = getGlobalPrefix();
+  const isAdminLevelHighest = isAdmin(senderId);
 
-  if (typeof content === "string") {
-    let command;
-    let commandParts;
+  if (typeof content === "string") {
+    let command;
+    let commandParts;
+    let isDelayedExecution = message.isDelayedExecution || false;
+    
+    if (content.startsWith(`${prefix}prefix`) || content.startsWith(`prefix`)) {
+      return await handlePrefixCommand(api, message, threadId, isAdminLevelHighest);
+    }
 
-    // Kiểm tra xem có phải là lệnh prefix Không
-    if (content.startsWith(`${prefix}prefix`) || content.startsWith(`prefix`)) {
-      return await handlePrefixCommand(api, message, threadId, isAdminLevelHighest);
-    }
+    if (!content.startsWith(prefix)) {
+      return 1;
+    }
 
-    // Kiểm tra xem tin nhắn có bắt đầu bằng prefix Không
-    if (!content.startsWith(prefix)) {
-      return 1;
-    }
-
-    // Xử lý lệnh dịch đặc biệt
-    if (checkSpecialCommand(content, prefix)) {
-      commandParts = content.split("_");
-      command = commandParts[0].slice(prefix.length).toLowerCase();
-    } else {
-      commandParts = content.slice(prefix.length).trim().split(/\s+/);
-      command = commandParts[0].toLowerCase();
-    }
-
-    if (!(await checkCommandCountdown(api, message, senderId, `${prefix}${command}`, lastCommandUsage))) {
-      return;
-    }
-
-    const isAdminBot = isAdmin(senderId, threadId);
-
-    let userPermissionLevel = "all";
-    if (isAdminLevelHighest) userPermissionLevel = "adminLevelHigh";
-    else if (isAdminBot) userPermissionLevel = "adminBot";
-    if (!(await checkPermission(api, message, command, userPermissionLevel))) {
-      return;
-    }
+    if (checkSpecialCommand(content, prefix)) {
+      commandParts = content.split("_");
+      command = commandParts[0].slice(prefix.length).toLowerCase();
+    } else {
+      commandParts = content.slice(prefix.length).trim().split(/\s+/);
+      command = commandParts[0].toLowerCase();
+    }
 
     const commandConfig = getCommandConfig().commands;
-    const aliasCommand = command;
-    const commandInfo = getCommand(command, commandConfig);
-    command = commandInfo?.name || command;
-    let numHandleCommand = commandInfo?.type || 99;
+    const aliasCommand = command;
+    const commandInfo = getCommand(command, commandConfig);
+    const commandNameFinal = commandInfo?.name || command;
+    const countdownTime = (commandInfo?.countdown || 0) * 1000;
+    command = commandNameFinal;
 
+    const commandKey = `${senderId}_${command}`;
+
+    if (!isAdminLevelHighest && countdownTime > 0) {
+        const currentTime = Date.now();
+        const lastUsage = lastCommandUsage[senderId]?.[command] || 0;
+
+        if (currentTime - lastUsage < countdownTime) {
+            const remainingTime = countdownTime - (currentTime - lastUsage);
+            const remainingSeconds = Math.ceil(remainingTime / 1000);
+
+            if (!pendingCommands[commandKey]) {
+                await sendReactionWaitingCountdown(api, message, remainingSeconds);
+
+                pendingCommands[commandKey] = true;
+
+                setTimeout(async () => {
+                    delete pendingCommands[commandKey];
+                    
+                    const delayedMessage = {
+                        ...message,
+                        isDelayedExecution: true,
+                        data: {
+                            ...message.data,
+                            content: content,
+                            uidFrom: senderId,
+                        },
+                    };
+
+                    await handleCommandPrivate(api, delayedMessage);
+                }, remainingTime);
+            }
+            return 1;
+        }
+    }
+
+    if (!isDelayedExecution && command) {
+        if (!lastCommandUsage[senderId]) {
+            lastCommandUsage[senderId] = {};
+        }
+        lastCommandUsage[senderId][command] = Date.now();
+    }
+
+    const isAdminBot = isAdmin(senderId, threadId);
+
+    let userPermissionLevel = "all";
+    if (isAdminLevelHighest) userPermissionLevel = "adminLevelHigh";
+    else if (isAdminBot) userPermissionLevel = "adminBot";
+    if (!(await checkPermission(api, message, command, userPermissionLevel))) {
+      return;
+    }
+
+    let numHandleCommand = commandInfo?.type || 99;
     if (numHandleCommand === 5) {
       if (managerData.data.onGamePrivate) {
         await sendReactionConfirmReceive(api, message, numHandleCommand);
@@ -390,9 +429,9 @@ export async function handleCommandPrivate(api, message) {
           case "dangky":
             await handleRegisterPlayer(api, message);
             return 0;
-          // case "logout":
-          //   await handleLogoutPlayer(api, message);
-          //   return 0;
+          case "logout":
+            await handleLogoutPlayer(api, message);
+            return 0;
           case "nap":
             await handleNapCommand(api, message);
             return 0;
