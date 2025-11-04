@@ -357,7 +357,7 @@ export async function handleSendTrackSoundCloud(api, message, track) {
   const objectMusic = {
     trackId: track.id,
     title: track.title,
-    artists: track.user?.username || "Unknown Artist",
+    artists: `Artist: ${track.user?.username}` || "Unknown Artist",
     like: track.likes_count,
     listen: track.playback_count,
     comment: track.comment_count,
