@@ -113,11 +113,12 @@ function convertSolar2Lunar(dd, mm, yyyy, timeZone) {
   }
   let a11 = getLunarMonth11(yyyy, timeZone);
   let b11 = a11;
+  let lunarYear;
   if (a11 >= monthStart) {
-    let lunarYear = yyyy;
+    lunarYear = yyyy;
     a11 = getLunarMonth11(yyyy - 1, timeZone);
   } else {
-    let lunarYear = yyyy + 1;
+    lunarYear = yyyy + 1;
     b11 = getLunarMonth11(yyyy + 1, timeZone);
   }
   let lunarDay = dayNumber - monthStart + 1;
