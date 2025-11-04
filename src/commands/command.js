@@ -229,24 +229,30 @@ export async function checkCommandCountdown(api, message, userId, commandName, c
   const pendingKey = `${userId}_${command.name}`;
 
   if (currentTime - lastUsage < countdown) {
-    const remainingTime = Math.ceil((countdown - (currentTime - lastUsage)) / 1000);
+    const remainingTime = countdown - (currentTime - lastUsage);
     
     if (!pendingRetries[pendingKey]) {
       pendingRetries[pendingKey] = {
         message: message,
         api: api,
-        remainingTime: remainingTime
+        scheduledTime: lastUsage + countdown
       };
 
-      await sendReactionWaitingCountdown(api, message, remainingTime);
+      await sendReactionWaitingCountdown(api, message, Math.ceil(remainingTime / 1000));
 
       setTimeout(async () => {
         const retryData = pendingRetries[pendingKey];
         if (retryData) {
           delete pendingRetries[pendingKey];
+          
+          if (!commandUsage[userId]) {
+            commandUsage[userId] = {};
+          }
+          commandUsage[userId][command.name] = Date.now();
+          
           await handleCommandPrivate(retryData.api, retryData.message);
         }
-      }, remainingTime * 1000);
+      }, remainingTime);
     }
     
     return false;
