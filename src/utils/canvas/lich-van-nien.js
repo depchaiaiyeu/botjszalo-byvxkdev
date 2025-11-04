@@ -191,198 +191,7 @@ async function getUpcomingHolidays(currentDate) {
   return upcoming;
 }
 
-function getDaysInMonth(month, year) {
-  return new Date(year, month, 0).getDate();
-}
-
-function getFirstDayOfMonth(month, year) {
-  return new Date(year, month - 1, 1).getDay();
-}
-
-async function createMonthCalendarImage(month, year) {
-  const width = 1300;
-  const height = 1000;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
-
-  createHelpBackground(ctx, width, height);
-
-  const monthNames = ["THÁNG 1", "THÁNG 2", "THÁNG 3", "THÁNG 4", "THÁNG 5", "THÁNG 6", "THÁNG 7", "THÁNG 8", "THÁNG 9", "THÁNG 10", "THÁNG 11", "THÁNG 12"];
-  const dayNames = ["Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy", "Chủ nhật"];
-
-  ctx.fillStyle = "#4CAF50";
-  ctx.fillRect(0, 0, width, 100);
-
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 48px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText(`${monthNames[month - 1]} - ${year}`, width / 2, 65);
-
-  const startY = 130;
-  const cellWidth = (width - 40) / 7;
-  const cellHeight = 140;
-
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 20px 'BeVietnamPro', Arial";
-  for (let i = 0; i < 7; i++) {
-    ctx.fillText(dayNames[i], 20 + cellWidth * i + cellWidth / 2, startY);
-  }
-
-  ctx.strokeStyle = "#333333";
-  ctx.lineWidth = 2;
-
-  const daysInMonth = getDaysInMonth(month, year);
-  const firstDay = getFirstDayOfMonth(month, year);
-  const startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
-
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
-  const daysInPrevMonth = getDaysInMonth(prevMonth, prevYear);
-
-  const holidays = await getVietnameseHolidays(year);
-  const holidayMap = {};
-  holidays.forEach(h => {
-    const key = `${h.date.getDate()}-${h.date.getMonth() + 1}`;
-    holidayMap[key] = h.name;
-  });
-
-  let currentRow = 0;
-  let currentCol = 0;
-
-  for (let i = 0; i < startDayIndex; i++) {
-    const day = daysInPrevMonth - startDayIndex + i + 1;
-    const x = 20 + currentCol * cellWidth;
-    const y = startY + 20 + currentRow * cellHeight;
-
-    ctx.strokeRect(x, y, cellWidth, cellHeight);
-
-    ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
-    ctx.font = "bold 32px 'BeVietnamPro', Arial";
-    ctx.textAlign = "left";
-    ctx.fillText(day, x + 15, y + 45);
-
-    const lunar = await solarToLunar(day, prevMonth, prevYear);
-    if (lunar) {
-      ctx.fillStyle = "rgba(150, 150, 150, 0.7)";
-      ctx.font = "16px 'BeVietnamPro', Arial";
-      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
-
-      ctx.font = "14px 'BeVietnamPro', Arial";
-      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
-    }
-
-    currentCol++;
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const x = 20 + currentCol * cellWidth;
-    const y = startY + 20 + currentRow * cellHeight;
-
-    ctx.strokeRect(x, y, cellWidth, cellHeight);
-
-    const isWeekend = currentCol === 5 || currentCol === 6;
-    const holidayKey = `${day}-${month}`;
-    const hasHoliday = holidayMap[holidayKey];
-
-    ctx.fillStyle = hasHoliday || isWeekend ? "#FF0000" : "#000000";
-    ctx.font = "bold 32px 'BeVietnamPro', Arial";
-    ctx.textAlign = "left";
-    ctx.fillText(day, x + 15, y + 45);
-
-    const lunar = await solarToLunar(day, month, year);
-    if (lunar) {
-      ctx.fillStyle = "#666666";
-      ctx.font = "16px 'BeVietnamPro', Arial";
-      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
-
-      ctx.font = "14px 'BeVietnamPro', Arial";
-      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
-    }
-
-    if (hasHoliday) {
-      ctx.fillStyle = "#FF0000";
-      ctx.font = "bold 14px 'BeVietnamPro', Arial";
-      const lines = wrapText(ctx, hasHoliday, cellWidth - 30);
-      lines.forEach((line, idx) => {
-        ctx.fillText(line, x + 15, y + 115 + idx * 16);
-      });
-    }
-
-    currentCol++;
-    if (currentCol === 7) {
-      currentCol = 0;
-      currentRow++;
-    }
-  }
-
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
-  let nextDay = 1;
-
-  while (currentRow < 5) {
-    const x = 20 + currentCol * cellWidth;
-    const y = startY + 20 + currentRow * cellHeight;
-
-    ctx.strokeRect(x, y, cellWidth, cellHeight);
-
-    ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
-    ctx.font = "bold 32px 'BeVietnamPro', Arial";
-    ctx.textAlign = "left";
-    ctx.fillText(nextDay, x + 15, y + 45);
-
-    const lunar = await solarToLunar(nextDay, nextMonth, nextYear);
-    if (lunar) {
-      ctx.fillStyle = "rgba(150, 150, 150, 0.7)";
-      ctx.font = "16px 'BeVietnamPro', Arial";
-      ctx.fillText(`${lunar.day}/${lunar.month}`, x + 15, y + 75);
-
-      ctx.font = "14px 'BeVietnamPro', Arial";
-      ctx.fillText(`Ngày ${lunar.sexagenaryCycle}`, x + 15, y + 95);
-    }
-
-    nextDay++;
-    currentCol++;
-    if (currentCol === 7) {
-      currentCol = 0;
-      currentRow++;
-    }
-  }
-
-  const filePath = path.resolve(`./assets/temp/calendar_month_${Date.now()}.png`);
-  const out = fs.createWriteStream(filePath);
-  const stream = canvas.createPNGStream();
-  stream.pipe(out);
-  return new Promise((resolve, reject) => {
-    out.on("finish", () => resolve(filePath));
-    out.on("error", reject);
-  });
-}
-
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(' ');
-  const lines = [];
-  let currentLine = words[0];
-
-  for (let i = 1; i < words.length; i++) {
-    const testLine = currentLine + ' ' + words[i];
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth) {
-      lines.push(currentLine);
-      currentLine = words[i];
-    } else {
-      currentLine = testLine;
-    }
-  }
-  lines.push(currentLine);
-  return lines;
-}
-
-export async function createCalendarImage(month, isMonth) {
-  if (isMonth && month) {
-    const year = new Date().getFullYear();
-    return await createMonthCalendarImage(month, year);
-  }
-
+export async function createCalendarImage(month = null) {
   const width = 900;
   const height = 1600;
   const canvas = createCanvas(width, height);
@@ -393,186 +202,328 @@ export async function createCalendarImage(month, isMonth) {
   const now = new Date();
   const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
   const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
-  
-  const dayName = dayNames[now.getDay()];
-  const dd = now.getDate();
-  const mm = now.getMonth() + 1;
-  const yyyy = now.getFullYear();
-  const lunar = await solarToLunar(dd, mm, yyyy);
 
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
+  if (month === null) {
+    const dayName = dayNames[now.getDay()];
+    const dd = now.getDate();
+    const mm = now.getMonth() + 1;
+    const yyyy = now.getFullYear();
+    const lunar = await solarToLunar(dd, mm, yyyy);
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.beginPath();
-  ctx.roundRect(45, 80, width - 90, 380, 20);
-  ctx.fill();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const timeStr = `${hours < 10 ? '0' : ''}${hours}:${minutes < 10 ? '0' : ''}${minutes}`;
 
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 32px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText(`${dayName}, Ngày ${dd} ${monthNames[mm - 1]} Năm ${yyyy}`, width / 2, 140);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.beginPath();
+    ctx.roundRect(45, 80, width - 90, 380, 20);
+    ctx.fill();
 
-  ctx.font = "bold 120px 'BeVietnamPro', Arial";
-  const timeGradient = ctx.createLinearGradient(200, 220, 700, 220);
-  timeGradient.addColorStop(0, "#66FFCC");
-  timeGradient.addColorStop(0.3, "#99FF99");
-  timeGradient.addColorStop(0.5, "#99CCFF");
-  timeGradient.addColorStop(0.7, "#FFFF99");
-  timeGradient.addColorStop(1, "#FFCC99");
-  ctx.fillStyle = timeGradient;
-  ctx.fillText(timeStr, width / 2, 280);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 32px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`${dayName}, Ngày ${dd} ${monthNames[mm - 1]} Năm ${yyyy}`, width / 2, 140);
 
-  if (lunar) {
-    ctx.font = "bold 28px 'BeVietnamPro', Arial";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
+    ctx.font = "bold 120px 'BeVietnamPro', Arial";
+    const timeGradient = ctx.createLinearGradient(200, 220, 700, 220);
+    timeGradient.addColorStop(0, "#66FFCC");
+    timeGradient.addColorStop(0.3, "#99FF99");
+    timeGradient.addColorStop(0.5, "#99CCFF");
+    timeGradient.addColorStop(0.7, "#FFFF99");
+    timeGradient.addColorStop(1, "#FFCC99");
+    ctx.fillStyle = timeGradient;
+    ctx.fillText(timeStr, width / 2, 280);
 
-    ctx.font = "22px 'BeVietnamPro', Arial";
-    const canChiText = `Ngày ${lunar.sexagenaryCycle}`;
-    ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.fillText(canChiText, width / 2, 390);
-  }
+    if (lunar) {
+      ctx.font = "bold 28px 'BeVietnamPro', Arial";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
 
-  const holidays = await getUpcomingHolidays(now);
-  let yPos = 520;
-  
-  holidays.forEach(holiday => {
-    const boxH = 70;
-    const radius = 12;
+      ctx.font = "22px 'BeVietnamPro', Arial";
+      const canChiText = `Ngày ${lunar.sexagenaryCycle}`;
+      ctx.fillStyle = cv.getRandomGradient(ctx, width);
+      ctx.fillText(canChiText, width / 2, 390);
+    }
+
+    const holidays = await getUpcomingHolidays(now);
+    let yPos = 520;
+    
+    holidays.forEach(holiday => {
+      const boxH = 70;
+      const radius = 12;
+      
+      ctx.beginPath();
+      ctx.moveTo(45 + radius, yPos);
+      ctx.lineTo(width - 45 - radius, yPos);
+      ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
+      ctx.lineTo(width - 45, yPos + boxH - radius);
+      ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
+      ctx.lineTo(45 + radius, yPos + boxH);
+      ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
+      ctx.lineTo(45, yPos + radius);
+      ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(45 + radius, yPos);
+      ctx.lineTo(45 + 190, yPos);
+      ctx.lineTo(45 + 190, yPos + boxH);
+      ctx.lineTo(45 + radius, yPos + boxH);
+      ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
+      ctx.lineTo(45, yPos + radius);
+      ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
+      ctx.closePath();
+      ctx.fillStyle = "#FFA500";
+      ctx.fill();
+      
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 22px 'BeVietnamPro', Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`${holiday.days} ngày nữa`, 140, yPos + 42);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 26px 'BeVietnamPro', Arial";
+      ctx.textAlign = "left";
+      ctx.fillText(holiday.name, 250, yPos + 44);
+
+      yPos += boxH + 12;
+    });
+
+    const gioHD = getGioHoangDao(dd, mm, yyyy);
+    const gioHacDao = getGioHacDao(dd, mm, yyyy);
+
+    yPos += 20;
     
     ctx.beginPath();
-    ctx.moveTo(45 + radius, yPos);
-    ctx.lineTo(width - 45 - radius, yPos);
-    ctx.quadraticCurveTo(width - 45, yPos, width - 45, yPos + radius);
-    ctx.lineTo(width - 45, yPos + boxH - radius);
-    ctx.quadraticCurveTo(width - 45, yPos + boxH, width - 45 - radius, yPos + boxH);
-    ctx.lineTo(45 + radius, yPos + boxH);
-    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
-    ctx.lineTo(45, yPos + radius);
-    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
-    ctx.closePath();
+    ctx.roundRect(45, yPos, width - 90, 140, 12);
     ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
     ctx.fill();
 
-    ctx.beginPath();
-    ctx.moveTo(45 + radius, yPos);
-    ctx.lineTo(45 + 190, yPos);
-    ctx.lineTo(45 + 190, yPos + boxH);
-    ctx.lineTo(45 + radius, yPos + boxH);
-    ctx.quadraticCurveTo(45, yPos + boxH, 45, yPos + boxH - radius);
-    ctx.lineTo(45, yPos + radius);
-    ctx.quadraticCurveTo(45, yPos, 45 + radius, yPos);
-    ctx.closePath();
-    ctx.fillStyle = "#FFA500";
-    ctx.fill();
-    
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 22px 'BeVietnamPro', Arial";
+    const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
+    hdGradient.addColorStop(0, "#FFE66D");
+    hdGradient.addColorStop(0.5, "#4ECDC4");
+    hdGradient.addColorStop(1, "#44CFCB");
+    ctx.fillStyle = hdGradient;
+    ctx.font = "bold 28px 'BeVietnamPro', Arial";
     ctx.textAlign = "center";
-    ctx.fillText(`${holiday.days} ngày nữa`, 140, yPos + 42);
+    ctx.fillText("Giờ Hoàng Đạo", width / 2, yPos + 40);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 26px 'BeVietnamPro', Arial";
+    ctx.font = "18px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    const gioHDText1 = `${gioHD[0]}    ${gioHD[1]}    ${gioHD[2]}`;
+    const gioHDText2 = `${gioHD[3] || ''}`;
+    ctx.fillText(gioHDText1, width / 2, yPos + 80);
+    if (gioHD[3]) {
+      ctx.fillText(gioHDText2, width / 2, yPos + 110);
+    }
+
+    yPos += 160;
+    
+    ctx.beginPath();
+    ctx.roundRect(45, yPos, width - 90, 160, 12);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.fill();
+
+    const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
+    hacGradient.addColorStop(0, "#FF6B6B");
+    hacGradient.addColorStop(1, "#FF8E53");
+    ctx.fillStyle = hacGradient;
+    ctx.font = "bold 28px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Giờ Hắc Đạo", width / 2, yPos + 40);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "16px 'BeVietnamPro', Arial";
+    const gioHacText1 = `${gioHacDao[0]}  ${gioHacDao[1]}  ${gioHacDao[2]}`;
+    const gioHacText2 = `${gioHacDao[3]}  ${gioHacDao[4]}  ${gioHacDao[5]}`;
+    const gioHacText3 = `${gioHacDao[6] || ''}  ${gioHacDao[7] || ''}`;
+    ctx.fillText(gioHacText1, width / 2, yPos + 75);
+    ctx.fillText(gioHacText2, width / 2, yPos + 105);
+    if (gioHacDao[6]) {
+      ctx.fillText(gioHacText3, width / 2, yPos + 135);
+    }
+
+    yPos += 180;
+    const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
+    
+    ctx.beginPath();
+    ctx.roundRect(45, yPos, width - 90, 180, 12);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.fill();
+
+    const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
+    huongGradient.addColorStop(0, "#FFD93D");
+    huongGradient.addColorStop(1, "#FFAA33");
+    ctx.fillStyle = huongGradient;
+    ctx.font = "bold 28px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Hướng xuất hành", width / 2, yPos + 40);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "16px 'BeVietnamPro', Arial";
     ctx.textAlign = "left";
-    ctx.fillText(holiday.name, 250, yPos + 44);
+    const maxWidth = width - 130;
+    const lineHeight = 24;
+    const words = huongXuatHanh.split(' ');
+    let line = '';
+    let y = yPos + 75;
+    
+    for (let i = 0; i < words.length; i++) {
+      const testLine = line + words[i] + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && i > 0) {
+        ctx.fillText(line, 70, y);
+        line = words[i] + ' ';
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, 70, y);
+  } else {
+    const year = now.getFullYear();
+    const titleY = 80;
+    ctx.fillStyle = "#4CAF50";
+    ctx.beginPath();
+    ctx.roundRect(45, titleY, width - 90, 60, 20);
+    ctx.fill();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 32px 'BeVietnamPro', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`${monthNames[month - 1]} - ${year}`, width / 2, titleY + 45);
 
-    yPos += boxH + 12;
-  });
+    const headerY = titleY + 70;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.beginPath();
+    ctx.roundRect(45, headerY, width - 90, 50, 10);
+    ctx.fill();
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 20px 'BeVietnamPro', Arial";
+    const cellW = (width - 90) / 7;
+    const dayHeaders = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+    for (let col = 0; col < 7; col++) {
+      const x = 45 + col * cellW + cellW / 2;
+      ctx.textAlign = "center";
+      ctx.fillText(dayHeaders[col], x, headerY + 35);
+    }
 
-  const gioHD = getGioHoangDao(dd, mm, yyyy);
-  const gioHacDao = getGioHacDao(dd, mm, yyyy);
+    const gridY = headerY + 60;
+    const cellH = 220;
+    const numRows = 6;
 
-  yPos += 20;
-  
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 140, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.fill();
+    const firstOfMonth = new Date(year, month - 1, 1);
+    const dayOfWeek = firstOfMonth.getDay();
+    const blanks = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
-  const hdGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  hdGradient.addColorStop(0, "#FFE66D");
-  hdGradient.addColorStop(0.5, "#4ECDC4");
-  hdGradient.addColorStop(1, "#44CFCB");
-  ctx.fillStyle = hdGradient;
-  ctx.font = "bold 28px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Giờ Hoàng Đạo", width / 2, yPos + 40);
+    let prevMonth = month - 1;
+    let prevYear = year;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear = year - 1;
+    }
+    const prevMonthDaysNum = new Date(prevYear, prevMonth, 0).getDate();
+    const startDayNum = prevMonthDaysNum - blanks + 1;
+    let currentDate = new Date(prevYear, prevMonth - 1, startDayNum);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "18px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  const gioHDText1 = `${gioHD[0]}    ${gioHD[1]}    ${gioHD[2]}`;
-  const gioHDText2 = `${gioHD[3] || ''}`;
-  ctx.fillText(gioHDText1, width / 2, yPos + 80);
-  if (gioHD[3]) {
-    ctx.fillText(gioHDText2, width / 2, yPos + 110);
-  }
+    let dates = [];
+    for (let row = 0; row < numRows; row++) {
+      for (let col = 0; col < 7; col++) {
+        const dateObj = new Date(currentDate);
+        dates.push({
+          date: dateObj,
+          solarDay: dateObj.getDate(),
+          solarMonth: dateObj.getMonth() + 1,
+          solarYear: dateObj.getFullYear()
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
 
-  yPos += 160;
-  
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 160, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.fill();
+    let holidays = await getVietnameseHolidays(year);
+    if (month === 1) {
+      holidays = holidays.concat(await getVietnameseHolidays(year - 1));
+    }
+    holidays = holidays.concat(await getVietnameseHolidays(year + 1));
 
-  const hacGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  hacGradient.addColorStop(0, "#FF6B6B");
-  hacGradient.addColorStop(1, "#FF8E53");
-  ctx.fillStyle = hacGradient;
-  ctx.font = "bold 28px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Giờ Hắc Đạo", width / 2, yPos + 40);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "16px 'BeVietnamPro', Arial";
-  const gioHacText1 = `${gioHacDao[0]}  ${gioHacDao[1]}  ${gioHacDao[2]}`;
-  const gioHacText2 = `${gioHacDao[3]}  ${gioHacDao[4]}  ${gioHacDao[5]}`;
-  const gioHacText3 = `${gioHacDao[6] || ''}  ${gioHacDao[7] || ''}`;
-  ctx.fillText(gioHacText1, width / 2, yPos + 75);
-  ctx.fillText(gioHacText2, width / 2, yPos + 105);
-  if (gioHacDao[6]) {
-    ctx.fillText(gioHacText3, width / 2, yPos + 135);
-  }
+    const lunarPromises = dates.map(d => solarToLunar(d.solarDay, d.solarMonth, d.solarYear));
+    const lunars = await Promise.all(lunarPromises);
 
-  yPos += 180;
-  const huongXuatHanh = getHuongXuatHanh(dd, mm, yyyy);
-  
-  ctx.beginPath();
-  ctx.roundRect(45, yPos, width - 90, 180, 12);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.fill();
+    for (let row = 0; row < numRows; row++) {
+      for (let col = 0; col < 7; col++) {
+        const idx = row * 7 + col;
+        const cellDate = dates[idx].date;
+        const isCurrentMonth = dates[idx].solarMonth === month;
+        const isToday = cellDate.toDateString() === today.toDateString();
+        const lunar = lunars[idx];
+        const hasHoliday = holidays.some(h => h.date.toDateString() === cellDate.toDateString());
+        const x = 45 + col * cellW;
+        const y = gridY + row * cellH;
 
-  const huongGradient = ctx.createLinearGradient(0, yPos, width, yPos);
-  huongGradient.addColorStop(0, "#FFD93D");
-  huongGradient.addColorStop(1, "#FFAA33");
-  ctx.fillStyle = huongGradient;
-  ctx.font = "bold 28px 'BeVietnamPro', Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Hướng xuất hành", width / 2, yPos + 40);
+        ctx.beginPath();
+        ctx.roundRect(x, y, cellW, cellH, 10);
+        let bgColor;
+        if (!isCurrentMonth) {
+          bgColor = "rgba(128, 128, 128, 0.2)";
+        } else if (isToday) {
+          bgColor = "#FFD700";
+        } else if (hasHoliday) {
+          bgColor = "#FFB6C1";
+        } else {
+          bgColor = "rgba(255, 255, 255, 0.05)";
+        }
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "16px 'BeVietnamPro', Arial";
-  ctx.textAlign = "left";
-  const maxWidth = width - 130;
-  const lineHeight = 24;
-  const words = huongXuatHanh.split(' ');
-  let line = '';
-  let y = yPos + 75;
-  
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line, 70, y);
-      line = words[i] + ' ';
-      y += lineHeight;
-    } else {
-      line = testLine;
+        ctx.fillStyle = isCurrentMonth ? "#000000" : "#666666";
+        ctx.font = isCurrentMonth ? "bold 36px 'BeVietnamPro', Arial" : "24px 'BeVietnamPro', Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(dates[idx].solarDay, x + cellW / 2, y + 50);
+
+        if (lunar) {
+          ctx.fillStyle = "#333333";
+          ctx.font = "14px 'BeVietnamPro', Arial";
+          const canChi = `Ngày ${lunar.sexagenaryCycle}`;
+          ctx.fillText(canChi, x + cellW / 2, y + 80);
+
+          ctx.fillStyle = "#FF0000";
+          ctx.font = "bold 18px 'BeVietnamPro', Arial";
+          const lunarStr = `${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}`;
+          ctx.fillText(lunarStr, x + cellW / 2, y + 110);
+
+          if (hasHoliday) {
+            const holiday = holidays.find(h => h.date.toDateString() === cellDate.toDateString());
+            ctx.fillStyle = "#000000";
+            ctx.font = "12px 'BeVietnamPro', Arial";
+            ctx.textAlign = "left";
+            const maxW = cellW - 20;
+            const words = holiday.name.split(' ');
+            let line = '';
+            let ly = y + 130;
+            for (let w of words) {
+              const test = line + w + ' ';
+              if (ctx.measureText(test).width > maxW && line !== '') {
+                ctx.fillText(line, x + 10, ly);
+                line = w + ' ';
+                ly += 15;
+              } else {
+                line = test;
+              }
+            }
+            if (line) ctx.fillText(line, x + 10, ly);
+          }
+        }
+      }
     }
   }
-  ctx.fillText(line, 70, y);
 
   const filePath = path.resolve(`./assets/temp/calendar_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
