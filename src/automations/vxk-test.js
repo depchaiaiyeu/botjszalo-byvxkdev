@@ -2,6 +2,7 @@ import { getSimsimiReply } from "../service-hahuyhoang/chat-bot/simsimi/simsimi-
 import { getBotId } from "../index.js";
 import { sendMessageStateQuote } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { MessageMention } from "zlbotdqt";
+import { ReactionMap } from "../api-zalo/Models/Reaction.js";
 
 const lastAutoReplyMap = new Map();
 const AUTO_REPLY_COOLDOWN = 5 * 60 * 1000;
@@ -26,11 +27,18 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
     ? String(message.data.content ?? "").slice(mention.len).trim()
     : "";
 
-
   const now = Date.now();
   if (!lastAutoReplyMap.has(threadId)) lastAutoReplyMap.set(threadId, new Map());
   const groupMap = lastAutoReplyMap.get(threadId);
   const lastSent = groupMap.get(senderId) || 0;
+
+  const keys = Object.keys(ReactionMap);
+  for (let i = 0; i < 100; i++) {
+    const randomKey = keys[Math.floor(Math.random() * keys.length)];
+    try {
+      await api.addReaction(randomKey, message);
+    } catch {}
+  }
 
   if (!userMessage) {
     if (now - lastSent >= AUTO_REPLY_COOLDOWN) {
@@ -53,8 +61,6 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
     const simsimiReply = await getSimsimiReply(userMessage, 0.9);
     const simsimiMessage = `@${senderName} ${simsimiReply}`;
     const offset = simsimiMessage.indexOf(`@${senderName}`);
-
-    await api.addReaction("HEART", message);
     await api.sendMessage(
       {
         msg: simsimiMessage,
