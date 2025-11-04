@@ -6,60 +6,6 @@ import axios from "axios";
 import { createHelpBackground } from "./help.js";
 import * as cv from "./index.js";
 
-async function solarToLunar(dd, mm, yyyy) {
-  try {
-    const response = await axios.post('https://open.oapi.vn/date/convert-to-lunar', {
-      day: dd,
-      month: mm,
-      year: yyyy
-    }, {
-      timeout: 5000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === 'success' && response.data.data) {
-      const data = response.data.data;
-      return {
-        day: data.day,
-        month: data.month,
-        year: data.year,
-        heavenlyStems: data.heavenlyStems,
-        earthlyBranches: data.earthlyBranches,
-        sexagenaryCycle: data.sexagenaryCycle
-      };
-    }
-  } catch (error) {
-    console.error("Error converting to lunar:", error);
-  }
-  return null;
-}
-
-async function lunarToSolar(dd, mm, yyyy) {
-  try {
-    const response = await axios.post('https://open.oapi.vn/date/convert-to-solar', {
-      day: dd,
-      month: mm,
-      year: yyyy
-    }, {
-      timeout: 5000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.data && response.data.code === 'success' && response.data.data) {
-      const data = response.data.data;
-      const dateParts = data.date.split('T')[0].split('-');
-      return new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-    }
-  } catch (error) {
-    console.error("Error converting to solar:", error);
-  }
-  return null;
-}
-
 function jdFromDate(dd, mm, yyyy) {
   const a = Math.floor((14 - mm) / 12);
   const y = yyyy + 4800 - a;
@@ -132,46 +78,17 @@ async function getVietnameseHolidays(year) {
   
   holidays.push({ name: "Tết Dương lịch", date: new Date(year, 0, 1) });
   holidays.push({ name: "Ngày thành lập Đảng", date: new Date(year, 1, 3) });
+  holidays.push({ name: "Ngày Quốc tế Phụ nữ", date: new Date(year, 2, 8) });
   holidays.push({ name: "Ngày Giải phóng miền Nam", date: new Date(year, 3, 30) });
   holidays.push({ name: "Ngày Quốc tế Lao động", date: new Date(year, 4, 1) });
   holidays.push({ name: "Sinh nhật Bác Hồ", date: new Date(year, 4, 19) });
+  holidays.push({ name: "Ngày Gia đình Việt Nam", date: new Date(year, 5, 28) });
+  holidays.push({ name: "Ngày Thương binh Liệt sĩ", date: new Date(year, 6, 27) });
   holidays.push({ name: "Ngày Quốc khánh", date: new Date(year, 8, 2) });
   holidays.push({ name: "Ngày Phụ nữ Việt Nam", date: new Date(year, 9, 20) });
   holidays.push({ name: "Ngày Nhà giáo Việt Nam", date: new Date(year, 10, 20) });
   holidays.push({ name: "Ngày hội Quốc phòng Toàn dân", date: new Date(year, 11, 22) });
   holidays.push({ name: "Giáng sinh", date: new Date(year, 11, 25) });
-  holidays.push({ name: "Ngày Quốc tế Phụ nữ", date: new Date(year, 2, 8) });
-  holidays.push({ name: "Ngày Thương binh Liệt sĩ", date: new Date(year, 6, 27) });
-  holidays.push({ name: "Ngày Gia đình Việt Nam", date: new Date(year, 5, 28) });
-  
-  const tetTrungThu = await lunarToSolar(15, 8, year);
-  if (tetTrungThu) holidays.push({ name: "Tết Trung thu", date: tetTrungThu });
-  
-  const tetDoanNgo = await lunarToSolar(5, 5, year);
-  if (tetDoanNgo) holidays.push({ name: "Tết Đoan Ngọ", date: tetDoanNgo });
-  
-  const ramThangGieng = await lunarToSolar(15, 1, year);
-  if (ramThangGieng) holidays.push({ name: "Rằm tháng Giêng", date: ramThangGieng });
-  
-  const tetHanThuc = await lunarToSolar(3, 3, year);
-  if (tetHanThuc) holidays.push({ name: "Tết Hàn thực", date: tetHanThuc });
-  
-  const vuLan = await lunarToSolar(15, 7, year);
-  if (vuLan) holidays.push({ name: "Vu Lan", date: vuLan });
-  
-  const ongTao = await lunarToSolar(23, 12, year);
-  if (ongTao) holidays.push({ name: "Ông Táo chầu trời", date: ongTao });
-  
-  const tetDate = await lunarToSolar(1, 1, year);
-  if (tetDate) {
-    holidays.push({ name: "Tết Nguyên Đán", date: tetDate });
-    const tet2 = new Date(tetDate);
-    tet2.setDate(tet2.getDate() + 1);
-    holidays.push({ name: "Mùng 2 Tết", date: tet2 });
-    const tet3 = new Date(tetDate);
-    tet3.setDate(tet3.getDate() + 2);
-    holidays.push({ name: "Mùng 3 Tết", date: tet3 });
-  }
   
   return holidays.filter(h => h.date !== null);
 }
@@ -199,7 +116,7 @@ export async function createCalendarImage() {
 
   createHelpBackground(ctx, width, height);
 
-  const now = new Date();
+  const now = new Date(Date.now());
   const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
   const monthNames = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
   
@@ -207,7 +124,6 @@ export async function createCalendarImage() {
   const dd = now.getDate();
   const mm = now.getMonth() + 1;
   const yyyy = now.getFullYear();
-  const lunar = await solarToLunar(dd, mm, yyyy);
 
   const hours = now.getHours();
   const minutes = now.getMinutes();
@@ -233,16 +149,43 @@ export async function createCalendarImage() {
   ctx.fillStyle = timeGradient;
   ctx.fillText(timeStr, width / 2, 280);
 
-  if (lunar) {
-    ctx.font = "bold 28px 'BeVietnamPro', Arial";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(`Âm Lịch - ${lunar.day < 10 ? '0' : ''}${lunar.day}/${lunar.month < 10 ? '0' : ''}${lunar.month}/${lunar.year}`, width / 2, 340);
+  const quotes = [
+    { text: "The only way to do great work is to love what you do.", author: "- Steve Jobs" },
+    { text: "Life is what happens to you while you're busy making other plans.", author: "- John Lennon" },
+    { text: "Get busy living or get busy dying.", author: "- Stephen King" },
+    { text: "The future belongs to those who believe in the beauty of their dreams.", author: "- Eleanor Roosevelt" },
+    { text: "You miss 100% of the shots you don't take.", author: "- Wayne Gretzky" },
+    { text: "The best time to plant a tree was 20 years ago. The second best time is now.", author: "- Chinese Proverb" },
+    { text: "Stay hungry, stay foolish.", author: "- Steve Jobs" },
+    { text: "Innovation is the ability to see change as an opportunity - not a threat.", author: "- Steve Jobs" }
+  ];
+  const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
-    ctx.font = "22px 'BeVietnamPro', Arial";
-    const canChiText = `Ngày ${lunar.sexagenaryCycle}`;
-    ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.fillText(canChiText, width / 2, 390);
+  ctx.font = "bold 24px 'BeVietnamPro', Arial";
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  const maxWidth = width - 100;
+  const lineHeight = 28;
+  const words = randomQuote.text.split(' ');
+  let line = '';
+  let y = 340;
+  
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, width / 2, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
   }
+  ctx.fillText(line, width / 2, y);
+
+  ctx.font = "bold 22px 'BeVietnamPro', Arial";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText(randomQuote.author, width / 2, y + 40);
 
   const holidays = await getUpcomingHolidays(now);
   let yPos = 520;
