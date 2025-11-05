@@ -42,7 +42,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
 `);
         const circleBorder = Buffer.from(`
     <svg width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#00ff00" stroke-width="${borderWidth}"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
     </svg>
 `);
         const workers = [];
