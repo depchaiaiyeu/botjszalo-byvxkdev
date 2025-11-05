@@ -106,8 +106,8 @@ export async function convertToWebpMulti(inputPath, outputPath) {
             .outputOptions([
                 '-c:v', 'libwebp',
                 '-lossless', '0',
-                '-compression_level', '3',
-                '-q:v', '7',
+                '-compression_level', '1',
+                '-q:v', '5',
                 '-loop', '0',
                 '-preset', 'default',
                 '-cpu-used', '5',
