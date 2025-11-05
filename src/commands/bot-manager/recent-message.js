@@ -3,6 +3,61 @@ import { sendMessageStateQuote } from "../../service-hahuyhoang/chat-zalo/chat-s
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
 
+export async function deleteAllUserMessages(api, userId, threadId) {
+  let allMessages = [];
+  let currentMsgId = null;
+  let hasMore = true;
+  
+  try {
+    while (hasMore) {
+      const recentMessage = await api.getRecentMessages(threadId, currentMsgId, 50);
+      const parsedMessage = JSON.parse(recentMessage);
+      const messages = parsedMessage.groupMsgs;
+      
+      if (!messages || messages.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      const userMessages = messages.filter(msg => msg.uidFrom === userId);
+      allMessages = [...allMessages, ...userMessages];
+      
+      currentMsgId = messages[messages.length - 1].msgId;
+      
+      if (messages.length < 50) hasMore = false;
+    }
+    
+    let countDelete = 0;
+    let countDeleteFail = 0;
+    
+    const deletePromises = allMessages.map(msg => {
+      const msgDel = {
+        type: 1,
+        threadId: threadId,
+        data: {
+          cliMsgId: msg.cliMsgId,
+          msgId: msg.msgId,
+          uidFrom: msg.uidFrom,
+        },
+      };
+      return api.deleteMessage(msgDel, false)
+        .then(() => countDelete++)
+        .catch(() => countDeleteFail++);
+    });
+    
+    await Promise.all(deletePromises);
+    
+    return {
+      success: countDelete,
+      failed: countDeleteFail,
+      total: allMessages.length
+    };
+  } catch (error) {
+    console.error("Lỗi khi xóa tin nhắn:", error);
+    throw error;
+  }
+}
+
 export async function handleDeleteMessage(api, message, groupAdmins, aliasCommand) {
   const content = removeMention(message);
   const prefixGlobal = getGlobalPrefix(message);
