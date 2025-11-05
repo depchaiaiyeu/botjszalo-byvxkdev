@@ -41,9 +41,11 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
 
   try {
     if (useSpinDisk) {
+      console.log("Đang gọi createCircleWebp để tạo sticker xoay tròn...")
       const idImage = Date.now()
       const result = await createCircleWebp(api, message, mediaUrl, idImage)
       if (!result) throw new Error("Tạo spin disk sticker thất bại")
+      console.log("Đã tạo xong sticker xoay tròn, đang gửi...")
       await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
       return true
     }
