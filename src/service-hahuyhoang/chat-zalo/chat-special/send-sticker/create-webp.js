@@ -37,7 +37,11 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
         }
         const circleMask = Buffer.from(`
     <svg width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
+    </svg>
+`);
+        const circleBorder = Buffer.from(`
+    <svg width="${size}" height="${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#00ff00" stroke-width="${borderWidth}"/>
     </svg>
 `);
@@ -55,7 +59,8 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
                     totalFrames,
                     framesDir,
                     imageBuffer: resizedImageBuffer,
-                    circleMask
+                    circleMask,
+                    circleBorder
                 }
             });
             workers.push(new Promise((resolve, reject) => {
