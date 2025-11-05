@@ -14,6 +14,8 @@ import { antiSticker } from "../service-hahuyhoang/anti-service/anti-sticker.js"
 import { antiLinkKeyword } from "../service-hahuyhoang/anti-service/anti-keyword-link.js";
 import { antiForward } from "../service-hahuyhoang/anti-service/anti-forward.js";
 
+import { handleActionGroupReply } from "../commands/bot-manager/remote-action-group.js";
+
 import { handleWordChainMessage } from "../service-hahuyhoang/game-service/mini-game/wordChain.js";
 import { handleGuessNumberGame } from "../service-hahuyhoang/game-service/mini-game/guessNumber.js";
 import { handleVuaTiengVietMessage } from "../service-hahuyhoang/game-service/mini-game/vuaTiengViet.js";
@@ -237,6 +239,7 @@ export async function messagesUser(api, message) {
         handleCaroMessage(api, message),
         handleChessMessage(api, message),
       ]);
+      await handleActionGroupReply(api, message, groupInfo, groupAdmins, groupSettings, isAdminLevelHighest, isAdminBot, isAdminBox);
       break;
     }
   }
