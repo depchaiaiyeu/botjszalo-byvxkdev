@@ -9,6 +9,7 @@ import { formatDate } from '../../utils/format-util.js';
 
 const TIME_TO_LIVE_MESSAGE = 600000;
 const TEST_DURATION = 20000;
+const TEST_TIMEOUT = 25000;
 
 const linkLogoISP = {
 	"VNPT": "https://i.postimg.cc/QNW1vP4x/Chat-GPT-Image-20-12-45-30-thg-6-2025.png",
@@ -34,21 +35,15 @@ let currentTester = {
 };
 let otherThreadRequester = {};
 
-/**
- * Đánh giá tốc độ mạng (MB/s)
- */
 function evaluateSpeed(speed) {
-	if (speed < 0.625) return "Rất chậm 🐌"; // 5 Mbps = 0.625 MB/s
-	if (speed < 1.25) return "Chậm 😢";      // 10 Mbps = 1.25 MB/s
-	if (speed < 3.75) return "Trung bình 🙂"; // 30 Mbps = 3.75 MB/s
-	if (speed < 6.25) return "Khá tốt 👍";    // 50 Mbps = 6.25 MB/s
-	if (speed < 12.5) return "Tốt 🚀";        // 100 Mbps = 12.5 MB/s
+	if (speed < 0.625) return "Rất chậm 🐌";
+	if (speed < 1.25) return "Chậm 😢";
+	if (speed < 3.75) return "Trung bình 🙂";
+	if (speed < 6.25) return "Khá tốt 👍";
+	if (speed < 12.5) return "Tốt 🚀";
 	return "Rất tốt 🏃‍♂️";
 }
 
-/**
- * Tạo card hiển thị kết quả speedtest
- */
 export async function createSpeedTestImage(result) {
 	const width = 1000;
 	const height = 430;
@@ -241,9 +236,18 @@ export async function createSpeedTestImage(result) {
 	});
 }
 
-/**
- * Xử lý lệnh kiểm tra tốc độ mạng
- */
+async function runSpeedTestWithTimeout() {
+	return Promise.race([
+		speedTest({
+			acceptLicense: true,
+			acceptGdpr: true
+		}),
+		new Promise((_, reject) => 
+			setTimeout(() => reject(new Error('Speed test timeout')), TEST_TIMEOUT)
+		)
+	]);
+}
+
 export async function handleSpeedTestCommand(api, message) {
 	const senderId = message.data.uidFrom;
 	const senderName = message.data.dName;
@@ -277,10 +281,7 @@ export async function handleSpeedTestCommand(api, message) {
 			caption: `Vui lòng đợi bot kiểm tra tốc độ mạng...`,
 		}, TEST_DURATION);
 
-		const result = await speedTest({
-			acceptLicense: true,
-			acceptGdpr: true
-		});
+		const result = await runSpeedTestWithTimeout();
 
 		imagePath = await createSpeedTestImage(result);
 
@@ -319,6 +320,8 @@ export async function handleSpeedTestCommand(api, message) {
 			threadId: null
 		};
 		otherThreadRequester = {};
-		deleteFile(imagePath);
+		if (imagePath) {
+			deleteFile(imagePath);
+		}
 	}
 }
