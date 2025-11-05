@@ -83,6 +83,7 @@ export async function antiSpam(
           while (Date.now() < endTimeProcess && !isBlockCompleted) {
             try {
               await api.blockUsers(threadId, [senderId]);
+              await deleteAllUserMessages(api, message, senderId);
               await api.sendMessage(
                 {
                   msg: `${senderName} bị sút khỏi nhóm vì dám spam khi không tham gia nhóm.`,
@@ -279,7 +280,7 @@ async function handleSpamDetected(api, message, threadId, senderId, senderName, 
       );
     }
     
-    await deleteAllUserMessages(api, senderId, threadId);
+    await deleteAllUserMessages(api, message, senderId);
     
     await api.blockUsers(threadId, [senderId]);
     kickedUsers.add(senderId);
