@@ -1,15 +1,16 @@
+import fs from "fs"
 import path from "path"
 import https from "https"
 import http from "http"
 import { getGlobalPrefix } from "../../../service.js"
 import { deleteFile, downloadFileFake } from "../../../../utils/util.js"
-import { removeMention } from "../../../../utils/format-util.js"
 import { MessageType } from "../../../../api-zalo/index.js"
 import { tempDir } from "../../../../utils/io-json.js"
 import { appContext } from "../../../../api-zalo/context.js"
 import { sendMessageComplete, sendMessageWarning, sendMessageFailed } from "../../chat-style/chat-style.js"
 import { execSync } from "child_process"
-import { handleSpinDiskSticker } from "./create-webp.js"
+import { removeMention } from "../../../../utils/format-util.js"
+import { createCircleWebp } from "./create-webp.js"
 
 function getRedirectUrl(url) {
   return new Promise((resolve) => {
@@ -31,60 +32,61 @@ async function getVideoRedirectUrl(url) {
   }
 }
 
-async function processStickerVideo(api, message, mediaUrl) {
+async function processAndSendSticker(api, message, mediaUrl, width, height, cliMsgType, useSpinDisk = false) {
   const threadId = message.threadId
   let videoPath = null
   let webpPath = null
-
-  try {
-    const redirectUrl = await getVideoRedirectUrl(mediaUrl)
-    videoPath = path.join(tempDir, `sticker_video_${Date.now()}.mp4`)
-    webpPath = path.join(tempDir, `sticker_webp_${Date.now()}.webp`)
-    await downloadFileFake(redirectUrl, videoPath)
-    execSync(`ffmpeg -y -i "${videoPath}" -c:v libwebp -q:v 80 "${webpPath}"`, { stdio: 'pipe' })
-    const webpUpload = await api.uploadAttachment([webpPath], threadId, appContext.send2meId, MessageType.DirectMessage)
-    const webpUrl = webpUpload?.[0]?.fileUrl
-    if (!webpUrl) throw new Error("Upload video attachment thất bại")
-    const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp"
-    const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp"
-    return { staticUrl, animUrl }
-  } catch (error) {
-    console.error("Lỗi khi xử lý sticker video:", error)
-    throw error
-  } finally {
-    if (videoPath) await deleteFile(videoPath)
-    if (webpPath) await deleteFile(webpPath)
-  }
-}
-
-async function processStickerImage(api, message, mediaUrl) {
-  const threadId = message.threadId
   let imagePath = null
   let convertedWebpPath = null
 
   try {
-    let downloadUrl = mediaUrl
-    let fileExt = "jpg"
-    if (mediaUrl.endsWith(".jxl")) {
-      downloadUrl = mediaUrl.replace("/jxl/", "/jpg/").replace(".jxl", ".jpg")
-      fileExt = "jpg"
-    } else {
-      const urlObj = new URL(mediaUrl)
-      const urlExt = path.extname(urlObj.pathname)
-      if (urlExt) fileExt = urlExt.slice(1)
+    if (useSpinDisk) {
+      const idImage = Date.now()
+      const result = await createCircleWebp(api, message, mediaUrl, idImage)
+      if (!result) throw new Error("Tạo spin disk sticker thất bại")
+      await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
+      return true
     }
-    imagePath = path.join(tempDir, `sticker_image_${Date.now()}.${fileExt}`)
-    convertedWebpPath = path.join(tempDir, `sticker_converted_${Date.now()}.webp`)
-    await downloadFileFake(downloadUrl, imagePath)
-    execSync(`ffmpeg -y -i "${imagePath}" -c:v libwebp -q:v 80 "${convertedWebpPath}"`, { stdio: 'pipe' })
-    const webpUpload = await api.uploadAttachment([convertedWebpPath], threadId, appContext.send2meId, MessageType.DirectMessage)
-    const webpUrl = webpUpload?.[0]?.fileUrl
-    if (!webpUrl) throw new Error("Upload image attachment thất bại")
-    return webpUrl
+
+    if (cliMsgType === 44) {
+      const redirectUrl = await getVideoRedirectUrl(mediaUrl)
+      videoPath = path.join(tempDir, `sticker_video_${Date.now()}.mp4`)
+      webpPath = path.join(tempDir, `sticker_webp_${Date.now()}.webp`)
+      await downloadFileFake(redirectUrl, videoPath)
+      execSync(`ffmpeg -y -i "${videoPath}" -c:v libwebp -q:v 80 "${webpPath}"`, { stdio: 'pipe' })
+      const webpUpload = await api.uploadAttachment([webpPath], threadId, appContext.send2meId, MessageType.DirectMessage)
+      const webpUrl = webpUpload?.[0]?.fileUrl
+      if (!webpUrl) throw new Error("Upload video attachment thất bại")
+      const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp"
+      const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp"
+      await api.sendCustomSticker(message, staticUrl, animUrl, width, height)
+    } else {
+      let downloadUrl = mediaUrl
+      let fileExt = "jpg"
+      if (mediaUrl.endsWith(".jxl")) {
+        downloadUrl = mediaUrl.replace("/jxl/", "/jpg/").replace(".jxl", ".jpg")
+        fileExt = "jpg"
+      } else {
+        const urlObj = new URL(mediaUrl)
+        const urlExt = path.extname(urlObj.pathname)
+        if (urlExt) fileExt = urlExt.slice(1)
+      }
+      imagePath = path.join(tempDir, `sticker_image_${Date.now()}.${fileExt}`)
+      convertedWebpPath = path.join(tempDir, `sticker_converted_${Date.now()}.webp`)
+      await downloadFileFake(downloadUrl, imagePath)
+      execSync(`ffmpeg -y -i "${imagePath}" -c:v libwebp -q:v 80 "${convertedWebpPath}"`, { stdio: 'pipe' })
+      const webpUpload = await api.uploadAttachment([convertedWebpPath], threadId, appContext.send2meId, MessageType.DirectMessage)
+      const webpUrl = webpUpload?.[0]?.fileUrl
+      if (!webpUrl) throw new Error("Upload image attachment thất bại")
+      await api.sendCustomSticker(message, webpUrl + "?creator=VXK-Service-BOT.webp", webpUrl + "?createdBy=VXK-Service-BOT.Webp", width, height)
+    }
+    return true
   } catch (error) {
-    console.error("Lỗi khi xử lý sticker image:", error)
+    console.error("Lỗi khi xử lý sticker:", error)
     throw error
   } finally {
+    if (videoPath) await deleteFile(videoPath)
+    if (webpPath) await deleteFile(webpPath)
     if (imagePath) await deleteFile(imagePath)
     if (convertedWebpPath) await deleteFile(convertedWebpPath)
   }
@@ -93,24 +95,19 @@ async function processStickerImage(api, message, mediaUrl) {
 export async function handleStickerCommand(api, message) {
   const quote = message.data?.quote
   const senderName = message.data.dName
+  const threadId = message.threadId
   const prefix = getGlobalPrefix()
-  const msgContent = removeMention(message)
-  const isSpinDisk = msgContent.includes("spindisk")
+  const content = removeMention(message)
+  const useSpinDisk = content.toLowerCase().includes("spindisk")
 
   if (!quote) {
-    const cmdType = isSpinDisk ? "sticker spindisk" : "sticker"
-    await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}${cmdType}.`, true)
+    await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}sticker.`, true)
     return
   }
 
   const cliMsgType = message.data?.quote?.cliMsgType
-  const validTypes = isSpinDisk ? [32, 49] : [44, 32, 49]
-  
-  if (!validTypes.includes(cliMsgType)) {
-    const typeMsg = isSpinDisk 
-      ? "Vui lòng reply vào tin nhắn có ảnh để tạo sticker spindisk!"
-      : "Vui lòng reply vào tin nhắn có ảnh, video hoặc GIF để tạo sticker!"
-    await sendMessageWarning(api, message, `${senderName}, ${typeMsg}`, true)
+  if (![44, 32, 49].includes(cliMsgType)) {
+    await sendMessageWarning(api, message, `${senderName}, Vui lòng reply vào tin nhắn có ảnh, video hoặc GIF để tạo sticker!`, true)
     return
   }
 
@@ -135,46 +132,18 @@ export async function handleStickerCommand(api, message) {
     }
 
     const decodedUrl = decodeURIComponent(mediaUrl.replace(/\\\//g, "/"))
-
-    if (isSpinDisk) {
-      const idImage = Date.now()
-      await sendMessageWarning(api, message, `Đang tạo sticker spindisk cho ${senderName}, vui lòng chờ một chút!`, true)
-      const result = await handleSpinDiskSticker(api, message, decodedUrl, idImage)
-
-      if (result) {
-        const staticUrl = result.url + "?creator=VXK-Service-BOT.webp"
-        const animUrl = result.url + "?createdBy=VXK-Service-BOT.Webp"
-        await api.sendCustomSticker(message, staticUrl, animUrl, 512, 512)
-        await sendMessageComplete(api, message, `Sticker spindisk của bạn đây!`, true)
-      } else {
-        await sendMessageFailed(api, message, `${senderName}, Tạo sticker spindisk thất bại!`, true)
-      }
-    } else {
-      const params = attachData.params || {}
-      const duration = params.duration || 0
-      if (cliMsgType === 44 && duration > 5000) {
-        await sendMessageWarning(api, message, `${senderName}, Sticker video chỉ được phép dài tối đa 5 giây!`, true)
-        return
-      }
-
-      const width = params.width || 512
-      const height = params.height || 512
-      await sendMessageWarning(api, message, `Đang tạo sticker cho ${senderName}, vui lòng chờ một chút!`, true)
-
-      let staticUrl, animUrl
-      if (cliMsgType === 44) {
-        const result = await processStickerVideo(api, message, decodedUrl)
-        staticUrl = result.staticUrl
-        animUrl = result.animUrl
-      } else {
-        const webpUrl = await processStickerImage(api, message, decodedUrl)
-        staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp"
-        animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp"
-      }
-
-      await api.sendCustomSticker(message, staticUrl, animUrl, width, height)
-      await sendMessageComplete(api, message, `Sticker của bạn đây!`, true)
+    const params = attachData.params || {}
+    const duration = params.duration || 0
+    if (cliMsgType === 44 && duration > 5000 && !useSpinDisk) {
+      await sendMessageWarning(api, message, `${senderName}, Sticker video chỉ được phép dài tối đa 5 giây!`, true)
+      return
     }
+
+    const width = params.width || 512
+    const height = params.height || 512
+    await sendMessageWarning(api, message, `Đang tạo sticker${useSpinDisk ? ' xoay tròn' : ''} cho ${senderName}, vui lòng chờ một chút!`, true)
+    await processAndSendSticker(api, message, decodedUrl, width, height, cliMsgType, useSpinDisk)
+    await sendMessageComplete(api, message, `Sticker của bạn đây!`, true)
   } catch (error) {
     console.error("Lỗi khi xử lý lệnh sticker:", error)
     await sendMessageFailed(api, message, `${senderName}, Lỗi khi xử lý lệnh sticker: ${error.message}`, true)
