@@ -10,7 +10,7 @@ export async function deleteAllUserMessages(api, message, userId) {
   
   try {
     while (hasMore) {
-      const recentMessage = await getRecentMessage(api, currentMessage, 50);
+      const recentMessage = await getRecentMessage(api, currentMessage, 10);
       
       if (!recentMessage || recentMessage.length === 0) {
         hasMore = false;
