@@ -1,129 +1,55 @@
-import ffmpeg from 'fluent-ffmpeg'
-import path from "path"
-import { tempDir } from "../../../../utils/io-json.js"
-import { getVideoMetadata } from "../../../../api-zalo/utils.js"
-import { checkExstentionFileRemote, deleteFile, downloadFileFake } from "../../../../utils/util.js"
-import fs from 'fs'
-import sharp from 'sharp'
-import { sendMessageWarningRequest } from '../../chat-style/chat-style.js'
-import { Worker } from 'worker_threads'
-import os from 'os'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
+import ffmpeg from 'fluent-ffmpeg';
+import path from "path";
+import { tempDir } from "../../../../utils/io-json.js";
+import { getVideoMetadata } from "../../../../api-zalo/utils.js";
+import { checkExstentionFileRemote, deleteFile, downloadFileFake } from "../../../../utils/util.js";
+import fs from 'fs';
+import sharp from 'sharp';
+import { sendMessageWarningRequest } from '../../chat-style/chat-style.js';
+import { Worker } from 'worker_threads';
+import os from 'os';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-async function createSpinDiskSticker(api, message, imageUrl, idImage) {
-    const ext = await checkExstentionFileRemote(imageUrl)
-    const downloadedImage = path.join(tempDir, `original_spindisk_${idImage}.${ext}`)
-    const framesDir = path.join(tempDir, `frames_spindisk_${idImage}`)
-    const outputWebp = path.join(tempDir, `spindisk_${idImage}.webp`)
-
-    try {
-        await downloadFileFake(imageUrl, downloadedImage)
-
-        const size = 512
-        const totalFrames = 36
-        const backgroundColor = '#90EE90'
-
-        const resizedImageBuffer = await sharp(downloadedImage)
-            .resize(400, 400, {
-                fit: 'cover',
-                position: 'center'
-            })
-            .toBuffer()
-
-        if (!fs.existsSync(framesDir)) {
-            await fs.promises.mkdir(framesDir, { recursive: true })
-        }
-
-        for (let i = 0; i < totalFrames; i++) {
-            const angle = (i / totalFrames) * 360
-            const framePath = path.join(framesDir, `frame_${String(i).padStart(3, '0')}.png`)
-
-            await sharp({
-                create: {
-                    width: size,
-                    height: size,
-                    channels: 3,
-                    background: backgroundColor
-                }
-            })
-            .composite([
-                {
-                    input: resizedImageBuffer,
-                    left: Math.round((size - 400) / 2),
-                    top: Math.round((size - 400) / 2),
-                    rotate: angle
-                }
-            ])
-            .png()
-            .toFile(framePath)
-        }
-
-        const framePattern = path.join(framesDir, 'frame_%03d.png')
-        await convertToWebpMulti(framePattern, outputWebp)
-
-        const [linkUploadZalo, stickerData] = await Promise.all([
-            api.uploadAttachment([outputWebp], message.threadId, message.type),
-            getVideoMetadata(outputWebp)
-        ])
-
-        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl
-
-        return {
-            path: outputWebp,
-            url: finalUrl,
-            stickerData: stickerData
-        }
-
-    } catch (error) {
-        console.error("Lỗi khi tạo spin disk sticker:", error)
-        throw error
-    } finally {
-        await deleteFile(downloadedImage)
-        await fs.promises.rm(framesDir, { recursive: true, force: true })
-        await deleteFile(outputWebp)
-    }
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export async function createCircleWebp(api, message, imageUrl, idImage) {
-    const ext = await checkExstentionFileRemote(imageUrl)
-    const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`)
-    const framesDir = path.join(tempDir, `frames_${idImage}`)
-    const outputWebp = path.join(tempDir, `circle_${idImage}.webp`)
+    const ext = await checkExstentionFileRemote(imageUrl);
+    const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
+    const framesDir = path.join(tempDir, `frames_${idImage}`);
+    const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
     try {
-        await downloadFileFake(imageUrl, downloadedImage)
+        await downloadFileFake(imageUrl, downloadedImage);
 
-        const size = 512
-        const totalFrames = 160
-        const numWorkers = Math.min(os.cpus().length, totalFrames)
-        const framesPerWorker = Math.ceil(totalFrames / numWorkers)
+        const size = 512;
+        const totalFrames = 160;
+        const numWorkers = Math.min(os.cpus().length, totalFrames);
+        const framesPerWorker = Math.ceil(totalFrames / numWorkers);
 
         const resizedImageBuffer = await sharp(downloadedImage)
             .resize(size, size, {
                 fit: 'cover',
                 position: 'center'
             })
-            .toBuffer()
+            .toBuffer();
 
         if (!fs.existsSync(framesDir)) {
-            await fs.promises.mkdir(framesDir, { recursive: true })
+            await fs.promises.mkdir(framesDir, { recursive: true });
         }
 
         const circleMask = Buffer.from(`
     <svg width="${size}" height="${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
     </svg>
-`)
+`);
 
-        const workers = []
-        const workerPath = path.join(__dirname, 'frame-worker.js')
+        const workers = [];
+        const workerPath = path.join(__dirname, 'frame-worker.js');
         
         for (let i = 0; i < numWorkers; i++) {
-            const startFrame = i * framesPerWorker
-            const endFrame = Math.min(startFrame + framesPerWorker, totalFrames)
+            const startFrame = i * framesPerWorker;
+            const endFrame = Math.min(startFrame + framesPerWorker, totalFrames);
 
             const worker = new Worker(workerPath, {
                 workerData: {
@@ -135,44 +61,44 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
                     imageBuffer: resizedImageBuffer,
                     circleMask
                 }
-            })
+            });
 
             workers.push(new Promise((resolve, reject) => {
-                worker.on('message', resolve)
-                worker.on('error', reject)
+                worker.on('message', resolve);
+                worker.on('error', reject);
                 worker.on('exit', (code) => {
                     if (code !== 0) {
-                        reject(new Error(`Worker stopped with exit code ${code}`))
+                        reject(new Error(`Worker stopped with exit code ${code}`));
                     }
-                })
-            }))
+                });
+            }));
         }
 
-        await Promise.all(workers)
+        await Promise.all(workers);
 
-        const framePattern = path.join(framesDir, 'frame_%03d.png')
-        await convertToWebpMulti(framePattern, outputWebp)
+        const framePattern = path.join(framesDir, 'frame_%03d.png');
+        await convertToWebpMulti(framePattern, outputWebp);
 
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
-        ])
+        ]);
 
-        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl
+        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
         
         return {
             path: outputWebp,
             url: finalUrl,
             stickerData: stickerData
-        }
+        };
 
     } catch (error) {
-        console.error("Lỗi khi tạo Webp:", error)
-        throw error
+        console.error("Lỗi khi tạo Webp:", error);
+        throw error;
     } finally {
-        await deleteFile(downloadedImage)
-        await fs.promises.rm(framesDir, { recursive: true, force: true })
-        await deleteFile(outputWebp)
+        await deleteFile(downloadedImage);
+        await fs.promises.rm(framesDir, { recursive: true, force: true });
+        await deleteFile(outputWebp);
     }
 }
 
@@ -197,30 +123,30 @@ export async function convertToWebpMulti(inputPath, outputPath) {
             ])
             .save(outputPath)
             .on('end', () => {
-                resolve(true)
+                resolve(true);
             })
             .on('error', (err) => {
-                console.error('Lỗi khi chuyển đổi sang WebP:', err.message)
-                reject(false)
-            })
-    })
+                console.error('Lỗi khi chuyển đổi sang WebP:', err.message);
+                reject(false);
+            });
+    });
 }
 
 export async function createImageWebp(api, message, imageUrl, idImage) {
-    const ext = await checkExstentionFileRemote(imageUrl)
-    const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`)
-    const outputWebp = path.join(tempDir, `circle_${idImage}.webp`)
+    const ext = await checkExstentionFileRemote(imageUrl);
+    const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
+    const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
     try {
-        await downloadFileFake(imageUrl, downloadedImage)
+        await downloadFileFake(imageUrl, downloadedImage);
         
-        const size = 512
+        const size = 512;
         const circleMask = Buffer.from(`
             <svg width="${size}" height="${size}">
                 <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
             </svg>
-        `)
+        `);
 
-        const imageBuffer = await fs.promises.readFile(downloadedImage)
+        const imageBuffer = await fs.promises.readFile(downloadedImage);
         await sharp(imageBuffer)
             .resize(size, size, {
                 fit: 'cover',
@@ -230,30 +156,30 @@ export async function createImageWebp(api, message, imageUrl, idImage) {
                 input: circleMask,
                 blend: 'dest-in'
             }])
-            .toFile(outputWebp)
+            .toFile(outputWebp);
 
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
-        ])
+        ]);
 
-        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl
+        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
 
         return {
             path: outputWebp,
             url: finalUrl,
             stickerData: stickerData
-        }
+        };
     } catch (error) {
-        console.error("Lỗi khi tạo Webp:", error)
+        console.error("Lỗi khi tạo Webp:", error);
         const object = {
             caption: `Đã xảy ra lỗi khi xử lý hình ảnh!`,
-        }
-        await sendMessageWarningRequest(api, message, object, 30000)
-        return null
+        };
+        await sendMessageWarningRequest(api, message, object, 30000);
+        return null;
     } finally {
-        await deleteFile(downloadedImage)
-        await deleteFile(outputWebp)
+        await deleteFile(downloadedImage);
+        await deleteFile(outputWebp);
     }
 }
 
@@ -276,41 +202,44 @@ export async function convertToWebp(inputPath, outputPath) {
             ])
             .save(outputPath)
             .on('end', () => {
-                resolve(true)
+                resolve(true);
             })
             .on('error', (err) => {
-                console.error('Lỗi khi chuyển đổi sang WebP:', err.message)
-                reject(false)
-            })
-    })
+                console.error('Lỗi khi chuyển đổi sang WebP:', err.message);
+                reject(false);
+            });
+    });
 }
-
 export async function convertStickerToSticker(api, message, stickerUrl, idSticker) {
-    const ext = await checkExstentionFileRemote(stickerUrl)
+    const ext = await checkExstentionFileRemote(stickerUrl);
     if (ext.toLowerCase() !== 'webp') {
-        console.error("Đầu vào phải là file WebP")
+        console.error("Đầu vào phải là file WebP");
         const object = {
             caption: `Hình ảnh đầu vào phải là định dạng WebP!`,
-        }
-        await sendMessageWarningRequest(api, message, object, 30000)
-        return null
+        };
+        await sendMessageWarningRequest(api, message, object, 30000);
+        return null;
     }
 
-    const downloadedSticker = path.join(tempDir, `original_sticker_${idSticker}.webp`)
-    const outputWebp = path.join(tempDir, `new_sticker_${idSticker}.webp`)
+    const downloadedSticker = path.join(tempDir, `original_sticker_${idSticker}.webp`);
+    const outputWebp = path.join(tempDir, `new_sticker_${idSticker}.webp`);
 
     try {
-        await downloadFileFake(stickerUrl, downloadedSticker)
+        // Tải sticker WebP về
+        await downloadFileFake(stickerUrl, downloadedSticker);
 
-        const size = 512
+        // Kích thước chuẩn cho sticker
+        const size = 512;
 
+        // Tạo mask hình tròn
         const circleMask = Buffer.from(`
             <svg width="${size}" height="${size}">
                 <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
             </svg>
-        `)
+        `);
 
-        const imageBuffer = await fs.promises.readFile(downloadedSticker)
+        // Xử lý sticker: thay đổi kích thước và áp dụng mask hình tròn
+        const imageBuffer = await fs.promises.readFile(downloadedSticker);
         await sharp(imageBuffer)
             .resize(size, size, {
                 fit: 'cover',
@@ -320,74 +249,76 @@ export async function convertStickerToSticker(api, message, stickerUrl, idSticke
                 input: circleMask,
                 blend: 'dest-in'
             }])
-            .toFile(outputWebp)
+            .toFile(outputWebp);
 
+        // Upload sticker mới lên Zalo
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
-        ])
+        ]);
 
-        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl
+        const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
 
         return {
             path: outputWebp,
             url: finalUrl,
             stickerData: stickerData
-        }
+        };
     } catch (error) {
-        console.error("Lỗi khi chuyển đổi sticker:", error)
+        console.error("Lỗi khi chuyển đổi sticker:", error);
         const object = {
             caption: `Đã xảy ra lỗi khi xử lý sticker!`,
-        }
-        await sendMessageWarningRequest(api, message, object, 30000)
-        return null
+        };
+        await sendMessageWarningRequest(api, message, object, 30000);
+        return null;
     } finally {
-        await deleteFile(downloadedSticker)
-        await deleteFile(outputWebp)
+        // Xóa các file tạm
+        await deleteFile(downloadedSticker);
+        await deleteFile(outputWebp);
     }
 }
-
 export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
-  const ext = await checkExstentionFileRemote(mediaUrl)
-  const downloadedMedia = path.join(tempDir, `original_${idSticker}.${ext}`)
-  const framesDir = path.join(tempDir, `frames_${idSticker}`)
-  const outputWebp = path.join(tempDir, `animated_sticker_${idSticker}.webp`)
+  const ext = await checkExstentionFileRemote(mediaUrl);
+  const downloadedMedia = path.join(tempDir, `original_${idSticker}.${ext}`);
+  const framesDir = path.join(tempDir, `frames_${idSticker}`);
+  const outputWebp = path.join(tempDir, `animated_sticker_${idSticker}.webp`);
   
   try {
-    console.log(`Đang xử lý sticker động từ: ${mediaUrl}`)
-    await downloadFileFake(mediaUrl, downloadedMedia)
-    const stats = await fs.promises.stat(downloadedMedia)
+    console.log(`Đang xử lý sticker động từ: ${mediaUrl}`);
+    await downloadFileFake(mediaUrl, downloadedMedia);
+    const stats = await fs.promises.stat(downloadedMedia);
     if (!stats.size) {
-      throw new Error(`Tệp media tải xuống rỗng hoặc không hợp lệ: ${downloadedMedia}`)
+      throw new Error(`Tệp media tải xuống rỗng hoặc không hợp lệ: ${downloadedMedia}`);
     }
-    console.log(`Đã tải media về: ${downloadedMedia}, kích thước: ${stats.size} bytes`)
+    console.log(`Đã tải media về: ${downloadedMedia}, kích thước: ${stats.size} bytes`);
 
+    // Kiểm tra metadata
     const metadata = await new Promise((resolve, reject) => {
       ffmpeg.ffprobe(downloadedMedia, (err, metadata) => {
-        if (err) reject(new Error(`Không thể đọc metadata của tệp: ${err.message}`))
-        else resolve(metadata)
-      })
-    })
-    const videoStream = metadata.streams.find(stream => stream.codec_type === 'video')
+        if (err) reject(new Error(`Không thể đọc metadata của tệp: ${err.message}`));
+        else resolve(metadata);
+      });
+    });
+    const videoStream = metadata.streams.find(stream => stream.codec_type === 'video');
     if (!videoStream) {
-      throw new Error(`Tệp media không chứa luồng video: ${downloadedMedia}`)
+      throw new Error(`Tệp media không chứa luồng video: ${downloadedMedia}`);
     }
-    console.log(`Định dạng media: ${metadata.format.format_name}, độ dài: ${metadata.format.duration || 'N/A'} giây, codec: ${videoStream.codec_name}`)
+    console.log(`Định dạng media: ${metadata.format.format_name}, độ dài: ${metadata.format.duration || 'N/A'} giây, codec: ${videoStream.codec_name}`);
 
-    const size = 512
+    const size = 512;
     if (!fs.existsSync(framesDir)) {
-      await fs.promises.mkdir(framesDir, { recursive: true })
-      await fs.promises.access(framesDir, fs.constants.W_OK)
-      console.log(`Thư mục khung hình có quyền ghi: ${framesDir}`)
+      await fs.promises.mkdir(framesDir, { recursive: true });
+      await fs.promises.access(framesDir, fs.constants.W_OK);
+      console.log(`Thư mục khung hình có quyền ghi: ${framesDir}`);
     }
 
     const circleMask = Buffer.from(`
       <svg width="${size}" height="${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
       </svg>
-    `)
+    `);
 
-    console.log("Đang trích xuất khung hình...")
+    console.log("Đang trích xuất khung hình...");
     await new Promise((resolve, reject) => {
       ffmpeg(downloadedMedia)
         .inputOptions(['-c:v', 'libx264'])
@@ -395,77 +326,63 @@ export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
           '-vf', `scale=${size}:-2:flags=fast_bilinear`,
           '-vsync', '0',
           '-f', 'image2',
-          '-frames:v', '50'
+          '-frames:v', '50' // Giới hạn 50 khung hình để thử nghiệm
         ])
         .save(path.join(framesDir, 'frame_%03d.png'))
         .on('end', () => {
-          console.log("Trích xuất khung hình hoàn tất")
-          resolve()
+          console.log("Trích xuất khung hình hoàn tất");
+          resolve();
         })
         .on('error', (err) => {
-          console.error("Lỗi trích xuất khung hình:", err.message)
-          reject(new Error(`Trích xuất khung hình thất bại: ${err.message}`))
-        })
-    })
+          console.error("Lỗi trích xuất khung hình:", err.message);
+          reject(new Error(`Trích xuất khung hình thất bại: ${err.message}`));
+        });
+    });
 
-    const frameFiles = await fs.promises.readdir(framesDir)
+    const frameFiles = await fs.promises.readdir(framesDir);
     if (frameFiles.length === 0) {
-      throw new Error(`Không có khung hình nào được trích xuất từ tệp media: ${downloadedMedia}`)
+      throw new Error(`Không có khung hình nào được trích xuất từ tệp media: ${downloadedMedia}`);
     }
-    console.log(`Đã trích xuất ${frameFiles.length} khung hình vào ${framesDir}`)
+    console.log(`Đã trích xuất ${frameFiles.length} khung hình vào ${framesDir}`);
 
-    console.log("Đang áp dụng mask tròn cho các khung hình...")
+    console.log("Đang áp dụng mask tròn cho các khung hình...");
     for (const frame of frameFiles) {
-      const framePath = path.join(framesDir, frame)
-      const outputFrame = path.join(framesDir, `masked_${frame}`)
+      const framePath = path.join(framesDir, frame);
+      const outputFrame = path.join(framesDir, `masked_${frame}`);
       await sharp(framePath)
         .composite([{ input: circleMask, blend: 'dest-in' }])
-        .toFile(outputFrame)
-      await fs.promises.rename(outputFrame, framePath)
-      console.log(`Đã áp dụng mask cho khung hình: ${framePath}`)
+        .toFile(outputFrame);
+      await fs.promises.rename(outputFrame, framePath);
+      console.log(`Đã áp dụng mask cho khung hình: ${framePath}`);
     }
 
-    console.log("Đang chuyển đổi sang WebP...")
-    const framePattern = path.join(framesDir, 'frame_%03d.png')
-    await convertToWebpMulti(framePattern, outputWebp)
+    console.log("Đang chuyển đổi sang WebP...");
+    const framePattern = path.join(framesDir, 'frame_%03d.png');
+    await convertToWebpMulti(framePattern, outputWebp);
 
     const [linkUploadZalo, stickerData] = await Promise.all([
       api.uploadAttachment([outputWebp], message.threadId, message.type),
       getVideoMetadata(outputWebp)
-    ])
+    ]);
 
-    const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl
-    console.log(`Sticker động được tạo tại: ${finalUrl}`)
+    const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
+    console.log(`Sticker động được tạo tại: ${finalUrl}`);
 
     return {
       path: outputWebp,
       url: finalUrl,
       stickerData: stickerData
-    }
+    };
   } catch (error) {
-    console.error("Lỗi khi tạo sticker động:", error)
+    console.error("Lỗi khi tạo sticker động:", error);
     const object = {
       caption: `Đã xảy ra lỗi khi xử lý sticker động: ${error.message}`,
-    }
-    await sendMessageWarningRequest(api, message, object, 30000)
-    return null
+    };
+    await sendMessageWarningRequest(api, message, object, 30000);
+    return null;
   } finally {
-    await deleteFile(downloadedMedia)
-    await fs.promises.rm(framesDir, { recursive: true, force: true })
-    await deleteFile(outputWebp)
-  }
-}
-
-export async function handleSpinDiskSticker(api, message, imageUrl, idImage) {
-  try {
-    const result = await createSpinDiskSticker(api, message, imageUrl, idImage)
-    return result
-  } catch (error) {
-    console.error("Lỗi khi tạo spin disk sticker:", error)
-    const object = {
-      caption: `Đã xảy ra lỗi khi tạo spin disk sticker: ${error.message}`,
-    }
-    await sendMessageWarningRequest(api, message, object, 30000)
-    return null
+    await deleteFile(downloadedMedia);
+    await fs.promises.rm(framesDir, { recursive: true, force: true });
+    await deleteFile(outputWebp);
   }
 }
