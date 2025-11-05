@@ -19,7 +19,6 @@ import { deleteFile } from "../../../utils/util.js";
 import { createSearchResultImage } from "../../../utils/canvas/search-canvas.js";
 import { getBotId, isAdmin } from "../../../index.js";
 import { sendReactionWaitingCountdown } from '../../../commands/manager-command/check-countdown.js';
-import { createCircleWebp } from "../../chat-zalo/chat-special/send-sticker/create-webp.js";
 
 let clientId;
 
@@ -208,8 +207,7 @@ export async function handleMusicCommand(api, message, aliasCommand) {
       caption: musicListTxt,
       imagePath: imagePath,
     };
-
-    const TIME_TO_SELECT = 30000;
+    
     const ttlSeconds = TIME_TO_SELECT / 1000;
 
     const musicListMessage = await sendMessageCompleteRequest(api, message, object, TIME_TO_SELECT);
@@ -301,6 +299,7 @@ export async function handleMusicReply(api, message) {
       },
     };
     await api.deleteMessage(msgDel, false);
+    // await api.undoMessage(message);
     musicSelectionsMap.delete(quotedMsgId);
 
     return await handleSendTrackSoundCloud(api, message, track);
@@ -368,24 +367,5 @@ export async function handleSendTrackSoundCloud(api, message, track) {
     stats: stats,
   };
   await sendVoiceMusic(api, message, objectMusic, 180000000);
-
-  try {
-    if (thumbnailUrl) {
-      const idImage = Date.now();
-      const result = await createCircleWebp(api, message, thumbnailUrl, idImage);
-      if (result) {
-        await api.sendCustomSticker(
-          message, 
-          result.url + "?creator=VXK-Service-BOT.webp", 
-          result.url + "?createdBy=VXK-Service-BOT.Webp", 
-          result.stickerData.width, 
-          result.stickerData.height
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Lỗi khi tạo sticker spin disk:", error);
-  }
-
   return true;
 }
