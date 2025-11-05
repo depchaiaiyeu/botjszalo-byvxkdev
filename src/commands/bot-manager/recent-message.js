@@ -3,28 +3,34 @@ import { sendMessageStateQuote } from "../../service-hahuyhoang/chat-zalo/chat-s
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
 
-export async function deleteAllUserMessages(api, userId, threadId) {
+export async function deleteAllUserMessages(api, message, userId) {
   let allMessages = [];
-  let currentMsgId = null;
+  let currentMessage = message;
   let hasMore = true;
   
   try {
     while (hasMore) {
-      const recentMessage = await api.getRecentMessages(threadId, currentMsgId, 50);
-      const parsedMessage = JSON.parse(recentMessage);
-      const messages = parsedMessage.groupMsgs;
+      const recentMessage = await getRecentMessage(api, currentMessage, 50);
       
-      if (!messages || messages.length === 0) {
+      if (!recentMessage || recentMessage.length === 0) {
         hasMore = false;
         break;
       }
       
-      const userMessages = messages.filter(msg => msg.uidFrom === userId);
+      const userMessages = recentMessage.filter(msg => msg.uidFrom === userId);
       allMessages = [...allMessages, ...userMessages];
       
-      currentMsgId = messages[messages.length - 1].msgId;
-      
-      if (messages.length < 50) hasMore = false;
+      if (recentMessage.length < 50) {
+        hasMore = false;
+      } else {
+        currentMessage = {
+          ...currentMessage,
+          data: {
+            ...currentMessage.data,
+            msgId: recentMessage[recentMessage.length - 1].msgId
+          }
+        };
+      }
     }
     
     let countDelete = 0;
@@ -32,8 +38,8 @@ export async function deleteAllUserMessages(api, userId, threadId) {
     
     const deletePromises = allMessages.map(msg => {
       const msgDel = {
-        type: 1,
-        threadId: threadId,
+        type: message.type,
+        threadId: message.threadId,
         data: {
           cliMsgId: msg.cliMsgId,
           msgId: msg.msgId,
@@ -79,7 +85,7 @@ export async function handleDeleteMessage(api, message, groupAdmins, aliasComman
       },
     };
     try {
-      await api.deleteMessage(msgToDelete, false);
+      await api.deleteMessage(message.data.quote, false);
       await sendMessageStateQuote(api, message, "Đã xóa tin nhắn được reply", true, 60000);
     } catch {
       await sendMessageStateQuote(api, message, "Không thể xóa tin nhắn được reply", false, 60000);
