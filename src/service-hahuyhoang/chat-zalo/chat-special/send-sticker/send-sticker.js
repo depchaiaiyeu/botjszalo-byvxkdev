@@ -120,7 +120,7 @@ export async function handleStickerCommand(api, message) {
   }
 
   const cliMsgType = message.data?.quote?.cliMsgType
-  if (![44, 32, 49].includes(cliMsgType)) {
+  if (![44, 32, 49, 37].includes(cliMsgType)) {
     await sendMessageWarning(api, message, `${senderName}, Vui lòng reply vào tin nhắn có ảnh, video hoặc GIF để tạo sticker!`, true)
     return
   }
