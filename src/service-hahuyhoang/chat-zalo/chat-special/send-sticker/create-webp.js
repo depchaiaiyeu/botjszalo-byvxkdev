@@ -14,7 +14,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export async function createCircleWebp(api, message, imageUrl, idImage) {
+export async function createCircleWebp(api, message, imageUrl, idImage, rate = null) {
+    const frameRate = rate || 30;
     const ext = await checkExstentionFileRemote(imageUrl);
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
@@ -23,7 +24,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
         const borderWidth = 8;
-        const totalFrames = 30;
+        const totalFrames = 35;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
         const resizedImageBuffer = await sharp(downloadedImage)
@@ -75,7 +76,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
         }
         await Promise.all(workers);
         const framePattern = path.join(framesDir, 'frame_%03d.png');
-        await convertToWebpMulti(framePattern, outputWebp);
+        await convertToWebpMulti(framePattern, outputWebp, frameRate);
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
@@ -97,11 +98,11 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
     }
 }
 
-export async function convertToWebpMulti(inputPath, outputPath) {
+export async function convertToWebpMulti(inputPath, outputPath, frameRate = 30) {
     return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
             .inputOptions([
-                '-framerate', '30'
+                '-framerate', String(frameRate)
             ])
             .outputOptions([
                 '-c:v', 'libwebp',
