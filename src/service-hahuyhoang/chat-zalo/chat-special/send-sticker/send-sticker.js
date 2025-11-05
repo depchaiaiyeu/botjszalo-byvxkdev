@@ -39,7 +39,7 @@ function normalizeImageUrl(url) {
   return url
 }
 
-async function processAndSendSticker(api, message, mediaUrl, width, height, cliMsgType, useSpinDisk = false) {
+async function processAndSendSticker(api, message, mediaUrl, width, height, cliMsgType, useSpinDisk = false, frameRate = null) {
   const threadId = message.threadId
   let videoPath = null
   let webpPath = null
@@ -52,7 +52,7 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
       
       if (useSpinDisk) {
         const idImage = Date.now()
-        const result = await createCircleWebp(api, message, redirectUrl, idImage)
+        const result = await createCircleWebp(api, message, redirectUrl, idImage, frameRate)
         if (!result) throw new Error("Tạo spin disk sticker thất bại")
         await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
         return true
@@ -73,7 +73,7 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
       
       if (useSpinDisk) {
         const idImage = Date.now()
-        const result = await createCircleWebp(api, message, normalizedUrl, idImage)
+        const result = await createCircleWebp(api, message, normalizedUrl, idImage, frameRate)
         if (!result) throw new Error("Tạo spin disk sticker thất bại")
         await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
         return true
@@ -112,10 +112,24 @@ export async function handleStickerCommand(api, message) {
   const threadId = message.threadId
   const prefix = getGlobalPrefix()
   const content = removeMention(message)
-  const useSpinDisk = content.toLowerCase().includes("spindisk")
+  
+  const useSpinDisk = content.toLowerCase().includes("spindisk") || content.toLowerCase().includes("spin")
+  
+  let frameRate = null
+  const frMatch = content.match(/fr\s*(\d+)/i)
+  if (frMatch) {
+    const parsedRate = parseInt(frMatch[1])
+    if (parsedRate > 0 && parsedRate <= 60) {
+      frameRate = parsedRate
+    }
+  }
 
   if (!quote) {
-    await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}sticker.`, true)
+    if (useSpinDisk) {
+      await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker spindisk và dùng lại lệnh ${prefix}stk spindisk hoặc ${prefix}sticker spindisk.`, true)
+    } else {
+      await sendMessageWarning(api, message, `${senderName}, Hãy reply vào tin nhắn chứa ảnh hoặc video cần tạo sticker và dùng lại lệnh ${prefix}sticker.`, true)
+    }
     return
   }
 
@@ -155,8 +169,15 @@ export async function handleStickerCommand(api, message) {
 
     const width = params.width || 512
     const height = params.height || 512
-    await sendMessageWarning(api, message, `Đang tạo sticker${useSpinDisk ? ' xoay tròn' : ''} cho ${senderName}, vui lòng chờ một chút!`, true)
-    await processAndSendSticker(api, message, decodedUrl, width, height, cliMsgType, useSpinDisk)
+    
+    let warningMsg = `Đang tạo sticker${useSpinDisk ? ' xoay tròn' : ''}`
+    if (frameRate) {
+      warningMsg += ` với tốc độ ${frameRate} FPS`
+    }
+    warningMsg += ` cho ${senderName}, vui lòng chờ một chút!`
+    
+    await sendMessageWarning(api, message, warningMsg, true)
+    await processAndSendSticker(api, message, decodedUrl, width, height, cliMsgType, useSpinDisk, frameRate)
     await sendMessageComplete(api, message, `Sticker của bạn đây!`, true)
   } catch (error) {
     console.error("Lỗi khi xử lý lệnh sticker:", error)
