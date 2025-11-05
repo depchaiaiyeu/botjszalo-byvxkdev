@@ -116,13 +116,7 @@ export async function messagesUser(api, message) {
   const io = getIO();
   let isSelf = idBot === senderId;
 
-  const contentText = isPlainText
-    ? content
-    : content.href
-      ? "Caption: " + content.title + "\nLink: " + content.href
-      : content.catId
-        ? "Sticker ID: " + content.id + " | " + content.catId + " | " + content.type
-        : null;
+  const contentText = isPlainText;
 
   switch (message.type) {
     case MessageType.DirectMessage: {
