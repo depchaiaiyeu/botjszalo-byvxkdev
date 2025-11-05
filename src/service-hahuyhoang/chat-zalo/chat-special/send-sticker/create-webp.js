@@ -23,7 +23,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
         const borderWidth = 8;
-        const totalFrames = 5;
+        const totalFrames = 15;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
         const resizedImageBuffer = await sharp(downloadedImage)
@@ -106,8 +106,8 @@ export async function convertToWebpMulti(inputPath, outputPath) {
             .outputOptions([
                 '-c:v', 'libwebp',
                 '-lossless', '0',
-                '-compression_level', '1',
-                '-q:v', '50',
+                '-compression_level', '3',
+                '-q:v', '7',
                 '-loop', '0',
                 '-preset', 'default',
                 '-cpu-used', '5',
