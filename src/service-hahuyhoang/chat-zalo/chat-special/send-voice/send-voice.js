@@ -351,7 +351,13 @@ export async function sendVoiceMusic(api, message, object, ttl) {
       );
     }
     if (stickerResult) {
-      await api.sendSticker(message, stickerResult.url, stickerResult.stickerData);
+      await api.sendCustomSticker(
+        message, 
+        stickerResult.url, 
+        stickerResult.url, 
+        stickerResult.stickerData.width, 
+        stickerResult.stickerData.height
+      );
     }
     await api.sendVoice(message, voiceUrl, ttl);
   } catch (error) {
