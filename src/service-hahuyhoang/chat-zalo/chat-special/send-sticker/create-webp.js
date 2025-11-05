@@ -21,35 +21,32 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
     const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
     try {
         await downloadFileFake(imageUrl, downloadedImage);
-
         const size = 512;
+        const borderWidth = 8;
         const totalFrames = 160;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
-
         const resizedImageBuffer = await sharp(downloadedImage)
-            .resize(size, size, { fit: 'cover', position: 'center' })
+            .resize(size, size, {
+                fit: 'cover',
+                position: 'center'
+            })
             .toBuffer();
-
         if (!fs.existsSync(framesDir)) {
             await fs.promises.mkdir(framesDir, { recursive: true });
         }
-
-        const borderWidth = 10;
-        const borderColor = "#00FF00";
         const circleMask = Buffer.from(`
-            <svg width="${size}" height="${size}">
-                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="white" stroke="${borderColor}" stroke-width="${borderWidth}"/>
-            </svg>
-        `);
-
+    <svg width="${size}" height="${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#00ff00" stroke-width="${borderWidth}"/>
+    </svg>
+`);
         const workers = [];
         const workerPath = path.join(__dirname, 'frame-worker.js');
         
         for (let i = 0; i < numWorkers; i++) {
             const startFrame = i * framesPerWorker;
             const endFrame = Math.min(startFrame + framesPerWorker, totalFrames);
-
             const worker = new Worker(workerPath, {
                 workerData: {
                     startFrame,
@@ -61,26 +58,23 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
                     circleMask
                 }
             });
-
             workers.push(new Promise((resolve, reject) => {
                 worker.on('message', resolve);
                 worker.on('error', reject);
-                worker.on('exit', code => {
-                    if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`));
+                worker.on('exit', (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`Worker stopped with exit code ${code}`));
+                    }
                 });
             }));
         }
-
         await Promise.all(workers);
-
         const framePattern = path.join(framesDir, 'frame_%03d.png');
         await convertToWebpMulti(framePattern, outputWebp);
-
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
         ]);
-
         const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
         
         return {
@@ -88,7 +82,6 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
             url: finalUrl,
             stickerData: stickerData
         };
-
     } catch (error) {
         console.error("Lỗi khi tạo Webp:", error);
         throw error;
