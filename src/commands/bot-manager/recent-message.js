@@ -100,13 +100,16 @@ export async function handleAdminReactionDelete(api, reaction) {
 
   try {
     const rMsg = reaction.data.content.rMsg[0];
+    const idBot = getBotId();
+    const originalUidFrom = rMsg.uidFrom === "0" ? idBot : rMsg.uidFrom;
+    
     const msgToDelete = {
       type: rMsg.msgType,
       threadId: reaction.data.idTo,
       data: {
         msgId: rMsg.gMsgID.toString(),
         cliMsgId: rMsg.cMsgID?.toString(),
-        uidFrom: adminId,
+        uidFrom: originalUidFrom,
       },
     };
     await api.deleteMessage(msgToDelete, false);
