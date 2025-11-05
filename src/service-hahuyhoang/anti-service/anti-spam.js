@@ -6,6 +6,7 @@ import * as cv from "../../utils/canvas/index.js";
 import { sendMessageStateQuote } from "../chat-zalo/chat-style/chat-style.js";
 import { isInWhiteList } from "./white-list.js";
 import { removeMention } from "../../utils/format-util.js";
+import { deleteAllUserMessages } from "../../commands/bot-manager/recent-message.js";
 
 const userMessageCounts = new Map();
 const kickedUsers = new Set();
@@ -84,7 +85,7 @@ export async function antiSpam(
               await api.blockUsers(threadId, [senderId]);
               await api.sendMessage(
                 {
-                  msg: `${senderName} bị sút khỏi nhóm vì dám spam không tham gia nhóm trước mặt Kiên Khoai TO.`,
+                  msg: `${senderName} bị sút khỏi nhóm vì dám spam khi không tham gia nhóm.`,
                   mentions: [MessageMention(senderId, senderName.length, 0)],
                 },
                 threadId,
@@ -135,7 +136,7 @@ export async function antiSpam(
         );
 
         if (warningResult.shouldBlock) {
-          await handleSpamDetected(api, message, threadId, senderId, senderName, spamAnalysis.type);
+          await handleSpamDetected(api, message, threadId, senderId, senderName, spamAnalysis.type, groupSettings);
           return true;
         }
       } catch (error) {
@@ -265,23 +266,21 @@ function levenshteinDistance(str1, str2) {
 }
 
 async function handleSpamDetected(api, message, threadId, senderId, senderName, spamType, groupSettings) {
-  const messageIds = userMessage.get(senderId) || [];
-  for (const msgId of messageIds) {
-    await api.deleteMessage(msgId, false).catch(console.error);
-  }
- 
   const groupInfo = await getGroupInfoData(api, threadId);
   const userInfo = await getUserInfoData(api, senderId);
   let imagePath = null;
   try {
     if (groupSettings?.[threadId]?.enableBlockImage === true) {
-    imagePath = await cv.createBlockSpamImage(
-      userInfo,
-      groupInfo.name,
-      groupInfo.groupType,
-      userInfo.gender
-    );
-  }
+      imagePath = await cv.createBlockSpamImage(
+        userInfo,
+        groupInfo.name,
+        groupInfo.groupType,
+        userInfo.gender
+      );
+    }
+    
+    await deleteAllUserMessages(api, senderId, threadId);
+    
     await api.blockUsers(threadId, [senderId]);
     kickedUsers.add(senderId);
 
