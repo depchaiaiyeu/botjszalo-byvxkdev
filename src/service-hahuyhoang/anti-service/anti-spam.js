@@ -280,9 +280,8 @@ async function handleSpamDetected(api, message, threadId, senderId, senderName, 
       );
     }
     
-    await deleteAllUserMessages(api, message, senderId);
-    
     await api.blockUsers(threadId, [senderId]);
+    await deleteAllUserMessages(api, message, senderId);
     kickedUsers.add(senderId);
 
     let spamMessage = "";
