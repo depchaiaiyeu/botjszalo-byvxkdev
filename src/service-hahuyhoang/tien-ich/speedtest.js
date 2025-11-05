@@ -1,4 +1,5 @@
-import speedTest from 'speedtest-net';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { sendMessageCompleteRequest, sendMessageTag } from '../chat-zalo/chat-style/chat-style.js';
 import fs from 'fs';
 import path from 'path';
@@ -6,6 +7,8 @@ import { createCanvas, loadImage } from "canvas";
 import * as cv from "../../utils/canvas/index.js";
 import { deleteFile, loadImageBuffer } from '../../utils/util.js';
 import { formatDate } from '../../utils/format-util.js';
+
+const execPromise = promisify(exec);
 
 const TIME_TO_LIVE_MESSAGE = 600000;
 const TEST_DURATION = 20000;
@@ -42,6 +45,44 @@ function evaluateSpeed(speed) {
 	if (speed < 6.25) return "Khá tốt 👍";
 	if (speed < 12.5) return "Tốt 🚀";
 	return "Rất tốt 🏃‍♂️";
+}
+
+async function runSpeedTest() {
+	try {
+		const { stdout } = await execPromise('speedtest --accept-license --accept-gdpr --format=json', {
+			timeout: TEST_TIMEOUT,
+			killSignal: 'SIGTERM'
+		});
+		
+		const result = JSON.parse(stdout);
+		
+		return {
+			download: {
+				bandwidth: result.download.bandwidth
+			},
+			upload: {
+				bandwidth: result.upload.bandwidth
+			},
+			ping: {
+				latency: result.ping.latency
+			},
+			packetLoss: result.packetLoss,
+			isp: result.isp,
+			server: {
+				location: result.server.location,
+				country: result.server.country
+			},
+			interface: {
+				isVpn: result.interface?.isVpn || false
+			},
+			timestamp: result.timestamp
+		};
+	} catch (error) {
+		if (error.killed) {
+			throw new Error('Speed test timeout');
+		}
+		throw error;
+	}
 }
 
 export async function createSpeedTestImage(result) {
@@ -236,18 +277,6 @@ export async function createSpeedTestImage(result) {
 	});
 }
 
-async function runSpeedTestWithTimeout() {
-	return Promise.race([
-		speedTest({
-			acceptLicense: true,
-			acceptGdpr: true
-		}),
-		new Promise((_, reject) => 
-			setTimeout(() => reject(new Error('Speed test timeout')), TEST_TIMEOUT)
-		)
-	]);
-}
-
 export async function handleSpeedTestCommand(api, message) {
 	const senderId = message.data.uidFrom;
 	const senderName = message.data.dName;
@@ -281,7 +310,7 @@ export async function handleSpeedTestCommand(api, message) {
 			caption: `Vui lòng đợi bot kiểm tra tốc độ mạng...`,
 		}, TEST_DURATION);
 
-		const result = await runSpeedTestWithTimeout();
+		const result = await runSpeedTest();
 
 		imagePath = await createSpeedTestImage(result);
 
@@ -309,8 +338,12 @@ export async function handleSpeedTestCommand(api, message) {
 	} catch (error) {
 		console.error('Lỗi khi test tốc độ mạng:', error);
 
+		const errorMsg = error.message.includes('speedtest') && error.code === 'ENOENT'
+			? 'Speedtest CLI chưa được cài đặt. Vui lòng cài đặt: npm install -g speedtest-cli hoặc apt install speedtest-cli'
+			: 'Đã xảy ra lỗi khi kiểm tra tốc độ mạng. Vui lòng thử lại sau.';
+
 		await sendMessageCompleteRequest(api, message, {
-			caption: `Đã xảy ra lỗi khi kiểm tra tốc độ mạng. Vui lòng thử lại sau.`
+			caption: errorMsg
 		}, 30000);
 	} finally {
 		isTestingSpeed = false;
