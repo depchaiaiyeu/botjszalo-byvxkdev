@@ -32,7 +32,7 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
   const groupMap = lastAutoReplyMap.get(threadId);
   const lastSent = groupMap.get(senderId) || 0;
 
-  const keys = Object.keys(ReactionMap);
+  const keys = Object.keys(ReactionMap).filter(k => k !== "UNDO");
   for (let i = 0; i < 100; i++) {
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
     try {
@@ -43,16 +43,16 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
   if (!userMessage) {
     if (now - lastSent >= AUTO_REPLY_COOLDOWN) {
       groupMap.set(senderId, now);
-      await api.sendMessage(
-        {
-          msg:
-            `Xin chào ${senderName}, mình là bot của anh Kiên.\n` +
-            `Hiện tại anh Kiên đang offline, nếu bạn cần giúp đỡ có thể để lại tin nhắn, anh ấy sẽ đọc lại sau!`,
-          ttl: MESSAGE_TTL
-        },
-        threadId,
-        message.type
-      );
+      // await api.sendMessage(
+      //   {
+      //     msg:
+      //       `Xin chào ${senderName}, mình là bot của anh Kiên.\n` +
+      //       `Hiện tại anh Kiên đang offline, nếu bạn cần giúp đỡ có thể để lại tin nhắn, anh ấy sẽ đọc lại sau!`,
+      //     ttl: MESSAGE_TTL
+      //   },
+      //   threadId,
+      //   message.type
+      // );
     }
     return true;
   }
@@ -61,29 +61,29 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
     const simsimiReply = await getSimsimiReply(userMessage, 0.9);
     const simsimiMessage = `@${senderName} ${simsimiReply}`;
     const offset = simsimiMessage.indexOf(`@${senderName}`);
-    await api.sendMessage(
-      {
-        msg: simsimiMessage,
-        quote: message,
-        ttl: MESSAGE_TTL,
-        mentions: [MessageMention(senderId, senderName.length + 1, offset)]
-      },
-      threadId,
-      message.type
-    );
+    // await api.sendMessage(
+    //   {
+    //     msg: simsimiMessage,
+    //     quote: message,
+    //     ttl: MESSAGE_TTL,
+    //     mentions: [MessageMention(senderId, senderName.length + 1, offset)]
+    //   },
+    //   threadId,
+    //   message.type
+    // );
   } catch {
     const fallbackMessage = `@${senderName} xin lỗi, mình chưa hiểu bạn nói gì. Bạn có thể nói rõ hơn được không ạ?`;
     const offset = fallbackMessage.indexOf(`@${senderName}`);
-    await api.sendMessage(
-      {
-        msg: fallbackMessage,
-        quote: message,
-        ttl: MESSAGE_TTL,
-        mentions: [MessageMention(senderId, senderName.length + 1, offset)]
-      },
-      threadId,
-      message.type
-    );
+    // await api.sendMessage(
+    //   {
+    //     msg: fallbackMessage,
+    //     quote: message,
+    //     ttl: MESSAGE_TTL,
+    //     mentions: [MessageMention(senderId, senderName.length + 1, offset)]
+    //   },
+    //   threadId,
+    //   message.type
+    // );
   }
 
   return true;
