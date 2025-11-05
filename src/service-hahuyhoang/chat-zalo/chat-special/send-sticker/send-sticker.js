@@ -32,6 +32,13 @@ async function getVideoRedirectUrl(url) {
   }
 }
 
+function normalizeImageUrl(url) {
+  if (url.endsWith(".jxl")) {
+    return url.replace("/jxl/", "/jpg/").replace(".jxl", ".jpg")
+  }
+  return url
+}
+
 async function processAndSendSticker(api, message, mediaUrl, width, height, cliMsgType, useSpinDisk = false) {
   const threadId = message.threadId
   let videoPath = null
@@ -40,18 +47,17 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
   let convertedWebpPath = null
 
   try {
-    if (useSpinDisk) {
-      console.log("Đang gọi createCircleWebp để tạo sticker xoay tròn...")
-      const idImage = Date.now()
-      const result = await createCircleWebp(api, message, mediaUrl, idImage)
-      if (!result) throw new Error("Tạo spin disk sticker thất bại")
-      console.log("Đã tạo xong sticker xoay tròn, đang gửi...")
-      await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
-      return true
-    }
-
     if (cliMsgType === 44) {
       const redirectUrl = await getVideoRedirectUrl(mediaUrl)
+      
+      if (useSpinDisk) {
+        const idImage = Date.now()
+        const result = await createCircleWebp(api, message, redirectUrl, idImage)
+        if (!result) throw new Error("Tạo spin disk sticker thất bại")
+        await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
+        return true
+      }
+
       videoPath = path.join(tempDir, `sticker_video_${Date.now()}.mp4`)
       webpPath = path.join(tempDir, `sticker_webp_${Date.now()}.webp`)
       await downloadFileFake(redirectUrl, videoPath)
@@ -63,16 +69,22 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
       const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp"
       await api.sendCustomSticker(message, staticUrl, animUrl, width, height)
     } else {
-      let downloadUrl = mediaUrl
-      let fileExt = "jpg"
-      if (mediaUrl.endsWith(".jxl")) {
-        downloadUrl = mediaUrl.replace("/jxl/", "/jpg/").replace(".jxl", ".jpg")
-        fileExt = "jpg"
-      } else {
-        const urlObj = new URL(mediaUrl)
-        const urlExt = path.extname(urlObj.pathname)
-        if (urlExt) fileExt = urlExt.slice(1)
+      const normalizedUrl = normalizeImageUrl(mediaUrl)
+      
+      if (useSpinDisk) {
+        const idImage = Date.now()
+        const result = await createCircleWebp(api, message, normalizedUrl, idImage)
+        if (!result) throw new Error("Tạo spin disk sticker thất bại")
+        await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
+        return true
       }
+
+      let downloadUrl = normalizedUrl
+      let fileExt = "jpg"
+      const urlObj = new URL(normalizedUrl)
+      const urlExt = path.extname(urlObj.pathname)
+      if (urlExt) fileExt = urlExt.slice(1)
+
       imagePath = path.join(tempDir, `sticker_image_${Date.now()}.${fileExt}`)
       convertedWebpPath = path.join(tempDir, `sticker_converted_${Date.now()}.webp`)
       await downloadFileFake(downloadUrl, imagePath)
