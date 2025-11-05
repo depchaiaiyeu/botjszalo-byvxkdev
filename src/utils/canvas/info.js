@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import * as cv from "./index.js";
 import { formatCurrency } from "../format-util.js";
+import { createHelpBackground } from "./help.js";
 
 export function hanldeNameUser(name) {
   const words = name.split(" ");
@@ -812,24 +813,32 @@ export async function createGroupInfoImage(groupInfo, owner) {
   });
 }
 
+function drawDefaultAvatar(ctx, x, y, size) {
+  ctx.fillStyle = "#555555";
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px BeVietnamPro";
+  ctx.textAlign = "center";
+  ctx.fillText("?", x + size / 2, y + size / 2 + 12);
+}
+
 export async function createAdminListImage(highLevelAdmins, groupAdmins, outputPath) {
   const width = 800;
   const headerHeight = 180;
   const itemHeight = 120;
   const padding = 30;
-  
+
   const totalItems = highLevelAdmins.length + groupAdmins.length;
   const contentHeight = totalItems * itemHeight + padding * 2;
   const height = headerHeight + contentHeight + 50;
-  
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#4A90E2");
-  backgroundGradient.addColorStop(1, "#5B7FCB");
-  ctx.fillStyle = backgroundGradient;
-  ctx.fillRect(0, 0, width, height);
+  createHelpBackground(ctx, width, height);
 
   ctx.textAlign = "center";
   ctx.font = "bold 48px BeVietnamPro";
@@ -850,7 +859,7 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
 
   for (const admin of allAdmins) {
     const itemY = currentY;
-    
+
     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(padding, itemY, width - padding * 2, itemHeight);
 
@@ -861,7 +870,7 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
     if (admin.avatar && cv.isValidUrl(admin.avatar)) {
       try {
         const avatar = await loadImage(admin.avatar);
-        
+
         const borderWidth = 3;
         const gradient = ctx.createLinearGradient(
           avatarX - borderWidth,
@@ -872,7 +881,7 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
 
         const rainbowColors = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
         const shuffledColors = [...rainbowColors].sort(() => Math.random() - 0.5);
-        
+
         shuffledColors.forEach((color, index) => {
           gradient.addColorStop(index / (shuffledColors.length - 1), color);
         });
@@ -896,7 +905,7 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
     }
 
     const nameX = avatarX + avatarSize + 20;
-    
+
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillStyle = "#FFFFFF";
@@ -921,36 +930,20 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
   });
 }
 
-function drawDefaultAvatar(ctx, x, y, size) {
-  ctx.fillStyle = "#555555";
-  ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.fill();
-  
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 32px BeVietnamPro";
-  ctx.textAlign = "center";
-  ctx.fillText("?", x + size / 2, y + size / 2 + 12);
-}
-
 export async function createWhiteListImage(whiteListUsers, outputPath) {
   const width = 800;
   const headerHeight = 180;
   const itemHeight = 120;
   const padding = 30;
-  
+
   const totalItems = whiteListUsers.length;
   const contentHeight = totalItems * itemHeight + padding * 2;
   const height = headerHeight + contentHeight + 50;
-  
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#4A90E2");
-  backgroundGradient.addColorStop(1, "#5B7FCB");
-  ctx.fillStyle = backgroundGradient;
-  ctx.fillRect(0, 0, width, height);
+  createHelpBackground(ctx, width, height);
 
   ctx.textAlign = "center";
   ctx.font = "bold 48px BeVietnamPro";
@@ -966,7 +959,7 @@ export async function createWhiteListImage(whiteListUsers, outputPath) {
 
   for (const user of whiteListUsers) {
     const itemY = currentY;
-    
+
     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(padding, itemY, width - padding * 2, itemHeight);
 
@@ -977,7 +970,7 @@ export async function createWhiteListImage(whiteListUsers, outputPath) {
     if (user.avatar && cv.isValidUrl(user.avatar)) {
       try {
         const avatar = await loadImage(user.avatar);
-        
+
         const borderWidth = 3;
         const gradient = ctx.createLinearGradient(
           avatarX - borderWidth,
@@ -988,7 +981,7 @@ export async function createWhiteListImage(whiteListUsers, outputPath) {
 
         const rainbowColors = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
         const shuffledColors = [...rainbowColors].sort(() => Math.random() - 0.5);
-        
+
         shuffledColors.forEach((color, index) => {
           gradient.addColorStop(index / (shuffledColors.length - 1), color);
         });
@@ -1012,7 +1005,7 @@ export async function createWhiteListImage(whiteListUsers, outputPath) {
     }
 
     const nameX = avatarX + avatarSize + 20;
-    
+
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillStyle = "#FFFFFF";
@@ -1041,19 +1034,15 @@ export async function createBlackListImage(whiteListUsers, outputPath) {
   const headerHeight = 180;
   const itemHeight = 120;
   const padding = 30;
-  
+
   const totalItems = whiteListUsers.length;
   const contentHeight = totalItems * itemHeight + padding * 2;
   const height = headerHeight + contentHeight + 50;
-  
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#4A90E2");
-  backgroundGradient.addColorStop(1, "#5B7FCB");
-  ctx.fillStyle = backgroundGradient;
-  ctx.fillRect(0, 0, width, height);
+  createHelpBackground(ctx, width, height);
 
   ctx.textAlign = "center";
   ctx.font = "bold 48px BeVietnamPro";
@@ -1069,7 +1058,7 @@ export async function createBlackListImage(whiteListUsers, outputPath) {
 
   for (const user of whiteListUsers) {
     const itemY = currentY;
-    
+
     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(padding, itemY, width - padding * 2, itemHeight);
 
@@ -1080,7 +1069,7 @@ export async function createBlackListImage(whiteListUsers, outputPath) {
     if (user.avatar && cv.isValidUrl(user.avatar)) {
       try {
         const avatar = await loadImage(user.avatar);
-        
+
         const borderWidth = 3;
         const gradient = ctx.createLinearGradient(
           avatarX - borderWidth,
@@ -1091,7 +1080,7 @@ export async function createBlackListImage(whiteListUsers, outputPath) {
 
         const rainbowColors = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
         const shuffledColors = [...rainbowColors].sort(() => Math.random() - 0.5);
-        
+
         shuffledColors.forEach((color, index) => {
           gradient.addColorStop(index / (shuffledColors.length - 1), color);
         });
@@ -1115,7 +1104,7 @@ export async function createBlackListImage(whiteListUsers, outputPath) {
     }
 
     const nameX = avatarX + avatarSize + 20;
-    
+
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillStyle = "#FFFFFF";
