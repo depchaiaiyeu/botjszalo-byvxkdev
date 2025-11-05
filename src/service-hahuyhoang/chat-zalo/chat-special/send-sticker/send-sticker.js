@@ -47,17 +47,17 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
   let convertedWebpPath = null
 
   try {
+    if (useSpinDisk) {
+      const redirectUrl = cliMsgType === 44 ? await getVideoRedirectUrl(mediaUrl) : normalizeImageUrl(mediaUrl)
+      const idImage = Date.now()
+      const result = await createCircleWebp(api, message, redirectUrl, idImage, frameRate)
+      if (!result) throw new Error("Tạo spin disk sticker thất bại")
+      await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
+      return true
+    }
+
     if (cliMsgType === 44) {
       const redirectUrl = await getVideoRedirectUrl(mediaUrl)
-      
-      if (useSpinDisk) {
-        const idImage = Date.now()
-        const result = await createCircleWebp(api, message, redirectUrl, idImage, frameRate)
-        if (!result) throw new Error("Tạo spin disk sticker thất bại")
-        await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
-        return true
-      }
-
       videoPath = path.join(tempDir, `sticker_video_${Date.now()}.mp4`)
       webpPath = path.join(tempDir, `sticker_webp_${Date.now()}.webp`)
       await downloadFileFake(redirectUrl, videoPath)
@@ -70,15 +70,6 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
       await api.sendCustomSticker(message, staticUrl, animUrl, width, height)
     } else {
       const normalizedUrl = normalizeImageUrl(mediaUrl)
-      
-      if (useSpinDisk) {
-        const idImage = Date.now()
-        const result = await createCircleWebp(api, message, normalizedUrl, idImage, frameRate)
-        if (!result) throw new Error("Tạo spin disk sticker thất bại")
-        await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
-        return true
-      }
-
       let downloadUrl = normalizedUrl
       let fileExt = "jpg"
       const urlObj = new URL(normalizedUrl)
@@ -113,14 +104,16 @@ export async function handleStickerCommand(api, message) {
   const prefix = getGlobalPrefix()
   const content = removeMention(message)
   
-  const useSpinDisk = content.toLowerCase().includes("spindisk") || content.toLowerCase().includes("spin")
+  const useSpinDisk = content.includes("spindisk") || content.includes("spin")
   
   let frameRate = null
-  const frMatch = content.match(/fr\s*(\d+)/i)
-  if (frMatch) {
-    const parsedRate = parseInt(frMatch[1])
-    if (parsedRate > 0 && parsedRate <= 60) {
-      frameRate = parsedRate
+  if (content.includes("fr")) {
+    const frMatch = content.match(/fr\s*(\d+)/i)
+    if (frMatch) {
+      const parsedRate = parseInt(frMatch[1])
+      if (parsedRate > 0 && parsedRate <= 120) {
+        frameRate = parsedRate
+      }
     }
   }
 
