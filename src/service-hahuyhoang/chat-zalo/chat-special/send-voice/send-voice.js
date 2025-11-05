@@ -331,7 +331,7 @@ export async function sendVoiceMusic(api, message, object, ttl) {
         object.thumbnailPath = thumbnailPath;
         imagePath = await createMusicCard(object);
         const idImage = Date.now();
-        stickerResult = await createCircleWebp(api, message, object.imageUrl, idImage, 10);
+        stickerResult = await createCircleWebp(api, message, object.imageUrl, idImage, 1);
       } catch (error) {
         console.error("Lỗi khi tạo music card/sticker:", error);
         imagePath = null;
