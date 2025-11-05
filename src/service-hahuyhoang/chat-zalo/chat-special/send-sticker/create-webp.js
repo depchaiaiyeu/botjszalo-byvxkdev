@@ -28,21 +28,20 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
 
         const resizedImageBuffer = await sharp(downloadedImage)
-            .resize(size, size, {
-                fit: 'cover',
-                position: 'center'
-            })
+            .resize(size, size, { fit: 'cover', position: 'center' })
             .toBuffer();
 
         if (!fs.existsSync(framesDir)) {
             await fs.promises.mkdir(framesDir, { recursive: true });
         }
 
+        const borderWidth = 10;
+        const borderColor = "#00FF00";
         const circleMask = Buffer.from(`
-    <svg width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
-    </svg>
-`);
+            <svg width="${size}" height="${size}">
+                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="white" stroke="${borderColor}" stroke-width="${borderWidth}"/>
+            </svg>
+        `);
 
         const workers = [];
         const workerPath = path.join(__dirname, 'frame-worker.js');
@@ -66,10 +65,8 @@ export async function createCircleWebp(api, message, imageUrl, idImage) {
             workers.push(new Promise((resolve, reject) => {
                 worker.on('message', resolve);
                 worker.on('error', reject);
-                worker.on('exit', (code) => {
-                    if (code !== 0) {
-                        reject(new Error(`Worker stopped with exit code ${code}`));
-                    }
+                worker.on('exit', code => {
+                    if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`));
                 });
             }));
         }
