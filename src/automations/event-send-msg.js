@@ -106,6 +106,7 @@ export async function messagesUser(api, message) {
   const senderId = message.data.uidFrom;
   const threadId = message.threadId;
   let content = message.data.content;
+  const isPlainText = typeof message.data.content === "string";
   const senderName = message.data.dName;
   let isAdminLevelHighest = false;
   let isAdminBot = false;
@@ -115,7 +116,13 @@ export async function messagesUser(api, message) {
   const io = getIO();
   let isSelf = idBot === senderId;
 
-  const contentText = message.data.content;
+  const contentText = isPlainText
+    ? content
+    : content.href
+      ? "Caption: " + content.title + "\nLink: " + content.href
+      : content.catId
+        ? "Sticker ID: " + content.id + " | " + content.catId + " | " + content.type
+        : null;
 
   switch (message.type) {
     case MessageType.DirectMessage: {
