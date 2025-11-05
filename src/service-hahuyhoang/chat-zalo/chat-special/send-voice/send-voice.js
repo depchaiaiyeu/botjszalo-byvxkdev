@@ -323,18 +323,21 @@ export async function sendVoiceMusic(api, message, object, ttl) {
     console.error("Lỗi khi lấy thông tin người dùng:", error);
   }
   let imagePath = null;
+  let stickerResult = null;
   try {
     if (object.imageUrl) {
       await downloadFile(object.imageUrl, thumbnailPath);
       try {
         object.thumbnailPath = thumbnailPath;
         imagePath = await createMusicCard(object);
+        const idImage = Date.now();
+        stickerResult = await createCircleWebp(api, message, object.imageUrl, idImage);
       } catch (error) {
-        console.error("Lỗi khi tạo music card:", error);
+        console.error("Lỗi khi tạo music card/sticker:", error);
         imagePath = null;
+        stickerResult = null;
       }
     }
-
     await sendMessageCompleteRequest(api, message, object, 180000);
     if (imagePath) {
       await api.sendMessage(
@@ -346,6 +349,9 @@ export async function sendVoiceMusic(api, message, object, ttl) {
         message.threadId,
         message.type
       );
+    }
+    if (stickerResult) {
+      await api.sendSticker(message, stickerResult.url, stickerResult.stickerData);
     }
     await api.sendVoice(message, voiceUrl, ttl);
   } catch (error) {
