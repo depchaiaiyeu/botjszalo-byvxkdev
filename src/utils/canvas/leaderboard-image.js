@@ -7,26 +7,17 @@ import { createHelpBackground } from './help.js';
 const tempDir = path.join(process.cwd(), "temp");
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-export async function drawRankingImage(options) {
-  const {
-    data,
-    title,
-    subtitle = '',
-    columns = [],
-    showUpdate = true,
-    imageName = 'ranking'
-  } = options;
-
+export async function drawTopChatImage(topUsers, lastMessageTime, groupName, isToday) {
   const WIDTH = 800;
-  const HEADER_HEIGHT_TOP = subtitle ? 180 : 120;
+  const HEADER_HEIGHT_TOP = 180;
   const HEADER_HEIGHT_TABLE = 60;
   const ROW_HEIGHT = 70;
   const PADDING = 40;
   const RADIUS = 12;
   const GAP = 8;
-  const UPDATE_HEIGHT = showUpdate ? 30 : 0;
+  const UPDATE_HEIGHT = 30;
 
-  const listLength = data.length;
+  const listLength = topUsers.length;
   const totalRowsHeight = listLength * (ROW_HEIGHT + GAP);
   const totalHeight = HEADER_HEIGHT_TOP + HEADER_HEIGHT_TABLE + totalRowsHeight + 20 + UPDATE_HEIGHT;
   const currentTime = new Date().toLocaleString('vi-VN');
@@ -34,16 +25,15 @@ export async function drawRankingImage(options) {
   const ctx = canvas.getContext('2d');
   createHelpBackground(ctx, WIDTH, totalHeight);
 
+  const titleText = isToday ? "🏆 BXH Tương Tác Hôm Nay 🏆" : "🏆 BXH Tương Tác 🏆";
   ctx.textAlign = 'center';
   ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
   ctx.font = 'bold 45px "BeVietnamPro", Arial';
-  ctx.fillText(title, WIDTH / 2, 65);
+  ctx.fillText(titleText, WIDTH / 2, 65);
 
-  if (subtitle) {
-    ctx.font = 'bold 31px "BeVietnamPro"';
-    ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
-    ctx.fillText(subtitle, WIDTH / 2, 120);
-  }
+  ctx.font = 'bold 31px "BeVietnamPro"';
+  ctx.fillStyle = cv.getRandomGradient(ctx, WIDTH);
+  ctx.fillText(groupName, WIDTH / 2, 120);
 
   let currentY = HEADER_HEIGHT_TOP;
 
@@ -64,13 +54,11 @@ export async function drawRankingImage(options) {
   const HEADER_Y_TABLE = currentY + HEADER_HEIGHT_TABLE / 2 + 5;
   ctx.font = 'bold 24px "BeVietnamPro"';
   ctx.fillStyle = '#94a3b8';
-
-  columns.forEach((col, idx) => {
-    ctx.textAlign = col.align || 'left';
-    const xPos = col.x || (idx === 0 ? PADDING + 10 : idx === columns.length - 1 ? WIDTH - PADDING - 10 : PADDING + 130);
-    ctx.fillText(col.label, xPos, HEADER_Y_TABLE);
-  });
-
+  ctx.textAlign = 'left';
+  ctx.fillText('Hạng', PADDING + 10, HEADER_Y_TABLE);
+  ctx.fillText('Người Dùng', PADDING + 130, HEADER_Y_TABLE);
+  ctx.textAlign = 'right';
+  ctx.fillText('Số Tin Nhắn', WIDTH - PADDING - 10, HEADER_Y_TABLE);
   ctx.strokeStyle = '#475569';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -80,10 +68,10 @@ export async function drawRankingImage(options) {
   currentY += HEADER_HEIGHT_TABLE;
 
   for (let i = 0; i < listLength; i++) {
-    const item = data[i];
+    const user = topUsers[i];
     const y = currentY + i * (ROW_HEIGHT + GAP);
     const rank = i + 1;
-
+    const count = user.messageCount;
     const bgGradient = ctx.createLinearGradient(PADDING, y, WIDTH - PADDING, y + ROW_HEIGHT);
     if (rank === 1) {
       bgGradient.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
@@ -106,52 +94,27 @@ export async function drawRankingImage(options) {
     ctx.fillStyle = bgGradient;
     drawRoundedRect(PADDING, y, WIDTH - PADDING * 2, ROW_HEIGHT, RADIUS);
     ctx.fill();
-
     ctx.fillStyle = '#ffffff';
-
-    columns.forEach((col, idx) => {
-      ctx.font = col.bold ? 'bold 28px "BeVietnamPro"' : '26px "BeVietnamPro"';
-      ctx.textAlign = col.align || 'left';
-      const xPos = col.x || (idx === 0 ? PADDING + 10 : idx === columns.length - 1 ? WIDTH - PADDING - 10 : PADDING + 130);
-      
-      let value;
-      if (col.key === 'rank') {
-        value = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-      } else if (typeof col.key === 'function') {
-        value = col.key(item, rank);
-      } else {
-        value = item[col.key];
-      }
-      
-      ctx.fillText(String(value), xPos, y + ROW_HEIGHT / 2 + 10);
-    });
+    ctx.font = 'bold 28px "BeVietnamPro"';
+    ctx.textAlign = 'left';
+    let rankText = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+    ctx.fillText(rankText, PADDING + 10, y + ROW_HEIGHT / 2 + 10);
+    ctx.font = '26px "BeVietnamPro"';
+    ctx.textAlign = 'left';
+    ctx.fillText(user.UserName, PADDING + 130, y + ROW_HEIGHT / 2 + 10);
+    ctx.font = 'bold 26px "BeVietnamPro"';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${count}`, WIDTH - PADDING - 10, y + ROW_HEIGHT / 2 + 10);
   }
-
   currentY += totalRowsHeight + 10;
 
-  if (showUpdate) {
-    ctx.font = '22px "BeVietnamPro"';
-    ctx.fillStyle = '#94a3b8';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Cập nhật: ${currentTime}`, WIDTH / 2, currentY + UPDATE_HEIGHT / 2);
-  }
+  ctx.font = '22px "BeVietnamPro"';
+  ctx.fillStyle = '#94a3b8';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Cập nhật: ${currentTime}`, WIDTH / 2, currentY + UPDATE_HEIGHT / 2);
 
-  const imagePath = path.join(tempDir, `${imageName}_${Date.now()}.png`);
+  const imagePath = path.join(tempDir, `topchat_image_${Date.now()}.png`);
   const buffer = canvas.toBuffer('image/png');
   await fs.promises.writeFile(imagePath, buffer);
   return imagePath;
-}
-
-export async function drawTopChatImage(topUsers, lastMessageTime, groupName, isToday) {
-  return drawRankingImage({
-    data: topUsers,
-    title: isToday ? "🏆 BXH Tương Tác Hôm Nay 🏆" : "🏆 BXH Tương Tác 🏆",
-    subtitle: groupName,
-    columns: [
-      { key: 'rank', label: 'Hạng', align: 'left', x: PADDING + 10, bold: true },
-      { key: 'UserName', label: 'Người Dùng', align: 'left', x: PADDING + 130 },
-      { key: 'messageCount', label: 'Số Tin Nhắn', align: 'right', x: WIDTH - PADDING - 10, bold: true }
-    ],
-    imageName: 'topchat'
-  });
 }
