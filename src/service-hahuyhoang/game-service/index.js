@@ -11,25 +11,24 @@ import {
   login,
   registerAccount,
   logout,
-  isDatabaseConnected,
-  getNameServer,
+  connection,
 } from "../../database/index.js";
 import { getPlayerBalance, updatePlayerBalance, getPlayerInfo, getAccountVND, updateAccountVND } from "../../database/player.js";
 import { sendMessageFromSQL } from "../chat-zalo/chat-style/chat-style.js";
 import * as cv from "../../utils/canvas/index.js";
-import { drawRankingImage } from "../../utils/canvas/leaderboard-image.js";
 import { isAdmin } from "../../index.js";
 import { getGlobalPrefix } from "../service.js";
 import { formatBigNumber, formatCurrency, parseGameAmount, removeMention } from "../../utils/format-util.js";
 import { sendReactionConfirmReceive } from "../../commands/command.js";
 
 export async function checkBeforeJoinGame(api, message, groupSettings, checkLogin = false) {
+
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
   const isAdminBot = isAdmin(senderId, threadId);
-  
-  if (!isDatabaseConnected()) {
+
+  if (!connection) {
     if (isAdminBot) {
       const text =
         "Cơ sở dữ liệu chưa được khởi động,\n" +
@@ -42,7 +41,7 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
-  
+
   if (groupSettings) {
     const activeGame = groupSettings[threadId].activeGame;
     const isAdminLevelHighest = isAdmin(senderId);
@@ -62,23 +61,24 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
-  
+
   if (await checkPlayerBanned(api, message, threadId, senderId)) {
     return false;
   }
-  
+
   if (checkLogin) {
     if (!(await checkPlayerLogin(api, message, threadId, senderId))) {
       return false;
     }
   }
-  
+
   await sendReactionConfirmReceive(api, message, 5);
   return true;
 }
 
 export async function handleClaimDailyReward(api, message, groupSettings) {
   if (!(await checkBeforeJoinGame(api, message, groupSettings, true))) return;
+
   const senderId = message.data.uidFrom;
   const result = await claimDailyReward(senderId);
   await sendMessageFromSQL(api, message, result, true, 30000);
@@ -86,46 +86,25 @@ export async function handleClaimDailyReward(api, message, groupSettings) {
 
 export async function handleTopPlayers(api, message, groupSettings) {
   if (!(await checkBeforeJoinGame(api, message, groupSettings))) return;
+
   const threadId = message.threadId;
   const topPlayers = await getTopPlayers();
+  let msg = "🏆 Top 10 người chơi giàu nhất 🏆\n\n";
 
   if (topPlayers.length === 0) {
-    const msg = "Hiện tại chưa có thèn chóa nào ghi tên lên bảng xếp hạng. 🏆";
-    await api.sendMessage({ msg: msg, quote: message, ttl: 300000 }, threadId, message.type);
-    return;
+    msg += "Hiện chưa có dữ liệu xếp hạng.";
+  } else {
+    let idx = 0;
+    topPlayers.forEach((player) => {
+      if (!isAdmin(player.idUser)) {
+        if (idx < 10) {
+          msg += `${++idx}. ${player.playerName}: ${formatCurrency(player.balance)} VNĐ\n`;
+        }
+      }
+    });
   }
 
-  const filteredPlayers = topPlayers
-    .filter(player => !isAdmin(player.idUser))
-    .slice(0, 10)
-    .map(player => ({
-      playerName: player.playerName,
-      balance: player.balance
-    }));
-
-  const serverName = await getNameServer();
-  const imagePath = await drawRankingImage({
-    data: filteredPlayers,
-    title: "🏆 Top 10 Người Chơi Giàu Nhất 🏆",
-    subtitle: serverName,
-    columns: [
-      { key: 'rank', label: 'Hạng', align: 'left', x: 40 + 10, bold: true },
-      { key: 'playerName', label: 'Người Chơi', align: 'left', x: 40 + 130 },
-      { key: (item) => formatCurrency(item.balance), label: 'Số Dư', align: 'right', x: 800 - 40 - 10, bold: true }
-    ],
-    imageName: 'top_players'
-  });
-
-  await api.sendMessage(
-    { 
-      msg: "", 
-      attachments: [imagePath], 
-      quote: message, 
-      ttl: 300000 
-    }, 
-    threadId, 
-    MessageType.Image
-  );
+  await api.sendMessage({ msg: msg, quote: message, ttl: 300000 }, threadId, message.type);
 }
 
 export async function handleMyCard(api, message, groupSettings) {
@@ -197,11 +176,14 @@ export async function handleBuffCommand(api, message, groupSettings) {
 
   if (!mentions || mentions.length === 0) {
     if (await isHaveLoginAccount(senderId)) {
+      // Lấy số dư hiện tại
       const currentBalance = await getPlayerBalance(senderId);
       const oldBalance = new Big(currentBalance.balance);
 
+      // Thực hiện buff
       await updatePlayerBalance(senderId, buffAmount);
 
+      // Tính số dư mới
       const newBalance = oldBalance.plus(buffAmount);
 
       const result = {
@@ -232,11 +214,14 @@ export async function handleBuffCommand(api, message, groupSettings) {
     const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
 
     if (await isHaveLoginAccount(targetId)) {
+      // Lấy số dư hiện tại của người được buff
       const currentBalance = await getPlayerBalance(targetId);
       const oldBalance = new Big(currentBalance.balance);
 
+      // Thực hiện buff
       await updatePlayerBalance(targetId, buffAmount);
 
+      // Tính số dư mới
       const newBalance = oldBalance.plus(buffAmount);
 
       successMessages.push(
@@ -269,6 +254,14 @@ export async function handleBankCommand(api, message, groupSettings) {
   if (!(await checkBeforeJoinGame(api, message, groupSettings, true))) return;
 
   const senderId = message.data.uidFrom;
+  // if (!(await isPlayerActive(senderId))) {
+  //   const result = {
+  //     success: false,
+  //     message: `Bạn cần mở thành viên để có thể chuyển tiền cho người khác.`,
+  //   };
+  //   await sendMessageFromSQL(api, message, result);
+  //   return;
+  // }
 
   const mentions = message.data.mentions;
   if (!mentions || mentions.length === 0) {
@@ -280,12 +273,14 @@ export async function handleBankCommand(api, message, groupSettings) {
     return;
   }
 
+  // Lấy số dư người gửi trước
   const requestData = await getPlayerBalance(senderId);
   if (!requestData.success) {
     await sendMessageFromSQL(api, message, requestData, true, 300000);
     return;
   }
 
+  // Sau đó mới parse số tiền
   let content = removeMention(message);
   const amount = content.split(" ")[1];
   let bankAmount;
@@ -314,6 +309,7 @@ export async function handleBankCommand(api, message, groupSettings) {
     return;
   }
 
+  // Kiểm tra số dư
   if (new Big(requestData.balance).lt(bankAmount)) {
     const result = {
       success: false,
@@ -336,13 +332,16 @@ export async function handleBankCommand(api, message, groupSettings) {
   }
 
   if (await isHaveLoginAccount(targetId)) {
+    // Lấy số dư hiện tại của người gửi và người nhận
     const senderBalance = new Big(requestData.balance);
     const receiverData = await getPlayerBalance(targetId);
     const receiverBalance = new Big(receiverData.balance);
 
+    // Thực hiện chuyển tiền
     await updatePlayerBalance(senderId, -bankAmount);
     await updatePlayerBalance(targetId, bankAmount);
 
+    // Tính toán số dư mới
     const newSenderBalance = senderBalance.minus(bankAmount);
     const newReceiverBalance = receiverBalance.plus(bankAmount);
 
@@ -609,6 +608,7 @@ export async function handleLogoutPlayer(api, message, groupSettings) {
   await sendMessageFromSQL(api, message, result, true, 300000);
 }
 
+// Hàm xử lý lệnh nạp tiền
 export async function handleNapCommand(api, message, groupSettings) {
   try {
     if (!(await checkBeforeJoinGame(api, message, groupSettings, true))) return;
@@ -626,6 +626,7 @@ export async function handleNapCommand(api, message, groupSettings) {
       return;
     }
 
+    // Lấy thông tin người chơi từ bảng player_zalo
     const playerInfo = await getPlayerInfo(senderId);
     if (!playerInfo) {
       const result = {
@@ -636,6 +637,7 @@ export async function handleNapCommand(api, message, groupSettings) {
       return;
     }
 
+    // Lấy số dư VND từ bảng account
     const accountVND = await getAccountVND(playerInfo.username);
     if (accountVND === null) {
       const result = {
@@ -648,6 +650,7 @@ export async function handleNapCommand(api, message, groupSettings) {
 
     const accountBalance = new Big(accountVND);
 
+    // Parse số tiền sau khi đã có accountBalance
     let napAmount;
     try {
       const parsedAmount = parseGameAmount(parts[1], accountBalance);
@@ -686,8 +689,10 @@ export async function handleNapCommand(api, message, groupSettings) {
     const oldAccountBalance = accountBalance;
     const oldBotBalance = new Big(playerInfo.balance);
 
+    // Cập nhật số dư trong game
     const gameAmount = napAmount;
     await updatePlayerBalance(senderId, gameAmount.toNumber());
+    // Cập nhật số dư VND trong account
     await updateAccountVND(playerInfo.username, napAmount.neg().toNumber());
 
     const newAccountBalance = oldAccountBalance.minus(napAmount);
@@ -717,6 +722,7 @@ export async function handleNapCommand(api, message, groupSettings) {
   }
 }
 
+// Hàm xử lý lệnh rút tiền
 export async function handleRutCommand(api, message, groupSettings) {
   try {
     if (!(await checkBeforeJoinGame(api, message, groupSettings, true))) return;
@@ -734,6 +740,7 @@ export async function handleRutCommand(api, message, groupSettings) {
       return;
     }
 
+    // Lấy thông tin người chơi từ bảng player_zalo trước
     const playerInfo = await getPlayerInfo(senderId);
     if (!playerInfo) {
       const result = {
@@ -744,10 +751,12 @@ export async function handleRutCommand(api, message, groupSettings) {
       return;
     }
 
+    // Lấy số dư hiện tại
     const currentBotBalance = new Big(playerInfo.balance);
     const accountVND = await getAccountVND(playerInfo.username);
     const currentAccountBalance = new Big(accountVND);
 
+    // Parse số tiền sau khi đã có currentBotBalance
     let rutAmount;
     try {
       const parsedAmount = parseGameAmount(parts[1], currentBotBalance);
@@ -774,6 +783,7 @@ export async function handleRutCommand(api, message, groupSettings) {
       return;
     }
 
+    // Kiểm tra số dư
     if (currentBotBalance.lt(rutAmount)) {
       const result = {
         success: false,
@@ -783,7 +793,9 @@ export async function handleRutCommand(api, message, groupSettings) {
       return;
     }
 
+    // Cập nhật số dư trong game
     await updatePlayerBalance(senderId, rutAmount.neg().toNumber());
+    // Cập nhật số dư VND trong account
     await updateAccountVND(playerInfo.username, rutAmount.toNumber());
 
     const newBotBalance = currentBotBalance.minus(rutAmount);
