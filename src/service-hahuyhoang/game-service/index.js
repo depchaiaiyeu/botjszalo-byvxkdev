@@ -11,7 +11,7 @@ import {
   login,
   registerAccount,
   logout,
-  connection,
+  isDatabaseConnected,
   getNameServer,
 } from "../../database/index.js";
 import { getPlayerBalance, updatePlayerBalance, getPlayerInfo, getAccountVND, updateAccountVND } from "../../database/player.js";
@@ -28,7 +28,8 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
   const isAdminBot = isAdmin(senderId, threadId);
-  if (!connection) {
+  
+  if (!isDatabaseConnected()) {
     if (isAdminBot) {
       const text =
         "Cơ sở dữ liệu chưa được khởi động,\n" +
@@ -41,6 +42,7 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
+  
   if (groupSettings) {
     const activeGame = groupSettings[threadId].activeGame;
     const isAdminLevelHighest = isAdmin(senderId);
@@ -60,14 +62,17 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
+  
   if (await checkPlayerBanned(api, message, threadId, senderId)) {
     return false;
   }
+  
   if (checkLogin) {
     if (!(await checkPlayerLogin(api, message, threadId, senderId))) {
       return false;
     }
   }
+  
   await sendReactionConfirmReceive(api, message, 5);
   return true;
 }
@@ -85,6 +90,8 @@ export async function handleTopPlayers(api, message, groupSettings) {
   const topPlayers = await getTopPlayers();
 
   if (topPlayers.length === 0) {
+    const msg = "Hiện tại chưa có thèn chóa nào ghi tên lên bảng xếp hạng. 🏆";
+    await api.sendMessage({ msg: msg, quote: message, ttl: 300000 }, threadId, message.type);
     return;
   }
 
