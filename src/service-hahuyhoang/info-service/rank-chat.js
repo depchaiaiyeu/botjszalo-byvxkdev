@@ -158,6 +158,7 @@ export async function handleRankCommand(api, message, aliasCommand) {
 
   } catch (error) {
     await sendMessageWarning(api, message, "Đã xảy ra lỗi khi tạo ảnh topchat.");
+    console.log(`${error.message}`
   } finally {
     if (filePath) {
       await fs.promises.unlink(filePath).catch(() => {});
