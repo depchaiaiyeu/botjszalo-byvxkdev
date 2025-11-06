@@ -1,4 +1,4 @@
-import { connection, NAME_TABLE_PLAYERS } from './index.js';
+import { db, NAME_TABLE_PLAYERS } from './index.js';
 import Big from 'big.js';
 
 export async function getTopPlayers() {
