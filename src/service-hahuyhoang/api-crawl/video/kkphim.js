@@ -4,6 +4,7 @@ import path from "path";
 import { tempDir } from "../../../utils/io-json.js";
 import { getCachedMedia, setCacheData } from "../../../utils/link-platform-cache.js";
 import { deleteFile } from "../../../utils/util.js";
+import { downloadM3U8ToMP4 } from "../util.js";
 import {
   sendMessageCompleteRequest,
   sendMessageProcessingRequest,
@@ -13,11 +14,7 @@ import { getGlobalPrefix } from "../../service.js";
 import { setSelectionsMapData } from "../index.js";
 import { removeMention } from "../../../utils/format-util.js";
 import { getBotId } from "../../../index.js";
-import { exec } from "child_process";
-import { promisify } from "util";
 import { MessageMention, MessageType } from "zlbotdqt";
-
-const execAsync = promisify(exec);
 
 const PLATFORM = "kkphim";
 const selectionsMap = new Map();
@@ -276,7 +273,7 @@ export async function handleKKPhimReply(api, message) {
 
         const mp4File = path.join(tempDir, `${Date.now()}_${match.name.replace(/\s/g, "_")}.mp4`);
         
-        await execAsync(`ffmpeg -i "${m3u8Url}" -c copy -bsf:a aac_adtstoasc "${mp4File}"`);
+        await downloadM3U8ToMP4(m3u8Url, mp4File);
 
         await sendMessageCompleteRequest(api, message, {
           caption: `Đã tải xong tập ${match.name}.\nĐang upload video, vui lòng đợi...`,
@@ -344,7 +341,7 @@ export async function handleSendKKPhimEpisode(api, message, media) {
     if (!videoUrl) {
       const mp4File = path.join(tempDir, `${Date.now()}_${match.name.replace(/\s/g, "_")}.mp4`);
       
-      await execAsync(`ffmpeg -i "${match.link_m3u8}" -c copy -bsf:a aac_adtstoasc "${mp4File}"`);
+      await downloadM3U8ToMP4(match.link_m3u8, mp4File);
 
       if (!fs.existsSync(mp4File)) {
         throw new Error("File không tồn tại sau khi convert");
