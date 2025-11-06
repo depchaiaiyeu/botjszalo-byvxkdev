@@ -3,7 +3,7 @@ import { sendReactionWaitingCountdown } from "../manager-command/check-countdown
 import { decodeAES } from "../../api-zalo/utils.js";
 import { appContext } from "../../api-zalo/context.js";
 import { getCommandConfig, isAdmin } from "../../index.js";
-import { sendMessageFailed, sendMessageFromSQL, sendMessageStateQuote } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { sendMessageFailed, sendMessageFromSQL, sendMessageStateQuote, sendMessageComplete } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
