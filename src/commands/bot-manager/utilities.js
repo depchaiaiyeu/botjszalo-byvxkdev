@@ -107,11 +107,11 @@ export async function handleEval(api, message) {
     try {
       output = await eval(`(async () => { const senderId=${JSON.stringify(senderId)}; const threadId=${JSON.stringify(threadId)}; const senderName=${JSON.stringify(senderName)}; return ${code}; })()`);
     } catch (err) {
-      output = `Lỗi: ${err.message}`;
+      output = `${err.message}`;
     }
-    await sendMessageComplete(api, message, `Kết quả:\n${output}`);
+    await sendMessageComplete(api, message, `${output}`);
   } catch (err) {
-    await sendMessageFailed(api, message, `Lỗi khi thực thi eval: ${err.message}`);
+    await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
 }
 
