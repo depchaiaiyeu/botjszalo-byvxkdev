@@ -1,4 +1,4 @@
-import { connection, NAME_TABLE_PLAYERS, nameServer, NAME_TABLE_ACCOUNT, DAILY_REWARD } from "./index.js";
+import { db, NAME_TABLE_PLAYERS, nameServer, NAME_TABLE_ACCOUNT, DAILY_REWARD } from "./index.js";
 import { getUserInfoData } from "../service-hahuyhoang/info-service/user-info.js";
 import { getTimeToString, getTimeNow, formatBigNumber } from "../utils/format-util.js";
 import fs from "fs/promises";
@@ -39,7 +39,7 @@ export async function login(username, password, idUserZalo, senderName, api) {
       };
     }
 
-    const [accountRows] = await connection.execute(`SELECT username FROM ${NAME_TABLE_ACCOUNT} WHERE username = ? AND password = ?`, [
+    const [accountRows] = await db.execute(`SELECT username FROM ${NAME_TABLE_ACCOUNT} WHERE username = ? AND password = ?`, [
       username,
       password,
     ]);
@@ -58,7 +58,7 @@ export async function login(username, password, idUserZalo, senderName, api) {
 
     const accountUsername = accountRows[0].username;
 
-    const [existingLoginRows] = await connection.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [existingLoginRows] = await db.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
 
     if (existingLoginRows.length > 0) {
       let msg;
@@ -74,18 +74,18 @@ export async function login(username, password, idUserZalo, senderName, api) {
       };
     }
 
-    const [playerRows] = await connection.execute(`SELECT idUserZalo, playerName FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [
+    const [playerRows] = await db.execute(`SELECT idUserZalo, playerName FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [
       accountUsername,
     ]);
 
     if (playerRows.length === 0) {
-      await connection.execute(
+      await db.execute(
         `INSERT INTO ${NAME_TABLE_PLAYERS} (username, idUserZalo, playerName, registrationTime) VALUES (?, ?, ?, NOW())`,
         [accountUsername, idUserZalo, senderName]
       );
       return { success: true, message: `Đã đăng nhập lần đầu thành công. Bạn được tặng 10,000 VNĐ.` };
     } else if (playerRows[0].idUserZalo === "-1") {
-      await connection.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET idUserZalo = ? WHERE username = ?`, [idUserZalo, accountUsername]);
+      await db.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET idUserZalo = ? WHERE username = ?`, [idUserZalo, accountUsername]);
       return { success: true, message: `Đăng nhập thành công.` };
     } else {
       const userInfo = await getUserInfoData(api, playerRows[0].idUserZalo);
@@ -100,7 +100,7 @@ export async function login(username, password, idUserZalo, senderName, api) {
 
 export async function logout(idUserZalo) {
   try {
-    const [result] = await connection.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET idUserZalo = '-1' WHERE idUserZalo = ?`, [idUserZalo]);
+    const [result] = await db.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET idUserZalo = '-1' WHERE idUserZalo = ?`, [idUserZalo]);
 
     if (result.affectedRows === 0) {
       return { success: false, message: `${nameServer}: Bạn chưa đăng nhập bất kỳ tài khoản nào!` };
@@ -115,7 +115,7 @@ export async function logout(idUserZalo) {
 
 export async function isHaveLoginAccount(idUserZalo) {
   try {
-    const [rows] = await connection.execute(`SELECT COUNT(*) as count FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [rows] = await db.execute(`SELECT COUNT(*) as count FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
     return rows[0].count > 0;
   } catch (error) {
     console.error("Lỗi khi kiểm tra trạng thái đăng nhập của người chơi:", error);
@@ -125,7 +125,7 @@ export async function isHaveLoginAccount(idUserZalo) {
 
 export async function banPlayer(idUserZalo) {
   try {
-    await connection.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET isBanned = 1 WHERE idUserZalo = ?`, [idUserZalo]);
+    await db.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET isBanned = 1 WHERE idUserZalo = ?`, [idUserZalo]);
     return { success: true, message: `${nameServer}: Người chơi đã bị ban thành công!` };
   } catch (error) {
     console.error("Lỗi khi ban người chơi:", error);
@@ -135,7 +135,7 @@ export async function banPlayer(idUserZalo) {
 
 export async function unbanPlayer(idUserZalo) {
   try {
-    await connection.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET isBanned = 0 WHERE idUserZalo = ?`, [idUserZalo]);
+    await db.execute(`UPDATE ${NAME_TABLE_PLAYERS} SET isBanned = 0 WHERE idUserZalo = ?`, [idUserZalo]);
     return { success: true, message: `${nameServer}: Đã gỡ ban người chơi thành công!` };
   } catch (error) {
     console.error("Lỗi khi unban người chơi:", error);
@@ -145,7 +145,7 @@ export async function unbanPlayer(idUserZalo) {
 
 export async function isPlayerBanned(idUserZalo) {
   try {
-    const [rows] = await connection.execute(`SELECT isBanned FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [rows] = await db.execute(`SELECT isBanned FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
     return rows.length > 0 && rows[0].isBanned === 1;
   } catch (error) {
     console.error("Lỗi khi kiểm tra trạng thái ban của người chơi:", error);
@@ -155,13 +155,13 @@ export async function isPlayerBanned(idUserZalo) {
 
 export async function isPlayerActive(idUserZalo) {
   try {
-    const [existingLoginRows] = await connection.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [existingLoginRows] = await db.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
 
     if (existingLoginRows.length === 0) {
       return false;
     }
 
-    const [rows] = await connection.execute(`SELECT active FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [existingLoginRows[0].username]);
+    const [rows] = await db.execute(`SELECT active FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [existingLoginRows[0].username]);
     return rows.length > 0 && rows[0].active === 1;
   } catch (error) {
     console.error("Lỗi khi kiểm tra trạng thái kích hoạt của người chơi:", error);
@@ -171,7 +171,7 @@ export async function isPlayerActive(idUserZalo) {
 
 export async function claimDailyReward(idUser) {
   try {
-    const [rows] = await connection.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
+    const [rows] = await db.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
 
     if (rows.length === 0) {
       return { success: false, message: `Bạn chưa đăng nhập tài khoản nào.` };
@@ -198,7 +198,7 @@ export async function claimDailyReward(idUser) {
     const currentBalance = new Big(player.balance);
     const newBalance = currentBalance.plus(rewardAmount);
 
-    const [updateResult] = await connection.execute(
+    const [updateResult] = await db.execute(
       `UPDATE ${NAME_TABLE_PLAYERS} SET balance = ?, lastDailyReward = ? WHERE idUserZalo = ?`,
       [newBalance.toString(), now, idUser]
     );
@@ -219,7 +219,7 @@ export async function claimDailyReward(idUser) {
 
 export async function getMyCard(api, idUser) {
   try {
-    const [rows] = await connection.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
+    const [rows] = await db.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
 
     if (rows.length === 0) {
       return {
@@ -280,7 +280,7 @@ function formatWinRate(winRate) {
 
 export async function setLoserGame(idUser, amount) {
   try {
-    const [playerRows] = await connection.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
+    const [playerRows] = await db.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
     if (playerRows.length === 0) {
       return { success: false, message: `${nameServer}: Không tìm thấy người chơi. ❌` };
     }
@@ -289,7 +289,7 @@ export async function setLoserGame(idUser, amount) {
       totalLosses = totalLosses + ?,
       totalGames = totalGames + 1
       WHERE idUserZalo = ?`;
-    const [result] = await connection.execute(query, [new Big(amount).neg().toString(), idUser]);
+    const [result] = await db.execute(query, [new Big(amount).neg().toString(), idUser]);
 
     if (result.affectedRows === 1) {
       return { success: true, message: `${nameServer}: Cập nhật lượt thua thành công. ✅` };
@@ -304,7 +304,7 @@ export async function setLoserGame(idUser, amount) {
 
 export async function setLoserGameByUsername(username, amount) {
   try {
-    const [playerRows] = await connection.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [username]);
+    const [playerRows] = await db.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [username]);
     if (playerRows.length === 0) {
       return { success: false, message: `${nameServer}: Không tìm thấy người chơi. ❌` };
     }
@@ -313,7 +313,7 @@ export async function setLoserGameByUsername(username, amount) {
       totalLosses = totalLosses + ?,
       totalGames = totalGames + 1
       WHERE username = ?`;
-    const [result] = await connection.execute(query, [new Big(amount).neg().toString(), username]);
+    const [result] = await db.execute(query, [new Big(amount).neg().toString(), username]);
 
     if (result.affectedRows === 1) {
       return { success: true, message: `${nameServer}: Cập nhật lượt thua thành công. ✅` };
@@ -328,7 +328,7 @@ export async function setLoserGameByUsername(username, amount) {
 
 export async function updatePlayerBalance(idUser, amount, isWin = null, numAmountWin) {
   try {
-    const [playerRows] = await connection.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
+    const [playerRows] = await db.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
 
     if (playerRows.length === 0) {
       return { success: false, message: `${nameServer}: Không tìm thấy người chơi. ❌` };
@@ -360,11 +360,11 @@ export async function updatePlayerBalance(idUser, amount, isWin = null, numAmoun
     query += ` WHERE idUserZalo = ?`;
     params.push(idUser);
 
-    const [result] = await connection.execute(query, params);
+    const [result] = await db.execute(query, params);
 
     if (result.affectedRows === 1) {
       if (isWin !== null) {
-        await connection.execute(
+        await db.execute(
           `UPDATE ${NAME_TABLE_PLAYERS} 
           SET winRate = (totalWinGames / NULLIF(totalGames, 0)) * 100
           WHERE idUserZalo = ?`,
@@ -388,7 +388,7 @@ export async function updatePlayerBalance(idUser, amount, isWin = null, numAmoun
 
 export async function getPlayerBalance(idUser) {
   try {
-    const [rows] = await connection.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
+    const [rows] = await db.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUser]);
 
     if (rows.length > 0) {
       const balance = new Big(rows[0].balance);
@@ -407,7 +407,7 @@ export async function getPlayerBalance(idUser) {
 
 export async function getPlayerInfo(idUserZalo) {
   try {
-    const [rows] = await connection.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [rows] = await db.execute(`SELECT * FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
 
     if (rows.length > 0) {
       return rows[0];
@@ -422,7 +422,7 @@ export async function getPlayerInfo(idUserZalo) {
 
 export async function getAccountVND(username) {
   try {
-    const [rows] = await connection.execute(`SELECT vnd FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
+    const [rows] = await db.execute(`SELECT vnd FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
 
     if (rows.length > 0) {
       return rows[0].vnd;
@@ -437,7 +437,7 @@ export async function getAccountVND(username) {
 
 export async function updateAccountVND(username, amount) {
   try {
-    const [currentBalance] = await connection.execute(`SELECT vnd FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
+    const [currentBalance] = await db.execute(`SELECT vnd FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
 
     if (currentBalance.length === 0) {
       return { success: false, message: `${nameServer}: Không tìm thấy tài khoản!` };
@@ -447,7 +447,7 @@ export async function updateAccountVND(username, amount) {
     const bigIntAmount = new Big(amount);
     const newBalance = currentVND.plus(bigIntAmount);
 
-    const [result] = await connection.execute(`UPDATE ${NAME_TABLE_ACCOUNT} SET vnd = ? WHERE username = ?`, [
+    const [result] = await db.execute(`UPDATE ${NAME_TABLE_ACCOUNT} SET vnd = ? WHERE username = ?`, [
       newBalance.toString(),
       username,
     ]);
@@ -465,7 +465,7 @@ export async function updateAccountVND(username, amount) {
 
 export async function registerAccount(username, password) {
   try {
-    const [existingUsers] = await connection.execute(`SELECT username FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
+    const [existingUsers] = await db.execute(`SELECT username FROM ${NAME_TABLE_ACCOUNT} WHERE username = ?`, [username]);
 
     if (existingUsers.length > 0) {
       return {
@@ -484,7 +484,7 @@ export async function registerAccount(username, password) {
       };
     }
 
-    await connection.execute(`INSERT INTO ${NAME_TABLE_ACCOUNT} (username, password) VALUES (?, ?)`, [username, password]);
+    await db.execute(`INSERT INTO ${NAME_TABLE_ACCOUNT} (username, password) VALUES (?, ?)`, [username, password]);
 
     return {
       success: true,
@@ -501,7 +501,7 @@ export async function registerAccount(username, password) {
 
 export async function getUsernameByIdZalo(idUserZalo) {
   try {
-    const [rows] = await connection.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
+    const [rows] = await db.execute(`SELECT username FROM ${NAME_TABLE_PLAYERS} WHERE idUserZalo = ?`, [idUserZalo]);
     return rows[0].username;
   } catch (error) {
     return null;
@@ -510,7 +510,7 @@ export async function getUsernameByIdZalo(idUserZalo) {
 
 export async function updatePlayerBalanceByUsername(username, amount, isWin = null, numAmountWin) {
   try {
-    const [playerRows] = await connection.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [username]);
+    const [playerRows] = await db.execute(`SELECT balance FROM ${NAME_TABLE_PLAYERS} WHERE username = ?`, [username]);
 
     if (playerRows.length === 0) {
       return { success: false, message: `${nameServer}: Không tìm thấy người chơi. ❌` };
@@ -542,11 +542,11 @@ export async function updatePlayerBalanceByUsername(username, amount, isWin = nu
     query += ` WHERE username = ?`;
     params.push(username);
 
-    const [result] = await connection.execute(query, params);
+    const [result] = await db.execute(query, params);
 
     if (result.affectedRows === 1) {
       if (isWin !== null) {
-        await connection.execute(
+        await db.execute(
           `UPDATE ${NAME_TABLE_PLAYERS} 
           SET winRate = (totalWinGames / NULLIF(totalGames, 0)) * 100
           WHERE username = ?`,
