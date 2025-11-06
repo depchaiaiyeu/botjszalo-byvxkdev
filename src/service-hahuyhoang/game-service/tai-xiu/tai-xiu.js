@@ -343,21 +343,7 @@ async function sendGameUpdate(api, remainingSeconds) {
   await clearImagePath(waitingImagePath);
 }
 
-async function placeBet(api, message, threadId, senderId, betType, amount, groupSettings) {
-  if (!groupSettings || !groupSettings[threadId] || !groupSettings[threadId].activeGame || !groupSettings[threadId].activeGame.taixiu) {
-    await sendMessageFromSQL(
-      api,
-      message,
-      {
-        success: false,
-        message: "Trò chơi Tài Xỉu không được kích hoạt trong nhóm này.",
-      },
-      true,
-      30000
-    );
-    return;
-  }
-
+async function placeBet(api, message, threadId, senderId, betType, amount) {
   const username = await getUsernameByIdZalo(senderId);
   if (!username) {
     await sendMessageFromSQL(
@@ -469,46 +455,11 @@ async function placeBet(api, message, threadId, senderId, betType, amount, group
     currentSession.interval = DEFAULT_INTERVAL;
     currentSession.endTime = Date.now() + DEFAULT_INTERVAL * 1000;
   }
-}
-
-async function toggleThreadParticipation(api, message, threadId, isStart, groupSettings) {
-  if (!groupSettings[threadId]) groupSettings[threadId] = {};
-  if (!groupSettings[threadId].activeGame) groupSettings[threadId].activeGame = {};
-
-  const currentStatus = groupSettings[threadId].activeGame.taixiu;
-
-  if (isStart) {
-    if (!currentStatus) {
-      groupSettings[threadId].activeGame.taixiu = true;
-      activeThreads.add(threadId);
-      gameState.data.taixiu.activeThreads = Array.from(activeThreads);
-      saveGameData();
-      await sendMessageFromSQL(api, message, {
-        success: true,
-        message: "Trò chơi Tài Xỉu đã được kích hoạt trong nhóm này.",
-      });
-    } else {
-      await sendMessageFromSQL(api, message, {
-        success: false,
-        message: "Trò chơi Tài Xỉu đã được kích hoạt trước đó trong nhóm này.",
-      });
-    }
-  } else {
-    if (currentStatus) {
-      groupSettings[threadId].activeGame.taixiu = false;
-      activeThreads.delete(threadId);
-      gameState.data.taixiu.activeThreads = Array.from(activeThreads);
-      saveGameData();
-      await sendMessageFromSQL(api, message, {
-        success: true,
-        message: "Trò chơi Tài Xỉu đã bị vô hiệu hóa trong nhóm này.",
-      });
-    } else {
-      await sendMessageFromSQL(api, message, {
-        success: false,
-        message: "Trò chơi Tài Xỉu chưa được kích hoạt trong nhóm này.",
-      });
-    }
+  
+  if (!activeThreads.has(threadId)) {
+    activeThreads.add(threadId);
+    gameState.data.taixiu.activeThreads = Array.from(activeThreads);
+    saveGameData();
   }
 }
 
@@ -606,21 +557,7 @@ Tổng điểm: ${detailedResult.total}`;
     await handleSoiCau(api, message, threadId);
     return;
   }
-
-  if (commandParts[1] === "start" || commandParts[1] === "close") {
-    if (!isAdmin(senderId, threadId)) {
-      const result = {
-        success: false,
-        message: "Bạn không có quyền sử dụng lệnh này.",
-      };
-      await sendMessageFromSQL(api, message, result, true, 30000);
-      return;
-    }
-
-    await toggleThreadParticipation(api, message, threadId, content.endsWith("start"), groupSettings);
-    return;
-  }
-
+  
   const betRegex = new RegExp(`^${prefix}(tx|taixiu)\\s*(tài|xỉu|tai|xiu)\\s*(.+)$`, "i");
   const betMatch = normalizeSymbolName(content).match(betRegex);
 
@@ -628,7 +565,7 @@ Tổng điểm: ${detailedResult.total}`;
     const betType = normalizeSymbolName(betMatch[2]);
     const amount = betMatch[3].trim();
 
-    await placeBet(api, message, threadId, senderId, betType, amount, groupSettings);
+    await placeBet(api, message, threadId, senderId, betType, amount);
   } else {
     const result = {
       success: false,
