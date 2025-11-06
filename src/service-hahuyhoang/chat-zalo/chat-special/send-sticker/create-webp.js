@@ -98,7 +98,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     }
 }
 
-export async function convertToWebpMulti(inputPath, outputPath, frameRate = 30) {
+export async function convertToWebpMulti(inputPath, outputPath, frameRate = 60) {
     return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
             .inputOptions([
