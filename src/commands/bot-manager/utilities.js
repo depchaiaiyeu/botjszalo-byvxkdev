@@ -110,6 +110,7 @@ export async function handleEval(api, message) {
       output = `${err.message}`;
     }
     await sendMessageComplete(api, message, `${output}`);
+    console.log(`${err.message}`);
   } catch (err) {
     await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
