@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import chalk from "chalk";
 import fs from "fs/promises";
 import path from "path";
+import Database from "better-sqlite3";
 import { claimDailyReward, getMyCard } from "./player.js";
 import { getTopPlayers } from "./jdbc.js";
 import { getBotInfo } from "../utils/env.js";
@@ -9,9 +10,10 @@ export * from "./player.js";
 export * from "./jdbc.js";
 
 const botInfo = await getBotInfo();
-const configPath = botInfo.databaseFile;
 let nameServer = "";
 let connection;
+let sqliteDb;
+let useSQLite = false;
 let NAME_TABLE_PLAYERS;
 let NAME_TABLE_ACCOUNT;
 let DAILY_REWARD;
@@ -42,6 +44,7 @@ async function tryConnectMySQL(config) {
       host: config.host,
       user: config.user,
       password: config.password,
+      connectTimeout: 5000,
     });
     await tempConnection.end();
     return true;
@@ -50,7 +53,7 @@ async function tryConnectMySQL(config) {
   }
 }
 
-async function createMySQLConfig() {
+async function createDatabaseConfig() {
   const defaultConfig = {
     host: "localhost",
     user: "root",
@@ -60,7 +63,8 @@ async function createMySQLConfig() {
     nameServer: "Game Server",
     tablePlayerZalo: "players",
     tableAccount: "accounts",
-    dailyReward: 5000
+    dailyReward: 5000,
+    useSQLite: false
   };
 
   const configDir = path.join(process.cwd(), "assets", "json-data");
@@ -77,35 +81,53 @@ async function createMySQLConfig() {
   }
 }
 
-export async function initializeDatabase() {
+async function initializeSQLite(config) {
   try {
-    let config;
+    const dbDir = path.join(process.cwd(), "database");
+    await fs.mkdir(dbDir, { recursive: true });
     
-    try {
-      config = await loadConfig();
-    } catch (error) {
-      console.log(chalk.yellow("⚠ Không tìm thấy file config, đang tạo mới..."));
-      config = await createMySQLConfig();
-    }
-
-    const canConnect = await tryConnectMySQL(config);
+    const dbPath = path.join(dbDir, "bot_database.sqlite");
+    sqliteDb = new Database(dbPath);
     
-    if (!canConnect) {
-      console.log(chalk.red("✗ Không thể kết nối MySQL với config hiện tại"));
-      console.log(chalk.yellow("⚠ Đang tạo config mới..."));
-      config = await createMySQLConfig();
-      
-      const canConnectNew = await tryConnectMySQL(config);
-      if (!canConnectNew) {
-        throw new Error("Không thể kết nối MySQL. Vui lòng kiểm tra XAMPP/MySQL đã khởi động chưa!");
-      }
-    }
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS ${config.tableAccount} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        is_admin INTEGER DEFAULT 0,
+        vnd INTEGER DEFAULT 0
+      )
+    `);
+    
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS ${config.tablePlayerZalo} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        idUserZalo TEXT DEFAULT '-1',
+        playerName TEXT NOT NULL,
+        balance INTEGER DEFAULT 10000,
+        registrationTime TEXT,
+        totalWinnings INTEGER DEFAULT 0,
+        totalLosses INTEGER DEFAULT 0,
+        netProfit INTEGER DEFAULT 0,
+        totalWinGames INTEGER DEFAULT 0,
+        totalGames INTEGER DEFAULT 0,
+        winRate REAL DEFAULT 0,
+        lastDailyReward TEXT,
+        isBanned INTEGER DEFAULT 0
+      )
+    `);
+    
+    console.log(chalk.green("✓ Đã khởi tạo SQLite database thành công"));
+    return true;
+  } catch (error) {
+    console.error(chalk.red("Lỗi khi khởi tạo SQLite: "), error);
+    return false;
+  }
+}
 
-    nameServer = config.nameServer;
-    NAME_TABLE_PLAYERS = config.tablePlayerZalo;
-    NAME_TABLE_ACCOUNT = config.tableAccount;
-    DAILY_REWARD = config.dailyReward;
-
+async function initializeMySQL(config) {
+  try {
     const tempConnection = await mysql.createConnection({
       host: config.host,
       user: config.user,
@@ -127,12 +149,12 @@ export async function initializeDatabase() {
     });
 
     const [tablesAccount] = await connection.execute(
-      `SHOW TABLES LIKE '${NAME_TABLE_ACCOUNT}'`
+      `SHOW TABLES LIKE '${config.tableAccount}'`
     );
     
     if (tablesAccount.length === 0) {
       await connection.execute(`
-        CREATE TABLE IF NOT EXISTS ${NAME_TABLE_ACCOUNT} (
+        CREATE TABLE IF NOT EXISTS ${config.tableAccount} (
           id INT PRIMARY KEY AUTO_INCREMENT,
           username VARCHAR(255) NOT NULL UNIQUE,
           password VARCHAR(255) NOT NULL,
@@ -140,16 +162,16 @@ export async function initializeDatabase() {
           vnd BIGINT DEFAULT 0
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log(`✓ Đã kiểm tra/tạo bảng ${NAME_TABLE_ACCOUNT}`);
+      console.log(`✓ Đã kiểm tra/tạo bảng ${config.tableAccount}`);
     }
 
     const [tables] = await connection.execute(
-      `SHOW TABLES LIKE '${NAME_TABLE_PLAYERS}'`
+      `SHOW TABLES LIKE '${config.tablePlayerZalo}'`
     );
 
     if (tables.length === 0) {
       await connection.execute(`
-        CREATE TABLE ${NAME_TABLE_PLAYERS} (
+        CREATE TABLE ${config.tablePlayerZalo} (
           id INT AUTO_INCREMENT,
           username VARCHAR(255) NOT NULL,
           idUserZalo VARCHAR(255) DEFAULT '-1',
@@ -168,90 +190,122 @@ export async function initializeDatabase() {
           UNIQUE KEY (username)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
-      console.log(`✓ Đã tạo bảng ${NAME_TABLE_PLAYERS}`);
+      console.log(`✓ Đã tạo bảng ${config.tablePlayerZalo}`);
     } else {
       const [columns] = await connection.execute(
-        `SHOW COLUMNS FROM ${NAME_TABLE_PLAYERS}`
+        `SHOW COLUMNS FROM ${config.tablePlayerZalo}`
       );
       const existingColumns = columns.map((col) => col.Field);
 
       const requiredColumns = [
-        {
-          name: "username",
-          query: "ADD COLUMN username VARCHAR(255) NOT NULL UNIQUE",
-        },
-        {
-          name: "idUserZalo",
-          query: "ADD COLUMN idUserZalo VARCHAR(255) DEFAULT '-1'",
-        },
-        {
-          name: "playerName",
-          query: "ADD COLUMN playerName VARCHAR(255) NOT NULL",
-        },
-        {
-          name: "balance",
-          query: "ADD COLUMN balance bigint(20) DEFAULT 10000",
-        },
-        {
-          name: "registrationTime",
-          query: "ADD COLUMN registrationTime DATETIME",
-        },
-        {
-          name: "totalWinnings",
-          query: "ADD COLUMN totalWinnings bigint(20) DEFAULT 0",
-        },
-        {
-          name: "totalLosses",
-          query: "ADD COLUMN totalLosses bigint(20) DEFAULT 0",
-        },
-        {
-          name: "netProfit",
-          query: "ADD COLUMN netProfit bigint(20) DEFAULT 0",
-        },
-        {
-          name: "totalWinGames",
-          query: "ADD COLUMN totalWinGames bigint(20) DEFAULT 0",
-        },
-        {
-          name: "totalGames",
-          query: "ADD COLUMN totalGames bigint(20) DEFAULT 0",
-        },
-        {
-          name: "winRate",
-          query: "ADD COLUMN winRate DECIMAL(5, 2) DEFAULT 0",
-        },
-        {
-          name: "lastDailyReward",
-          query: "ADD COLUMN lastDailyReward DATETIME",
-        },
-        {
-          name: "isBanned",
-          query: "ADD COLUMN isBanned BOOLEAN DEFAULT FALSE",
-        },
+        { name: "username", query: "ADD COLUMN username VARCHAR(255) NOT NULL UNIQUE" },
+        { name: "idUserZalo", query: "ADD COLUMN idUserZalo VARCHAR(255) DEFAULT '-1'" },
+        { name: "playerName", query: "ADD COLUMN playerName VARCHAR(255) NOT NULL" },
+        { name: "balance", query: "ADD COLUMN balance bigint(20) DEFAULT 10000" },
+        { name: "registrationTime", query: "ADD COLUMN registrationTime DATETIME" },
+        { name: "totalWinnings", query: "ADD COLUMN totalWinnings bigint(20) DEFAULT 0" },
+        { name: "totalLosses", query: "ADD COLUMN totalLosses bigint(20) DEFAULT 0" },
+        { name: "netProfit", query: "ADD COLUMN netProfit bigint(20) DEFAULT 0" },
+        { name: "totalWinGames", query: "ADD COLUMN totalWinGames bigint(20) DEFAULT 0" },
+        { name: "totalGames", query: "ADD COLUMN totalGames bigint(20) DEFAULT 0" },
+        { name: "winRate", query: "ADD COLUMN winRate DECIMAL(5, 2) DEFAULT 0" },
+        { name: "lastDailyReward", query: "ADD COLUMN lastDailyReward DATETIME" },
+        { name: "isBanned", query: "ADD COLUMN isBanned BOOLEAN DEFAULT FALSE" },
       ];
 
       for (const column of requiredColumns) {
         if (!existingColumns.includes(column.name)) {
           await connection.execute(
-            `ALTER TABLE ${NAME_TABLE_PLAYERS} ${column.query}`
+            `ALTER TABLE ${config.tablePlayerZalo} ${column.query}`
           );
           console.log(
-            `Đã thêm/sửa cột ${column.name} vào bảng ${NAME_TABLE_PLAYERS}`
+            `Đã thêm/sửa cột ${column.name} vào bảng ${config.tablePlayerZalo}`
           );
         }
       }
     }
 
-    console.log(chalk.green("✓ Khởi tạo database thành công"));
+    console.log(chalk.green("✓ Khởi tạo MySQL database thành công"));
+    return true;
+  } catch (error) {
+    console.error(chalk.red("Lỗi khi khởi tạo MySQL: "), error);
+    return false;
+  }
+}
+
+export async function initializeDatabase() {
+  try {
+    let config;
+    
+    try {
+      config = await loadConfig();
+    } catch (error) {
+      console.log(chalk.yellow("⚠ Không tìm thấy file config, đang tạo mới..."));
+      config = await createDatabaseConfig();
+    }
+
+    nameServer = config.nameServer;
+    NAME_TABLE_PLAYERS = config.tablePlayerZalo;
+    NAME_TABLE_ACCOUNT = config.tableAccount;
+    DAILY_REWARD = config.dailyReward;
+
+    if (config.useSQLite === true) {
+      console.log(chalk.blue("🔄 Sử dụng SQLite database..."));
+      useSQLite = true;
+      await initializeSQLite(config);
+      return;
+    }
+
+    const canConnect = await tryConnectMySQL(config);
+    
+    if (!canConnect) {
+      console.log(chalk.yellow("⚠ Không thể kết nối MySQL, chuyển sang SQLite..."));
+      useSQLite = true;
+      
+      config.useSQLite = true;
+      const configPath = path.join(
+        process.cwd(),
+        "assets",
+        "json-data",
+        "database-config.json"
+      );
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf8");
+      
+      await initializeSQLite(config);
+      return;
+    }
+
+    useSQLite = false;
+    await initializeMySQL(config);
+
   } catch (error) {
     console.error(chalk.red("Lỗi khi khởi tạo cơ sở dữ liệu: "), error);
-    console.error(chalk.red("Vui lòng mở XAMPP MySQL và khởi động lại!"));
-    throw error;
+    console.log(chalk.yellow("⚠ Thử chuyển sang SQLite..."));
+    useSQLite = true;
+    
+    let config;
+    try {
+      config = await loadConfig();
+    } catch {
+      config = await createDatabaseConfig();
+    }
+    
+    await initializeSQLite(config);
   }
+}
+
+export function getConnection() {
+  return useSQLite ? sqliteDb : connection;
+}
+
+export function isUsingSQLite() {
+  return useSQLite;
 }
 
 export {
   connection,
+  sqliteDb,
+  useSQLite,
   NAME_TABLE_PLAYERS,
   NAME_TABLE_ACCOUNT,
   claimDailyReward,
