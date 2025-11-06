@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export async function createCircleWebp(api, message, imageUrl, idImage, rate = null) {
-    const frameRate = rate || 30;
+    const frameRate = rate || 60;
     const ext = await checkExstentionFileRemote(imageUrl);
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
@@ -24,7 +24,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
         const borderWidth = 8;
-        const totalFrames = 120;
+        const totalFrames = 60;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
         const resizedImageBuffer = await sharp(downloadedImage)
