@@ -15,11 +15,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export async function createCircleWebp(api, message, imageUrl, idImage, rate = null) {
-    const frameRate = rate || 20;
+    const frameRate = rate || 30;
     const ext = await checkExstentionFileRemote(imageUrl);
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
     const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
+    
     try {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
@@ -27,31 +28,37 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
         const totalFrames = 60;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
+        
         const resizedImageBuffer = await sharp(downloadedImage)
             .resize(size, size, {
                 fit: 'cover',
                 position: 'center'
             })
             .toBuffer();
+        
         if (!fs.existsSync(framesDir)) {
             await fs.promises.mkdir(framesDir, { recursive: true });
         }
+        
         const circleMask = Buffer.from(`
-    <svg width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
-    </svg>
-`);
+            <svg width="${size}" height="${size}">
+                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
+            </svg>
+        `);
+        
         const circleBorder = Buffer.from(`
-    <svg width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
-    </svg>
-`);
+            <svg width="${size}" height="${size}">
+                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
+            </svg>
+        `);
+        
         const workers = [];
         const workerPath = path.join(__dirname, 'frame-worker.js');
         
         for (let i = 0; i < numWorkers; i++) {
             const startFrame = i * framesPerWorker;
             const endFrame = Math.min(startFrame + framesPerWorker, totalFrames);
+            
             const worker = new Worker(workerPath, {
                 workerData: {
                     startFrame,
@@ -64,6 +71,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                     circleBorder
                 }
             });
+            
             workers.push(new Promise((resolve, reject) => {
                 worker.on('message', resolve);
                 worker.on('error', reject);
@@ -74,13 +82,17 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                 });
             }));
         }
+        
         await Promise.all(workers);
+        
         const framePattern = path.join(framesDir, 'frame_%03d.png');
         await convertToWebpMulti(framePattern, outputWebp, frameRate);
+        
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
         ]);
+        
         const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
         
         return {
@@ -98,24 +110,26 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     }
 }
 
-export async function convertToWebpMulti(inputPath, outputPath, frameRate = 20) {
+
+export async function convertToWebpMulti(inputPath, outputPath, frameRate = 30) {
     return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
             .inputOptions([
-                '-framerate', String(frameRate)
+                '-framerate', String(frameRate),
+                '-pattern_type', 'glob'
             ])
             .outputOptions([
                 '-c:v', 'libwebp',
                 '-lossless', '0',
-                '-compression_level', '1',
-                '-q:v', '5',
+                '-compression_level', '4',
+                '-q:v', '75',
                 '-loop', '0',
-                '-preset', 'default',
-                '-cpu-used', '5',
-                '-deadline', 'realtime',
-                '-threads', 'auto',
-                '-vsync', '0',
-                '-t', '8'
+                '-preset', 'picture',
+                '-an',
+                '-vf', `fps=${frameRate},setpts=N/FRAME_RATE/TB`,
+                '-vsync', 'cfr',
+                '-r', String(frameRate),
+                '-pix_fmt', 'yuva420p'
             ])
             .save(outputPath)
             .on('end', () => {
@@ -123,7 +137,7 @@ export async function convertToWebpMulti(inputPath, outputPath, frameRate = 20) 
             })
             .on('error', (err) => {
                 console.error('Lỗi khi chuyển đổi sang WebP:', err.message);
-                reject(false);
+                reject(err);
             });
     });
 }
