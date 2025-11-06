@@ -219,7 +219,7 @@ async function initializeMySQL(config) {
             `ALTER TABLE ${config.tablePlayerZalo} ${column.query}`
           );
           console.log(
-            `Đã thêm/sửa cột ${column.name} vào bảng ${config.tablePlayerZalo}`
+            `✓ Đã thêm/sửa cột ${column.name} vào bảng ${config.tablePlayerZalo}`
           );
         }
       }
@@ -250,7 +250,7 @@ export async function initializeDatabase() {
     DAILY_REWARD = config.dailyReward;
 
     if (config.useSQLite === true) {
-      console.log(chalk.blue("🔄 Sử dụng SQLite database..."));
+      console.log(chalk.blue("✓ Sử dụng SQLite database..."));
       useSQLite = true;
       await initializeSQLite(config);
       return;
@@ -300,6 +300,10 @@ export function getConnection() {
 
 export function isUsingSQLite() {
   return useSQLite;
+}
+
+export function isDatabaseConnected() {
+  return useSQLite ? (sqliteDb !== null && sqliteDb !== undefined) : (connection !== null && connection !== undefined);
 }
 
 export {
