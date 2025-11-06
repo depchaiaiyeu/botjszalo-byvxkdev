@@ -12,22 +12,22 @@ import {
   registerAccount,
   logout,
   connection,
+  getNameServer,
 } from "../../database/index.js";
 import { getPlayerBalance, updatePlayerBalance, getPlayerInfo, getAccountVND, updateAccountVND } from "../../database/player.js";
 import { sendMessageFromSQL } from "../chat-zalo/chat-style/chat-style.js";
 import * as cv from "../../utils/canvas/index.js";
+import { drawRankingImage } from "../../utils/canvas/leaderboard-image.js";
 import { isAdmin } from "../../index.js";
 import { getGlobalPrefix } from "../service.js";
 import { formatBigNumber, formatCurrency, parseGameAmount, removeMention } from "../../utils/format-util.js";
 import { sendReactionConfirmReceive } from "../../commands/command.js";
 
 export async function checkBeforeJoinGame(api, message, groupSettings, checkLogin = false) {
-
   const threadId = message.threadId;
   const senderId = message.data.uidFrom;
   const prefix = getGlobalPrefix();
   const isAdminBot = isAdmin(senderId, threadId);
-
   if (!connection) {
     if (isAdminBot) {
       const text =
@@ -41,7 +41,6 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
-
   if (groupSettings) {
     const activeGame = groupSettings[threadId].activeGame;
     const isAdminLevelHighest = isAdmin(senderId);
@@ -61,24 +60,20 @@ export async function checkBeforeJoinGame(api, message, groupSettings, checkLogi
       return false;
     }
   }
-
   if (await checkPlayerBanned(api, message, threadId, senderId)) {
     return false;
   }
-
   if (checkLogin) {
     if (!(await checkPlayerLogin(api, message, threadId, senderId))) {
       return false;
     }
   }
-
   await sendReactionConfirmReceive(api, message, 5);
   return true;
 }
 
 export async function handleClaimDailyReward(api, message, groupSettings) {
   if (!(await checkBeforeJoinGame(api, message, groupSettings, true))) return;
-
   const senderId = message.data.uidFrom;
   const result = await claimDailyReward(senderId);
   await sendMessageFromSQL(api, message, result, true, 30000);
@@ -86,25 +81,44 @@ export async function handleClaimDailyReward(api, message, groupSettings) {
 
 export async function handleTopPlayers(api, message, groupSettings) {
   if (!(await checkBeforeJoinGame(api, message, groupSettings))) return;
-
   const threadId = message.threadId;
   const topPlayers = await getTopPlayers();
-  let msg = "🏆 Top 10 người chơi giàu nhất 🏆\n\n";
 
   if (topPlayers.length === 0) {
-    msg += "Hiện chưa có dữ liệu xếp hạng.";
-  } else {
-    let idx = 0;
-    topPlayers.forEach((player) => {
-      if (!isAdmin(player.idUser)) {
-        if (idx < 10) {
-          msg += `${++idx}. ${player.playerName}: ${formatCurrency(player.balance)} VNĐ\n`;
-        }
-      }
-    });
+    return;
   }
 
-  await api.sendMessage({ msg: msg, quote: message, ttl: 300000 }, threadId, message.type);
+  const filteredPlayers = topPlayers
+    .filter(player => !isAdmin(player.idUser))
+    .slice(0, 10)
+    .map(player => ({
+      playerName: player.playerName,
+      balance: player.balance
+    }));
+
+  const serverName = await getNameServer();
+  const imagePath = await drawRankingImage({
+    data: filteredPlayers,
+    title: "🏆 Top 10 Người Chơi Giàu Nhất 🏆",
+    subtitle: serverName,
+    columns: [
+      { key: 'rank', label: 'Hạng', align: 'left', x: 40 + 10, bold: true },
+      { key: 'playerName', label: 'Người Chơi', align: 'left', x: 40 + 130 },
+      { key: (item) => formatCurrency(item.balance), label: 'Số Dư', align: 'right', x: 800 - 40 - 10, bold: true }
+    ],
+    imageName: 'top_players'
+  });
+
+  await api.sendMessage(
+    { 
+      msg: "", 
+      attachments: [imagePath], 
+      quote: message, 
+      ttl: 300000 
+    }, 
+    threadId, 
+    MessageType.Image
+  );
 }
 
 export async function handleMyCard(api, message, groupSettings) {
