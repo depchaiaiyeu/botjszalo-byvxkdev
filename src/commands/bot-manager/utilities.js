@@ -93,31 +93,25 @@ export async function handleGetUID(api, message) {
 export async function handleEval(api, message) {
   try {
     const prefix = await getGlobalPrefix();
-    let content = removeMention(message)?.trim();
-    if (!content || !content.startsWith(`${prefix}eval`)) {
-      await sendMessageQuery(api, message, `Sử dụng ${prefix}eval [code]`);
-      return;
-    }
-    const code = content.replace(new RegExp(`^\\${prefix}eval\\s*`), "");
+    const content = removeMention(message);
+    if (!content.startsWith(`${prefix}eval`)) return false;
+    const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
-      await sendMessageQuery(api, message, `Vui lòng nhập code sau lệnh eval`);
+      await sendMessageFromSQL(api, message.threadId, `Vui lòng nhập code để thực thi.`);
       return;
     }
+    const senderId = message.data?.uidFrom;
+    const threadId = message.threadId;
+    const senderName = message.data?.dName;
     let output;
     try {
-      output = await eval(`(async () => { ${code} })()`);
+      output = await eval(`(async () => { const senderId=${JSON.stringify(senderId)}; const threadId=${JSON.stringify(threadId)}; const senderName=${JSON.stringify(senderName)}; return ${code}; })()`);
     } catch (err) {
-      output = err.message || String(err);
+      output = `Lỗi: ${err.message}`;
     }
-    let result = typeof output === "object"
-      ? JSON.stringify(output, null, 2)
-      : String(output);
-    if (result.toLowerCase().includes("unfriend")) {
-      result = result.replace(/unfriend/gi, "");
-    }
-    await sendMessageFromSQL(api, message, { message: result, success: true }, true, 1800000);
-  } catch (error) {
-    await sendMessageFailed(api, message, `Đã xảy ra lỗi khi xử lý: ${error.message || error}`);
+    await sendMessageFromSQL(api, threadId, `Kết quả:\n${output}`);
+  } catch (err) {
+    await sendMessageFailed(api, message, `Lỗi khi thực thi eval: ${err.message}`);
   }
 }
 
