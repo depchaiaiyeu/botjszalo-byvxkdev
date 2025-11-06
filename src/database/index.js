@@ -31,35 +31,93 @@ export async function getNameServer() {
   const config = await loadConfig(); 
   return config.nameServer;
 }
+
 export function updateNameServer(newName) {
   nameServer = newName;
 }
 
+async function tryConnectMySQL(config) {
+  try {
+    const tempConnection = await mysql.createConnection({
+      host: config.host,
+      user: config.user,
+      password: config.password,
+    });
+    await tempConnection.end();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function createMySQLConfig() {
+  const defaultConfig = {
+    host: "localhost",
+    user: "root",
+    password: "",
+    database: "zalo_bot_db",
+    port: 3306,
+    nameServer: "Game Server",
+    tablePlayerZalo: "players",
+    tableAccount: "accounts",
+    dailyReward: 5000
+  };
+
+  const configDir = path.join(process.cwd(), "assets", "json-data");
+  const configPath = path.join(configDir, "database-config.json");
+
+  try {
+    await fs.mkdir(configDir, { recursive: true });
+    await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2), "utf8");
+    console.log(chalk.yellow("✓ Đã tạo file database-config.json mặc định"));
+    return defaultConfig;
+  } catch (error) {
+    console.error(chalk.red("Lỗi khi tạo file config: "), error);
+    throw error;
+  }
+}
+
 export async function initializeDatabase() {
   try {
-    const config = await loadConfig();
+    let config;
+    
+    try {
+      config = await loadConfig();
+    } catch (error) {
+      console.log(chalk.yellow("⚠ Không tìm thấy file config, đang tạo mới..."));
+      config = await createMySQLConfig();
+    }
+
+    const canConnect = await tryConnectMySQL(config);
+    
+    if (!canConnect) {
+      console.log(chalk.red("✗ Không thể kết nối MySQL với config hiện tại"));
+      console.log(chalk.yellow("⚠ Đang tạo config mới..."));
+      config = await createMySQLConfig();
+      
+      const canConnectNew = await tryConnectMySQL(config);
+      if (!canConnectNew) {
+        throw new Error("Không thể kết nối MySQL. Vui lòng kiểm tra XAMPP/MySQL đã khởi động chưa!");
+      }
+    }
 
     nameServer = config.nameServer;
     NAME_TABLE_PLAYERS = config.tablePlayerZalo;
     NAME_TABLE_ACCOUNT = config.tableAccount;
     DAILY_REWARD = config.dailyReward;
 
-    // Tạo kết nối tạm thời không cần chọn database
     const tempConnection = await mysql.createConnection({
       host: config.host,
       user: config.user,
       password: config.password,
     });
 
-    // Tạo database nếu chưa tồn tại
     await tempConnection.execute(
       `CREATE DATABASE IF NOT EXISTS \`${config.database}\``
     );
 
-    // Đóng kết nối tạm thời
     await tempConnection.end();
 
-    // Tạo pool connection với database đã chọn
     connection = mysql.createPool({
       host: config.host,
       user: config.user,
@@ -71,50 +129,47 @@ export async function initializeDatabase() {
     const [tablesAccount] = await connection.execute(
       `SHOW TABLES LIKE '${NAME_TABLE_ACCOUNT}'`
     );
+    
     if (tablesAccount.length === 0) {
-      // Tạo bảng account nếu chưa tồn tại
       await connection.execute(`
-            CREATE TABLE IF NOT EXISTS ${NAME_TABLE_ACCOUNT} (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                username VARCHAR(255) NOT NULL UNIQUE,
-                password VARCHAR(255) NOT NULL,
-                is_admin BOOLEAN DEFAULT false,
-                vnd BIGINT DEFAULT 0
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            `);
+        CREATE TABLE IF NOT EXISTS ${NAME_TABLE_ACCOUNT} (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          username VARCHAR(255) NOT NULL UNIQUE,
+          password VARCHAR(255) NOT NULL,
+          is_admin BOOLEAN DEFAULT false,
+          vnd BIGINT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
       console.log(`✓ Đã kiểm tra/tạo bảng ${NAME_TABLE_ACCOUNT}`);
     }
 
-    // Kiểm tra và tạo bảng players
     const [tables] = await connection.execute(
       `SHOW TABLES LIKE '${NAME_TABLE_PLAYERS}'`
     );
 
     if (tables.length === 0) {
-      // Nếu bảng chưa tồn tại, tạo bảng mới
       await connection.execute(`
-                CREATE TABLE ${NAME_TABLE_PLAYERS} (
-                    id INT AUTO_INCREMENT,
-                    username VARCHAR(255) NOT NULL,
-                    idUserZalo VARCHAR(255) DEFAULT '-1',
-                    playerName VARCHAR(255) NOT NULL,
-                    balance BIGINT DEFAULT 10000,
-                    registrationTime DATETIME,
-                    totalWinnings BIGINT DEFAULT 0,
-                    totalLosses BIGINT DEFAULT 0,
-                    netProfit BIGINT DEFAULT 0,
-                    totalWinGames BIGINT DEFAULT 0,
-                    totalGames BIGINT DEFAULT 0,
-                    winRate DECIMAL(5, 2) DEFAULT 0,
-                    lastDailyReward DATETIME,
-                    isBanned BOOLEAN DEFAULT FALSE,
-                    PRIMARY KEY (id),
-                    UNIQUE KEY (username)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            `);
+        CREATE TABLE ${NAME_TABLE_PLAYERS} (
+          id INT AUTO_INCREMENT,
+          username VARCHAR(255) NOT NULL,
+          idUserZalo VARCHAR(255) DEFAULT '-1',
+          playerName VARCHAR(255) NOT NULL,
+          balance BIGINT DEFAULT 10000,
+          registrationTime DATETIME,
+          totalWinnings BIGINT DEFAULT 0,
+          totalLosses BIGINT DEFAULT 0,
+          netProfit BIGINT DEFAULT 0,
+          totalWinGames BIGINT DEFAULT 0,
+          totalGames BIGINT DEFAULT 0,
+          winRate DECIMAL(5, 2) DEFAULT 0,
+          lastDailyReward DATETIME,
+          isBanned BOOLEAN DEFAULT FALSE,
+          PRIMARY KEY (id),
+          UNIQUE KEY (username)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
       console.log(`✓ Đã tạo bảng ${NAME_TABLE_PLAYERS}`);
     } else {
-      // Kiểm tra và thêm các cột còn thiếu
       const [columns] = await connection.execute(
         `SHOW COLUMNS FROM ${NAME_TABLE_PLAYERS}`
       );
@@ -191,6 +246,7 @@ export async function initializeDatabase() {
   } catch (error) {
     console.error(chalk.red("Lỗi khi khởi tạo cơ sở dữ liệu: "), error);
     console.error(chalk.red("Vui lòng mở XAMPP MySQL và khởi động lại!"));
+    throw error;
   }
 }
 
