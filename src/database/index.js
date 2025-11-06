@@ -6,13 +6,13 @@ import Database from "better-sqlite3";
 import { claimDailyReward, getMyCard } from "./player.js";
 import { getTopPlayers } from "./jdbc.js";
 import { getBotInfo } from "../utils/env.js";
+
 export * from "./player.js";
 export * from "./jdbc.js";
 
 const botInfo = await getBotInfo();
 let nameServer = "";
-let connection;
-let sqliteDb;
+let db;
 let useSQLite = false;
 let NAME_TABLE_PLAYERS;
 let NAME_TABLE_ACCOUNT;
@@ -30,7 +30,7 @@ async function loadConfig() {
 }
 
 export async function getNameServer() {
-  const config = await loadConfig(); 
+  const config = await loadConfig();
   return config.nameServer;
 }
 
@@ -64,7 +64,7 @@ async function createDatabaseConfig() {
     tablePlayerZalo: "players",
     tableAccount: "accounts",
     dailyReward: 5000,
-    useSQLite: false
+    useSQLite: false,
   };
 
   const configDir = path.join(process.cwd(), "assets", "json-data");
@@ -85,11 +85,11 @@ async function initializeSQLite(config) {
   try {
     const dbDir = path.join(process.cwd(), "database");
     await fs.mkdir(dbDir, { recursive: true });
-    
+
     const dbPath = path.join(dbDir, "bot_database.sqlite");
-    sqliteDb = new Database(dbPath);
-    
-    sqliteDb.exec(`
+    db = new Database(dbPath);
+
+    db.exec(`
       CREATE TABLE IF NOT EXISTS ${config.tableAccount} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
@@ -98,8 +98,8 @@ async function initializeSQLite(config) {
         vnd INTEGER DEFAULT 0
       )
     `);
-    
-    sqliteDb.exec(`
+
+    db.exec(`
       CREATE TABLE IF NOT EXISTS ${config.tablePlayerZalo} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
@@ -117,7 +117,7 @@ async function initializeSQLite(config) {
         isBanned INTEGER DEFAULT 0
       )
     `);
-    
+
     console.log(chalk.green("✓ Đã khởi tạo SQLite database thành công"));
     return true;
   } catch (error) {
@@ -140,7 +140,7 @@ async function initializeMySQL(config) {
 
     await tempConnection.end();
 
-    connection = mysql.createPool({
+    db = mysql.createPool({
       host: config.host,
       user: config.user,
       password: config.password,
@@ -148,12 +148,12 @@ async function initializeMySQL(config) {
       port: config.port,
     });
 
-    const [tablesAccount] = await connection.execute(
+    const [tablesAccount] = await db.execute(
       `SHOW TABLES LIKE '${config.tableAccount}'`
     );
-    
+
     if (tablesAccount.length === 0) {
-      await connection.execute(`
+      await db.execute(`
         CREATE TABLE IF NOT EXISTS ${config.tableAccount} (
           id INT PRIMARY KEY AUTO_INCREMENT,
           username VARCHAR(255) NOT NULL UNIQUE,
@@ -165,12 +165,12 @@ async function initializeMySQL(config) {
       console.log(`✓ Đã kiểm tra/tạo bảng ${config.tableAccount}`);
     }
 
-    const [tables] = await connection.execute(
+    const [tables] = await db.execute(
       `SHOW TABLES LIKE '${config.tablePlayerZalo}'`
     );
 
     if (tables.length === 0) {
-      await connection.execute(`
+      await db.execute(`
         CREATE TABLE ${config.tablePlayerZalo} (
           id INT AUTO_INCREMENT,
           username VARCHAR(255) NOT NULL,
@@ -192,7 +192,7 @@ async function initializeMySQL(config) {
       `);
       console.log(`✓ Đã tạo bảng ${config.tablePlayerZalo}`);
     } else {
-      const [columns] = await connection.execute(
+      const [columns] = await db.execute(
         `SHOW COLUMNS FROM ${config.tablePlayerZalo}`
       );
       const existingColumns = columns.map((col) => col.Field);
@@ -215,7 +215,7 @@ async function initializeMySQL(config) {
 
       for (const column of requiredColumns) {
         if (!existingColumns.includes(column.name)) {
-          await connection.execute(
+          await db.execute(
             `ALTER TABLE ${config.tablePlayerZalo} ${column.query}`
           );
           console.log(
@@ -233,10 +233,20 @@ async function initializeMySQL(config) {
   }
 }
 
+async function saveConfig(config) {
+  const configPath = path.join(
+    process.cwd(),
+    "assets",
+    "json-data",
+    "database-config.json"
+  );
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf8");
+}
+
 export async function initializeDatabase() {
   try {
     let config;
-    
+
     try {
       config = await loadConfig();
     } catch (error) {
@@ -250,52 +260,46 @@ export async function initializeDatabase() {
     DAILY_REWARD = config.dailyReward;
 
     if (config.useSQLite === true) {
-      console.log(chalk.blue("✓ Sử dụng SQLite database..."));
+      console.log(chalk.blue("✓ Sử dụng SQLite database theo config..."));
       useSQLite = true;
       await initializeSQLite(config);
       return;
     }
 
     const canConnect = await tryConnectMySQL(config);
-    
+
     if (!canConnect) {
       console.log(chalk.yellow("⚠ Không thể kết nối MySQL, chuyển sang SQLite..."));
       useSQLite = true;
-      
       config.useSQLite = true;
-      const configPath = path.join(
-        process.cwd(),
-        "assets",
-        "json-data",
-        "database-config.json"
-      );
-      await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf8");
-      
+      await saveConfig(config);
       await initializeSQLite(config);
       return;
     }
 
     useSQLite = false;
     await initializeMySQL(config);
-
   } catch (error) {
     console.error(chalk.red("Lỗi khi khởi tạo cơ sở dữ liệu: "), error);
     console.log(chalk.yellow("⚠ Thử chuyển sang SQLite..."));
     useSQLite = true;
-    
+
     let config;
     try {
       config = await loadConfig();
     } catch {
       config = await createDatabaseConfig();
     }
-    
+
+    config.useSQLite = true;
+    await saveConfig(config);
+
     await initializeSQLite(config);
   }
 }
 
 export function getConnection() {
-  return useSQLite ? sqliteDb : connection;
+  return db;
 }
 
 export function isUsingSQLite() {
@@ -303,12 +307,11 @@ export function isUsingSQLite() {
 }
 
 export function isDatabaseConnected() {
-  return useSQLite ? (sqliteDb !== null && sqliteDb !== undefined) : (connection !== null && connection !== undefined);
+  return db !== null && db !== undefined;
 }
 
 export {
-  connection,
-  sqliteDb,
+  db,
   useSQLite,
   NAME_TABLE_PLAYERS,
   NAME_TABLE_ACCOUNT,
