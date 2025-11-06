@@ -97,7 +97,7 @@ export async function handleEval(api, message) {
     if (!content.startsWith(`${prefix}eval`)) return false;
     const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
-      await sendMessageFromSQL(api, message.threadId, `Vui lòng nhập code để thực thi.`);
+      await sendMessageComplete(api, message, `Vui lòng nhập code để thực thi.`);
       return;
     }
     const senderId = message.data?.uidFrom;
@@ -109,7 +109,7 @@ export async function handleEval(api, message) {
     } catch (err) {
       output = `Lỗi: ${err.message}`;
     }
-    await sendMessageFromSQL(api, threadId, `Kết quả:\n${output}`);
+    await sendMessageComplete(api, message, `Kết quả:\n${output}`);
   } catch (err) {
     await sendMessageFailed(api, message, `Lỗi khi thực thi eval: ${err.message}`);
   }
