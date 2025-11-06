@@ -1,14 +1,12 @@
-import { db, NAME_TABLE_PLAYERS } from './index.js';
+import { executeQuery, NAME_TABLE_PLAYERS } from './index.js';
 import Big from 'big.js';
 
 export async function getTopPlayers() {
   try {
-    // Lấy tất cả người chơi
-    const [rows] = await connection.execute(
+    const [rows] = await executeQuery(
       `SELECT idUserZalo, playerName, balance FROM ${NAME_TABLE_PLAYERS}`
     );
 
-    // Chuyển đổi balance sang Big và sắp xếp lại
     const sortedPlayers = rows
       .map(player => ({
         idUser: player.idUserZalo,
@@ -16,7 +14,7 @@ export async function getTopPlayers() {
         balance: new Big(player.balance)
       }))
       .sort((a, b) => b.balance.minus(a.balance))
-      .slice(0, 20) // Lấy top 20
+      .slice(0, 20)
       .map((player, index) => ({
         rank: index + 1,
         idUser: player.idUser,
