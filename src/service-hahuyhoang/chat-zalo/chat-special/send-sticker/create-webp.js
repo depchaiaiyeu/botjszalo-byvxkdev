@@ -10,10 +10,7 @@ import { Worker } from 'worker_threads';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
-const execPromise = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -23,45 +20,38 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
     const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
-    
     try {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
         const borderWidth = 8;
-        const totalFrames = 60;
+        const totalFrames = 120;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
-        
         const resizedImageBuffer = await sharp(downloadedImage)
             .resize(size, size, {
                 fit: 'cover',
                 position: 'center'
             })
             .toBuffer();
-        
         if (!fs.existsSync(framesDir)) {
             await fs.promises.mkdir(framesDir, { recursive: true });
         }
-        
         const circleMask = Buffer.from(`
-            <svg width="${size}" height="${size}">
-                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
-            </svg>
-        `);
-        
+    <svg width="${size}" height="${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
+    </svg>
+`);
         const circleBorder = Buffer.from(`
-            <svg width="${size}" height="${size}">
-                <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
-            </svg>
-        `);
-        
+    <svg width="${size}" height="${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
+    </svg>
+`);
         const workers = [];
         const workerPath = path.join(__dirname, 'frame-worker.js');
         
         for (let i = 0; i < numWorkers; i++) {
             const startFrame = i * framesPerWorker;
             const endFrame = Math.min(startFrame + framesPerWorker, totalFrames);
-            
             const worker = new Worker(workerPath, {
                 workerData: {
                     startFrame,
@@ -74,7 +64,6 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                     circleBorder
                 }
             });
-            
             workers.push(new Promise((resolve, reject) => {
                 worker.on('message', resolve);
                 worker.on('error', reject);
@@ -85,16 +74,13 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                 });
             }));
         }
-        
         await Promise.all(workers);
-        
-        await convertToWebpMulti(framesDir, outputWebp, frameRate);
-        
+        const framePattern = path.join(framesDir, 'frame_%03d.png');
+        await convertToWebpMulti(framePattern, outputWebp, frameRate);
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
         ]);
-        
         const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
         
         return {
@@ -112,17 +98,32 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     }
 }
 
-export async function convertToWebpMulti(framesDir, outputPath, frameRate = 30) {
-    const framePattern = path.join(framesDir, 'frame_%03d.png');
-    const cmd = `ffmpeg -framerate ${frameRate} -i "${framePattern}" -c:v libwebp -lossless 0 -q:v 75 -loop 0 -preset picture -vf "fps=${frameRate}" -vsync cfr -pix_fmt yuva420p -y "${outputPath}"`;
-    
-    try {
-        await execPromise(cmd);
-        return true;
-    } catch (error) {
-        console.error('Lỗi convert WebP:', error.message);
-        throw error;
-    }
+export async function convertToWebpMulti(inputPath, outputPath, frameRate = 30) {
+    return new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+            .inputOptions([
+                '-framerate', String(frameRate)
+            ])
+            .outputOptions([
+                '-c:v', 'libwebp',
+                '-lossless', '0',
+                '-compression_level', '3',
+                '-q:v', '5',
+                '-loop', '0',
+                '-preset', 'default',
+                '-cpu-used', '5',
+                '-deadline', 'realtime',
+                '-threads', 'auto',
+            ])
+            .save(outputPath)
+            .on('end', () => {
+                resolve(true);
+            })
+            .on('error', (err) => {
+                console.error('Lỗi khi chuyển đổi sang WebP:', err.message);
+                reject(false);
+            });
+    });
 }
 
 export async function createImageWebp(api, message, imageUrl, idImage) {
@@ -203,7 +204,6 @@ export async function convertToWebp(inputPath, outputPath) {
             });
     });
 }
-
 export async function convertStickerToSticker(api, message, stickerUrl, idSticker) {
     const ext = await checkExstentionFileRemote(stickerUrl);
     if (ext.toLowerCase() !== 'webp') {
@@ -219,16 +219,20 @@ export async function convertStickerToSticker(api, message, stickerUrl, idSticke
     const outputWebp = path.join(tempDir, `new_sticker_${idSticker}.webp`);
 
     try {
+        // Tải sticker WebP về
         await downloadFileFake(stickerUrl, downloadedSticker);
 
+        // Kích thước chuẩn cho sticker
         const size = 512;
 
+        // Tạo mask hình tròn
         const circleMask = Buffer.from(`
             <svg width="${size}" height="${size}">
                 <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="white"/>
             </svg>
         `);
 
+        // Xử lý sticker: thay đổi kích thước và áp dụng mask hình tròn
         const imageBuffer = await fs.promises.readFile(downloadedSticker);
         await sharp(imageBuffer)
             .resize(size, size, {
@@ -241,6 +245,7 @@ export async function convertStickerToSticker(api, message, stickerUrl, idSticke
             }])
             .toFile(outputWebp);
 
+        // Upload sticker mới lên Zalo
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
@@ -261,11 +266,11 @@ export async function convertStickerToSticker(api, message, stickerUrl, idSticke
         await sendMessageWarningRequest(api, message, object, 30000);
         return null;
     } finally {
+        // Xóa các file tạm
         await deleteFile(downloadedSticker);
         await deleteFile(outputWebp);
     }
 }
-
 export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
   const ext = await checkExstentionFileRemote(mediaUrl);
   const downloadedMedia = path.join(tempDir, `original_${idSticker}.${ext}`);
@@ -281,6 +286,7 @@ export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
     }
     console.log(`Đã tải media về: ${downloadedMedia}, kích thước: ${stats.size} bytes`);
 
+    // Kiểm tra metadata
     const metadata = await new Promise((resolve, reject) => {
       ffmpeg.ffprobe(downloadedMedia, (err, metadata) => {
         if (err) reject(new Error(`Không thể đọc metadata của tệp: ${err.message}`));
@@ -314,7 +320,7 @@ export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
           '-vf', `scale=${size}:-2:flags=fast_bilinear`,
           '-vsync', '0',
           '-f', 'image2',
-          '-frames:v', '50'
+          '-frames:v', '50' // Giới hạn 50 khung hình để thử nghiệm
         ])
         .save(path.join(framesDir, 'frame_%03d.png'))
         .on('end', () => {
@@ -345,7 +351,8 @@ export async function createAnimatedSticker(api, message, mediaUrl, idSticker) {
     }
 
     console.log("Đang chuyển đổi sang WebP...");
-    await convertToWebpMulti(framesDir, outputWebp, 20);
+    const framePattern = path.join(framesDir, 'frame_%03d.png');
+    await convertToWebpMulti(framePattern, outputWebp);
 
     const [linkUploadZalo, stickerData] = await Promise.all([
       api.uploadAttachment([outputWebp], message.threadId, message.type),
