@@ -22,18 +22,6 @@ const userAgents = [
 ];
 
 const paths = {
-  adminFilePath: path.resolve("./mybot/data/list_admin.json"),
-  groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
-  configFilePath: path.resolve("./mybot/config.json"),
-  commandFilePath: path.resolve("./assets/json-data/command.json"),
-  logDir: path.resolve("./logs"),
-  resourceDir: path.resolve("./resources"),
-  tempDir: path.resolve("./temp"),
-  dataGifPath: path.resolve("./assets/gif"),
-  DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
-  WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config.json"),
-  MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot.json"),
-  PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic.json"),
   myBotDataDir: path.resolve("./mybot")
 };
 
@@ -62,40 +50,52 @@ function parseTimeToMs(timeStr) {
 
 async function ensureDirectories() {
   const dirs = [
-    path.resolve("./mybot/data"),
-    path.resolve("./mybot/json-data"),
-    path.resolve("./temp")
+    path.resolve("./mybot"),
+    path.resolve("./mybot/data")
   ];
   
   for (const dir of dirs) {
     try {
       await fs.mkdir(dir, { recursive: true });
+      console.log(`[MyBot] ✅ Đảm bảo thư mục: ${dir}`);
     } catch (error) {
-      console.error(`Lỗi tạo thư mục ${dir}:`, error);
+      console.error(`[MyBot] ❌ Lỗi tạo thư mục ${dir}:`, error);
     }
   }
 }
 
 async function getBotDataPath(botId) {
-  return path.resolve(paths.myBotDataDir, `${botId}.json`);
+  return path.resolve("./mybot", `${botId}.json`);
 }
 
 async function getBotConfig(botId) {
   const botPath = await getBotDataPath(botId);
   try {
     const data = await fs.readFile(botPath, "utf-8");
-    return JSON.parse(data);
-  } catch {
+    const config = JSON.parse(data);
+    console.log(`[MyBot] ✅ Đọc config bot ${botId} thành công`);
+    return config;
+  } catch (error) {
+    console.log(`[MyBot] ⚠️ Không thể đọc config bot ${botId}:`, error.message);
     return null;
   }
 }
 
 async function saveBotConfig(botId, config) {
   const botPath = await getBotDataPath(botId);
-  await fs.writeFile(botPath, JSON.stringify(config, null, 4));
+  try {
+    await fs.writeFile(botPath, JSON.stringify(config, null, 4));
+    console.log(`[MyBot] ✅ Lưu config bot ${botId} tại: ${botPath}`);
+    console.log(`[MyBot] 📝 Nội dung: ${JSON.stringify(config, null, 2)}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi lưu config ${botId}:`, error);
+    throw error;
+  }
 }
 
 async function initializeBotFiles(botId, imei, cookie) {
+  console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
+  
   await ensureDirectories();
   
   const botConfig = {
@@ -108,33 +108,17 @@ async function initializeBotFiles(botId, imei, cookie) {
     processId: `mybot-${botId}`
   };
   
-  const adminList = [botId];
+  console.log(`[MyBot] 📦 Config tạo: ${JSON.stringify(botConfig, null, 2)}`);
   
   await saveBotConfig(botId, botConfig);
   
-  try {
-    await fs.readFile(paths.adminFilePath, "utf-8");
-  } catch {
-    await fs.writeFile(paths.adminFilePath, JSON.stringify(adminList, null, 4));
-  }
-  
-  const defaultFiles = [
-    { path: paths.configFilePath, data: {} },
-    { path: paths.WEB_CONFIG_PATH, data: {} },
-    { path: paths.MANAGER_FILE_PATH, data: {} },
-    { path: paths.PROPHYLACTIC_CONFIG_PATH, data: {} }
-  ];
-  
-  for (const file of defaultFiles) {
-    try {
-      await fs.readFile(file.path, "utf-8");
-    } catch {
-      await fs.writeFile(file.path, JSON.stringify(file.data, null, 4));
-    }
-  }
+  console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
 async function handleMyBotCreate(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
+  console.log(`[MyBot] 📨 Nội dung: ${message.data.content}`);
+  
   const mentions = message.data.mentions;
   const content = removeMention(message);
   
@@ -157,232 +141,85 @@ async function handleMyBotCreate(api, message) {
   const cookie = parts[2];
   const imei = parts[3];
   
+  console.log(`[MyBot] 👤 Bot ID: ${botId}`);
+  console.log(`[MyBot] 👤 Bot Name: ${botName}`);
+  console.log(`[MyBot] 🔑 IMEI: ${imei}`);
+  
   try {
     const processName = `mybot-${botId}`;
     const indexPath = path.resolve("src/index.js");
     
+    console.log(`[MyBot] 🚀 Index path: ${indexPath}`);
+    
     try {
+      console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
       await execAsync(`pm2 delete ${processName}`);
-    } catch {}
+      console.log(`[MyBot] ✅ Xóa process thành công`);
+    } catch (err) {
+      console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
+    }
     
     await initializeBotFiles(botId, imei, cookie);
     
-    await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+    console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+    const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+    console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
+    if (stderr) console.log(`[MyBot] ⚠️ PM2 stderr: ${stderr}`);
     
     await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
   } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi tạo bot:`, error.message);
     await sendMessageWarning(api, message, `❌ Lỗi khi tạo bot: ${error.message}`);
   }
 }
 
-async function handleMyBotAddTime(api, message) {
-  const mentions = message.data.mentions;
-  const content = removeMention(message);
-  const parts = content.split(/\s+/).filter(p => p.trim());
-  
-  if (parts.length < 3) {
-    await sendMessageQuery(api, message, "Cú pháp: mybot addtime @mention/index thời_gian\nVí dụ: mybot addtime @mention 1h hoặc mybot addtime 1 30p");
-    return;
-  }
-  
-  let botId = null;
-  let botName = "Bot";
-  
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else {
-    const botList = await listAllBots();
-    const index = parseInt(parts[1]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
-  }
-  
-  const timeStr = parts[parts.length - 1];
-  const timeMs = parseTimeToMs(timeStr);
-  
-  if (timeMs === null) {
-    await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h, 30p, 1d, -1 (vô hạn)");
-    return;
-  }
-  
-  try {
-    const botConfig = await getBotConfig(botId);
-    if (!botConfig) {
-      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
-      return;
-    }
-    
-    if (timeMs === -1) {
-      botConfig.expiresAt = -1;
-    } else {
-      botConfig.expiresAt = Date.now() + timeMs;
-    }
-    
-    await saveBotConfig(botId, botConfig);
-    await sendMessageComplete(api, message, `✅ Đã gia hạn thời gian cho bot ${botName}: ${timeStr}`);
-  } catch (error) {
-    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
-  }
-}
-
-async function handleMyBotShutdown(api, message) {
-  const mentions = message.data.mentions;
-  const content = removeMention(message);
-  const parts = content.split(/\s+/).filter(p => p.trim());
-  
-  let botId = null;
-  let botName = "Bot";
-  
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else if (parts.length >= 2) {
-    const botList = await listAllBots();
-    const index = parseInt(parts[1]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
-  } else {
-    await sendMessageQuery(api, message, "Cú pháp: mybot shutdown @mention hoặc mybot shutdown index");
-    return;
-  }
-  
-  try {
-    const botConfig = await getBotConfig(botId);
-    if (!botConfig) {
-      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
-      return;
-    }
-    
-    botConfig.isRunning = false;
-    
-    if (botConfig.processId) {
-      try {
-        await execAsync(`pm2 delete ${botConfig.processId}`);
-      } catch {}
-    }
-    
-    await saveBotConfig(botId, botConfig);
-    await sendMessageComplete(api, message, `⏸️ Đã dừng bot ${botName}`);
-  } catch (error) {
-    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
-  }
-}
-
-async function handleMyBotRestart(api, message) {
-  const mentions = message.data.mentions;
-  const content = removeMention(message);
-  const parts = content.split(/\s+/).filter(p => p.trim());
-  
-  let botId = null;
-  let botName = "Bot";
-  
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else if (parts.length >= 2) {
-    const botList = await listAllBots();
-    const index = parseInt(parts[1]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
-  }
-  
-  try {
-    const botConfig = await getBotConfig(botId);
-    if (!botConfig) {
-      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
-      return;
-    }
-    
-    if (botConfig.processId) {
-      try {
-        await execAsync(`pm2 restart ${botConfig.processId}`);
-      } catch {}
-    }
-    
-    botConfig.isRunning = true;
-    await saveBotConfig(botId, botConfig);
-    await sendMessageComplete(api, message, `🔄 Đã khởi động lại bot ${botName}`);
-  } catch (error) {
-    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
-  }
-}
-
-async function handleMyBotRemove(api, message) {
-  const mentions = message.data.mentions;
-  const content = removeMention(message);
-  const parts = content.split(/\s+/).filter(p => p.trim());
-  
-  let botId = null;
-  let botName = "Bot";
-  
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else if (parts.length >= 2) {
-    const botList = await listAllBots();
-    const index = parseInt(parts[1]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
-  }
-  
-  try {
-    const botPath = await getBotDataPath(botId);
-    await fs.unlink(botPath);
-    await sendMessageComplete(api, message, `🗑️ Đã xóa toàn bộ dữ liệu bot ${botName}`);
-  } catch (error) {
-    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
-  }
-}
-
 async function listAllBots() {
+  console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
   try {
     const files = await fs.readdir(paths.myBotDataDir);
+    console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
+    
     const bots = [];
     
     for (const file of files) {
-      if (file.endsWith(".json") && file !== "config.json") {
+      if (file.endsWith(".json")) {
         const botId = file.replace(".json", "");
+        console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
+        
         const botConfig = await getBotConfig(botId);
         
         if (botConfig) {
-          const userInfo = await getUserInfoData(null, botId);
-          bots.push({
-            uid: botId,
-            name: userInfo?.name || "Unknown",
-            config: botConfig
-          });
+          try {
+            const userInfo = await getUserInfoData(null, botId);
+            bots.push({
+              uid: botId,
+              name: userInfo?.name || "Unknown",
+              config: botConfig
+            });
+            console.log(`[MyBot] ✅ Thêm bot: ${botId}`);
+          } catch (err) {
+            console.log(`[MyBot] ⚠️ Không thể lấy thông tin user ${botId}`);
+            bots.push({
+              uid: botId,
+              name: botId,
+              config: botConfig
+            });
+          }
         }
       }
     }
     
+    console.log(`[MyBot] 📊 Tổng bot tìm được: ${bots.length}`);
     return bots;
-  } catch {
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi liệt kê bot:`, error);
     return [];
   }
 }
 
 async function handleMyBotInfo(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
+  
   const mentions = message.data.mentions;
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
@@ -399,7 +236,6 @@ async function handleMyBotInfo(api, message) {
     if (index >= 0 && index < botList.length) {
       botId = botList[index].uid;
       botName = botList[index].name;
-      botConfig = botList[index].config;
     } else {
       await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
       return;
@@ -434,13 +270,18 @@ async function handleMyBotInfo(api, message) {
     
     await sendMessageComplete(api, message, info);
   } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi:`, error);
     await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
   }
 }
 
 async function handleMyBotList(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
+  
   try {
     const bots = await listAllBots();
+    
+    console.log(`[MyBot] 📊 Số bot tìm được: ${bots.length}`);
     
     if (bots.length === 0) {
       await sendMessageQuery(api, message, "Chưa có bot nào trong hệ thống");
@@ -470,6 +311,7 @@ async function handleMyBotList(api, message) {
     
     await sendMessageComplete(api, message, listInfo);
   } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi:`, error);
     await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
   }
 }
@@ -482,19 +324,6 @@ function getHelpMessage() {
 『${prefix}mybot create』
 • 📝 Cú pháp: ${prefix}mybot create @mention cookie imei
 • ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
-• ⚠️ Lưu ý: 
-   - Không cần nhập dấu []
-   - Chỉ hoạt động trong tin nhắn riêng
-
-➤ ⏱️ Gia hạn Thời gian:
-『${prefix}mybot addtime』
-• 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
-• 💡 Ví dụ: ${prefix}mybot addtime @mention 1h
-• 📋 Đơn vị: h (giờ), p/m (phút), d (ngày), -1 (vô hạn)
-
-➤ 🛑 Dừng Bot:
-『${prefix}mybot shutdown』
-• 📝 Cú pháp: ${prefix}mybot shutdown @mention/index
 
 ➤ 📋 Thông tin Bot:
 『${prefix}mybot info』
@@ -504,14 +333,6 @@ function getHelpMessage() {
 『${prefix}mybot list』
 • 📝 Hiển thị tất cả bot trong hệ thống
 
-➤ 🔄 Khởi động lại:
-『${prefix}mybot restart』
-• 📝 Cú pháp: ${prefix}mybot restart @mention/index
-
-➤ 🗑️ Xóa Bot:
-『${prefix}mybot remove』
-• 📝 Cú pháp: ${prefix}mybot remove @mention/index
-
 🚨🚨🚨`;
 }
 
@@ -519,24 +340,27 @@ export async function handleMyBotCommands(api, message) {
   const prefix = getGlobalPrefix();
   const content = removeMention(message);
   
+  console.log(`[MyBot] 📨 Tin nhắn nhận được: ${content}`);
+  
   if (!content.includes(`${prefix}mybot`)) {
     return false;
   }
   
   const parts = content.split(/\s+/).filter(p => p.trim());
-  if (parts.length < 2) return false;
+  console.log(`[MyBot] 🔍 Parts: ${JSON.stringify(parts)}`);
+  
+  if (parts.length < 2) {
+    const helpMsg = getHelpMessage();
+    await sendMessageComplete(api, message, helpMsg);
+    return true;
+  }
   
   const command = parts[1];
+  console.log(`[MyBot] 🎯 Command: ${command}`);
   
   switch (command) {
     case "create":
       await handleMyBotCreate(api, message);
-      return true;
-    case "addtime":
-      await handleMyBotAddTime(api, message);
-      return true;
-    case "shutdown":
-      await handleMyBotShutdown(api, message);
       return true;
     case "info":
       await handleMyBotInfo(api, message);
@@ -544,17 +368,13 @@ export async function handleMyBotCommands(api, message) {
     case "list":
       await handleMyBotList(api, message);
       return true;
-    case "restart":
-      await handleMyBotRestart(api, message);
-      return true;
-    case "remove":
-      await handleMyBotRemove(api, message);
-      return true;
     case "help":
       const helpMsg = getHelpMessage();
       await sendMessageComplete(api, message, helpMsg);
       return true;
     default:
-      return false;
+      const defaultHelp = getHelpMessage();
+      await sendMessageComplete(api, message, defaultHelp);
+      return true;
   }
 }
