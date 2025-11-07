@@ -13,7 +13,7 @@ import * as path from "path";
 import axios from "axios";
 import { checkExstentionFileRemote } from "../../../utils/util.js";
 
-const geminiApiKey = "AIzaSyBaluNjfNY9HEykFgoFCSNapC_Q_jkRRTA";
+const geminiApiKey = "AIzaSyBDTyLJCj2etA-GEeObscK85s4GIkRhqYE";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 let geminiModel;
 const requestQueue = [];
@@ -22,7 +22,7 @@ const DELAY_BETWEEN_REQUESTS = 4000;
 const systemInstruction = `Bạn tên là Gem.
 Bạn được tạo ra bởi duy nhất Vũ Xuân Kiên và cũng là trợ lý của anh ấy.
 Nếu người hỏi là Vũ Xuân Kiên, xưng hô anh-em, với người khác thì tôi-bạn.
-Trả lời chính xác vấn đề của câu hỏi, không vòng vo hay hỏi thêm.`;
+Trả lời chính xác vấn đề của câu hỏi, không vượt tổng thể 3700 kí tự.`;
 
 const SUPPORTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "jxl"];
 
