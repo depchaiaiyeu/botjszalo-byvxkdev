@@ -6,7 +6,7 @@ import { handleBlock, handleKick } from "./bot-manager/group-manage.js";
 import { handleActiveBotUser, handleActiveGameUser, managerData } from "./bot-manager/active-bot.js";
 import { helpCommand, adminCommand, gameInfoCommand } from "./instructions/help.js";
 
-import { myBot } from './mybot/myBotManager.js';
+import { handleMyBotCommands } from './mybot/myBotManager.js';
 
 import { askGPTCommand } from "../service-hahuyhoang/api-crawl/content/gpt.js";
 import { askGeminiCommand } from "../service-hahuyhoang/api-crawl/assistant-ai/gemini.js";
@@ -467,7 +467,7 @@ export async function handleCommandPrivate(api, message) {
       if (managerData.data.onBotPrivate) {
         await sendReactionConfirmReceive(api, message, numHandleCommand);
         switch (command) {
-          case "mybot":
+          case "handleMyBotCommands":
             await myBot(api, message);
           case "command":
             await listCommands(api, message, commandParts.slice(1));
@@ -1045,7 +1045,7 @@ export async function handleCommand(
                 break;
 
               case "mybot":
-                await myBot(api, message, groupAdmins);
+                await handleMyBotCommands(api, message, groupAdmins);
                 break;
                 
               case "group":
