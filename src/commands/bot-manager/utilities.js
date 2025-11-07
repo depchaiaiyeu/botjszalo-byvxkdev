@@ -95,27 +95,39 @@ export async function handleEval(api, message) {
     const prefix = await getGlobalPrefix();
     const content = removeMention(message);
     if (!content.startsWith(`${prefix}eval`)) return false;
+
     const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
       await sendMessageComplete(api, message, `Vui lòng nhập code để thực thi.`);
       return;
     }
+
     const senderId = message.data?.uidFrom;
     const threadId = message.threadId;
     const senderName = message.data?.dName;
+
     let output;
-    let apiJson;
     try {
-      apiJson = JSON.stringify(api, null, 2);
-      console.log('API JSON:', apiJson);
-      // Gửi JSON của api dưới dạng tin nhắn trong thread
-      await sendMessageComplete(api, message, `API JSON: ${apiJson}`);
-      output = await eval(`(async () => { const senderId=${JSON.stringify(senderId)}; const threadId=${JSON.stringify(threadId)}; const senderName=${JSON.stringify(senderName)}; return ${code}; })()`);
+      output = await eval(`(async () => {
+        const api = ${JSON.stringify(api, null, 2)};
+        const message = ${JSON.stringify(message, null, 2)};
+        const senderId = ${JSON.stringify(senderId)};
+        const threadId = ${JSON.stringify(threadId)};
+        const senderName = ${JSON.stringify(senderName)};
+        return ${code};
+      })()`);
     } catch (err) {
-      output = `${err.message}`;
+      output = err?.stack || err?.message || String(err);
     }
-    await sendMessageComplete(api, message, `Output: ${output}`);
+
+    const resultText = typeof output === 'object'
+      ? JSON.stringify(output, null, 2)
+      : String(output);
+
+    await sendMessageComplete(api, message, resultText);
+    console.log('=== Eval Output ===\n', resultText);
   } catch (err) {
+    console.error('Eval handler error:', err);
     await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
 }
