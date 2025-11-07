@@ -34,7 +34,10 @@ import {
   readGroupSettings,
   readCommandConfig,
   writeProphylacticConfig,
-  readProphylacticConfig
+  readProphylacticConfig,
+  logManagerBot,
+  isSubBotInstance,
+  isBotMain
 } from "./utils/io-json.js";
 
 import { logManagerBot } from "./utils/io-json.js";
