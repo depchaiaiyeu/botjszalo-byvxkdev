@@ -218,28 +218,41 @@ async function handleMyBotCreate(api, message) {
     return;
   }
   
-  const parts = content.split(/\s+/).filter(p => p.trim());
-  
-  if (parts.length < 4) {
-    await sendMessageQuery(api, message, "Cú pháp: mybot create @mention cookie imei");
-    return;
-  }
-  
   const mention = mentions[0];
   const botId = mention.uid;
   const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
   
-  let cookie = parts[2];
-  const imei = parts[3];
+  // Parse content để tách cookie JSON và imei
+  // Format: >mybot create @mention {...json...} imei
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    await sendMessageWarning(api, message, "❌ Cookie JSON không hợp lệ");
+    return;
+  }
   
-  // Nếu cookie là JSON string, parse nó
+  const cookieStr = jsonMatch[0];
+  const remaining = content.replace(cookieStr, "").trim();
+  const parts = remaining.split(/\s+/).filter(p => p.trim());
+  
+  // parts[0] = '>mybot', parts[1] = 'create', parts[2] = '@mention'
+  // Phần còn lại là imei
+  const imeiParts = content.substring(content.lastIndexOf("}") + 1).trim().split(/\s+/);
+  const imei = imeiParts[imeiParts.length - 1];
+  
+  if (!imei) {
+    await sendMessageWarning(api, message, "❌ IMEI không hợp lệ");
+    return;
+  }
+  
+  // Parse cookie JSON
+  let cookie = null;
   try {
-    if (cookie.startsWith("{")) {
-      cookie = JSON.parse(cookie);
-      console.log(`[MyBot] 🔑 Cookie parsed từ JSON`);
-    }
+    cookie = JSON.parse(cookieStr);
+    console.log(`[MyBot] 🔑 Cookie parsed từ JSON`);
   } catch (err) {
-    console.log(`[MyBot] ⚠️ Cookie không phải JSON, dùng string: ${err.message}`);
+    console.error(`[MyBot] ❌ Cookie không hợp lệ: ${err.message}`);
+    await sendMessageWarning(api, message, `❌ Cookie không hợp lệ JSON: ${err.message}`);
+    return;
   }
   
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
