@@ -181,8 +181,6 @@ export async function messagesUser(api, message) {
         updateUserRank(threadId, senderId, message.data.dName, nameGroup);
       }
 
-      await handleAdminReaction(api, message);
-
       let handleChat = true;
       handleChat = handleChat && !(await superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings));
       handleChat = handleChat && !(await antiBot(api, message, groupSettings, isAdminBox, botIsAdminBox, isSelf));
@@ -204,6 +202,11 @@ export async function messagesUser(api, message) {
         isAdminBox,
         handleChat
       );
+
+      if (numberHandleCommand !== 2) {
+        await handleAdminReaction(api, message);
+      }
+
       if (isPlainText) {
         handleChat = handleChat && groupSettings[threadId].activeBot === true;
         handleChat = handleChat && !isSelf;
