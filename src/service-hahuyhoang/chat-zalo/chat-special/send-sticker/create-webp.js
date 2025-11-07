@@ -15,7 +15,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export async function createCircleWebp(api, message, imageUrl, idImage, rate = null) {
-    const frameRate = rate || 60;
+    const frameRate = rate || 30;
     const ext = await checkExstentionFileRemote(imageUrl);
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
@@ -23,7 +23,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     try {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
-        const borderWidth = 10;
+        const borderWidth = 8;
         const totalFrames = 120;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
@@ -41,26 +41,9 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
     </svg>
 `);
-        const rainbowColors = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
-        const numSegments = rainbowColors.length;
-        const angleStep = 360 / numSegments;
-        
         const circleBorder = Buffer.from(`
     <svg width="${size}" height="${size}">
-        <defs>
-            ${rainbowColors.map((color, i) => `
-                <path id="segment${i}" d="
-                    M ${size / 2} ${size / 2}
-                    L ${size / 2 + (size / 2 - borderWidth / 2) * Math.cos((i * angleStep - 90) * Math.PI / 180)} ${size / 2 + (size / 2 - borderWidth / 2) * Math.sin((i * angleStep - 90) * Math.PI / 180)}
-                    A ${size / 2 - borderWidth / 2} ${size / 2 - borderWidth / 2} 0 0 1 ${size / 2 + (size / 2 - borderWidth / 2) * Math.cos(((i + 1) * angleStep - 90) * Math.PI / 180)} ${size / 2 + (size / 2 - borderWidth / 2) * Math.sin(((i + 1) * angleStep - 90) * Math.PI / 180)}
-                    Z
-                " fill="${color}" stroke="none"/>
-            `).join('')}
-        </defs>
-        <g>
-            <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke-width="${borderWidth}"/>
-            ${rainbowColors.map((_, i) => `<use href="#segment${i}"/>`).join('')}
-        </g>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
     </svg>
 `);
         const workers = [];
@@ -115,7 +98,7 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
     }
 }
 
-export async function convertToWebpMulti(inputPath, outputPath, frameRate = 60) {
+export async function convertToWebpMulti(inputPath, outputPath, frameRate = 30) {
     return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
             .inputOptions([
@@ -125,7 +108,7 @@ export async function convertToWebpMulti(inputPath, outputPath, frameRate = 60) 
                 '-c:v', 'libwebp',
                 '-lossless', '1',
                 '-compression_level', '6',
-                '-q:v', '98',
+                '-q:v', '95',
                 '-loop', '0',
                 '-preset', 'picture',
                 '-cpu-used', '5',
