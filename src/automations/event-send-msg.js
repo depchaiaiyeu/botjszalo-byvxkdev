@@ -94,11 +94,12 @@ schedule.scheduleJob("*/1 * * * *", () => {
 });
 
 async function handleAdminReaction(api, message) {
+  if (message.ttl !== 0) return;
+  
   const senderId = message.data.uidFrom;
   const idBot = getBotId();
   
   if (senderId === idBot || admins.includes(senderId.toString())) {
-    await api.addReaction("UNDO", message);
     await api.addReaction("COOL", message);
   }
 }
