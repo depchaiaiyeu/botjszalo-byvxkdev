@@ -5,7 +5,7 @@ import schedule from "node-schedule";
 import { MessageMention, MessageType } from "zlbotdqt";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
+import { geminiApiKey } from "../../api-crawl/assistant-ai/gemini.js";
 import { sendMessageStateQuote } from "../../chat-zalo/chat-style/chat-style.js";
 import { createBlockSpamImage } from "../../../utils/canvas/event-image.js";
 import { clearImagePath } from "../../../utils/canvas/index.js";
@@ -19,7 +19,7 @@ import { getAntiState, updateAntiConfig } from "../index.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const genAI = new GoogleGenerativeAI("AIzaSyBKNInWVa8kKm9G0e9Kz7_VxQkgpFY6gDs");
+const genAI = new GoogleGenerativeAI(geminiApiKey);
 
 const blockedUsers = new Set();
 
