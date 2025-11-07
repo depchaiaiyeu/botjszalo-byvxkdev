@@ -90,11 +90,12 @@ function roundRect(ctx, x, y, width, height, radius) {
 
 export async function createInstructionsImage(helpContent, isAdminBox, width = 880) {
   const padding = 40;
-  const boxPadding = 18;
-  const boxMargin = 15;
+  const boxPadding = 16;
+  const boxGap = 15;
   const borderRadius = 12;
   const titleHeight = 90;
   const boxHeight = 60;
+  const rowMargin = 15;
   
   const allCommands = [];
   for (const key in helpContent.allMembers) {
@@ -112,14 +113,15 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
     }
   }
   
-  const commandWidth = (width - padding * 2 - boxMargin) / 2;
+  const leftBoxWidth = 350;
+  const rightBoxWidth = width - padding * 2 - leftBoxWidth - boxGap;
   
-  let totalHeight = titleHeight + 30;
-  totalHeight += allCommands.length * (boxHeight + boxMargin);
+  let totalHeight = titleHeight + 50;
+  totalHeight += allCommands.length * (boxHeight + rowMargin);
   
   if (adminCommands.length > 0) {
-    totalHeight += 80;
-    totalHeight += adminCommands.length * (boxHeight + boxMargin);
+    totalHeight += 90;
+    totalHeight += adminCommands.length * (boxHeight + rowMargin);
   }
   
   totalHeight += padding;
@@ -131,38 +133,38 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
   createHelpBackground(ctx, width, height);
   
   const titleText = toUpperCaseVietnamese(helpContent.title);
-  ctx.font = "bold 32px BeVietnamPro";
+  ctx.font = "bold 30px BeVietnamPro";
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText(titleText, width / 2, 55);
   
   const drawCommandRow = (command, description, y) => {
-    roundRect(ctx, padding, y, commandWidth, boxHeight, borderRadius);
-    ctx.fillStyle = "rgba(26, 58, 80, 0.6)";
+    roundRect(ctx, padding, y, leftBoxWidth, boxHeight, borderRadius);
+    ctx.fillStyle = "rgba(26, 58, 80, 0.7)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(100, 150, 200, 0.3)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(100, 150, 200, 0.4)";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     
     ctx.textAlign = "left";
-    ctx.font = "bold 20px BeVietnamPro";
-    ctx.fillStyle = cv.getRandomGradient(ctx, commandWidth);
+    ctx.font = "bold 19px BeVietnamPro";
+    ctx.fillStyle = cv.getRandomGradient(ctx, leftBoxWidth);
     ctx.fillText(command, padding + boxPadding, y + boxHeight / 2 + 7);
     
-    roundRect(ctx, padding + commandWidth + boxMargin, y, commandWidth, boxHeight, borderRadius);
-    ctx.fillStyle = "rgba(18, 45, 60, 0.7)";
+    roundRect(ctx, padding + leftBoxWidth + boxGap, y, rightBoxWidth, boxHeight, borderRadius);
+    ctx.fillStyle = "rgba(18, 45, 60, 0.8)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(100, 150, 200, 0.3)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(100, 150, 200, 0.4)";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     
     ctx.textAlign = "left";
     ctx.font = "18px BeVietnamPro";
-    ctx.fillStyle = "#E0E0E0";
-    ctx.fillText(description, padding + commandWidth + boxMargin + boxPadding, y + boxHeight / 2 + 7);
+    ctx.fillStyle = "#E8E8E8";
+    ctx.fillText(description, padding + leftBoxWidth + boxGap + boxPadding, y + boxHeight / 2 + 7);
   };
   
-  let currentY = titleHeight + 30;
+  let currentY = titleHeight + 50;
   
   for (let i = 0; i < allCommands.length; i++) {
     const cmd = allCommands[i];
@@ -170,14 +172,14 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
     const descriptionText = cmd.description;
     
     drawCommandRow(commandText, descriptionText, currentY);
-    currentY += boxHeight + boxMargin;
+    currentY += boxHeight + rowMargin;
   }
   
   if (adminCommands.length > 0) {
-    currentY += 30;
+    currentY += 40;
     
     const adminTitleText = toUpperCaseVietnamese(helpContent.titleAdmin);
-    ctx.font = "bold 28px BeVietnamPro";
+    ctx.font = "bold 27px BeVietnamPro";
     ctx.textAlign = "center";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(adminTitleText, width / 2, currentY);
@@ -190,7 +192,7 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       const descriptionText = cmd.description;
       
       drawCommandRow(commandText, descriptionText, currentY);
-      currentY += boxHeight + boxMargin;
+      currentY += boxHeight + rowMargin;
     }
   }
   
