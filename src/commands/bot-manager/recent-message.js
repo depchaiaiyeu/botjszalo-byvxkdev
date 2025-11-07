@@ -137,7 +137,7 @@ export async function getRecentMessage(api, message, count = 50) {
 export async function handleAdminReactionDelete(api, reaction) {
   const adminId = reaction.data.uidFrom;
   const rType = reaction.data.content.rType;
-  if (!isAdmin(adminId) || (rType !== 3 && rType !== 5)) return false;
+  if (!isAdmin(adminId) || (rType !== 5)) return false;
 
   try {
     const rMsg = reaction.data.content.rMsg[0];
