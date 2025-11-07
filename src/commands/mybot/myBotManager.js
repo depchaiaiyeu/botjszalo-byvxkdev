@@ -230,8 +230,18 @@ async function handleMyBotCreate(api, message) {
   const botId = mention.uid;
   const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
   
-  const cookie = parts[2];
+  let cookie = parts[2];
   const imei = parts[3];
+  
+  // Nếu cookie là JSON string, parse nó
+  try {
+    if (cookie.startsWith("{")) {
+      cookie = JSON.parse(cookie);
+      console.log(`[MyBot] 🔑 Cookie parsed từ JSON`);
+    }
+  } catch (err) {
+    console.log(`[MyBot] ⚠️ Cookie không phải JSON, dùng string: ${err.message}`);
+  }
   
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
