@@ -159,7 +159,11 @@ async function handleMyBotCreate(api, message) {
   
   try {
     await initializeBotFiles(botId, imei, cookie);
-    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}`);
+    
+    const processName = `mybot-${botId}`;
+    await execAsync(`pm2 start index.js --name "${processName}" -- ${botId}`);
+    
+    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
   } catch (error) {
     await sendMessageWarning(api, message, `❌ Lỗi khi tạo bot: ${error.message}`);
   }
