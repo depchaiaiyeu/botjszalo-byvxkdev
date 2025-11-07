@@ -430,7 +430,7 @@ export async function handleSendTrackNhacCuaTui(api, message, track) {
   const objectMusic = {
     trackId: track.id,
     title: track.title,
-    artists: `Artist: ${track.artistsNames}` || "Unknown Artist",
+    artists: track.artistsNames || "Unknown Artist",
     source: "NhacCuaTui",
     caption: caption,
     imageUrl: track.thumbnail,
