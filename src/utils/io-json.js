@@ -37,7 +37,7 @@ if (!isMainBot) {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
         configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"),
+        commandFilePath: path.resolve("./assets/json-data/command.json"),
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
@@ -49,6 +49,7 @@ if (!isMainBot) {
         subBotId: botId,
         subBotConfig: subBotData
       }
+      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (dùng chung bot chính)`))
     } catch (error) {
       console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
       process.exit(1)
