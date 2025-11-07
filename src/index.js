@@ -11,7 +11,9 @@ import {
   readCommandConfig,
   writeProphylacticConfig,
   readProphylacticConfig,
-  logManagerBot
+  logManagerBot,
+  getSubBotConfig,
+  isSubBotInstance
 } from "./utils/io-json.js"
 
 import { initService } from "./service-hahuyhoang/service.js"
@@ -23,6 +25,17 @@ const prophylacticConfig = readProphylacticConfig()
 export let admins = readAdmins()
 let config = readConfig()
 let commandConfig = readCommandConfig()
+
+// Nếu là bot con, lấy cookie và imei từ file subBotConfig
+if (isSubBotInstance()) {
+  const subBotConfig = getSubBotConfig()
+  if (subBotConfig) {
+    config.cookie = subBotConfig.cookie
+    config.imei = subBotConfig.imei
+    config.userAgent = subBotConfig.userAgent
+    console.log(`[Index] 🤖 Load config từ bot con`)
+  }
+}
 
 const zalo = new Zalo(
   {
