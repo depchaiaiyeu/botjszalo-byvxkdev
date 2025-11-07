@@ -109,12 +109,13 @@ async function createGroupSettingsFile(botId) {
 }
 
 // Tạo file list_admin.json cho bot con
-async function createAdminListFile(botId) {
+async function createAdminListFile(botId, adminId = null) {
   const filePath = path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`);
   try {
-    const defaultAdmins = [];
+    const defaultAdmins = adminId ? [adminId.toString()] : [];
     await fs.writeFile(filePath, JSON.stringify(defaultAdmins, null, 2));
     console.log(`[MyBot] ✅ Tạo file admin list: ${filePath}`);
+    if (adminId) console.log(`[MyBot] 👤 Thêm admin: ${adminId}`);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi tạo file admin list:`, error);
   }
@@ -176,7 +177,7 @@ async function createConfigFile(botId) {
   }
 }
 
-async function initializeBotFiles(botId, imei, cookie) {
+async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
   
   await ensureDirectories();
@@ -197,7 +198,7 @@ async function initializeBotFiles(botId, imei, cookie) {
   
   // Tạo tất cả các file cần thiết (command.json dùng chung với bot chính)
   await createGroupSettingsFile(botId);
-  await createAdminListFile(botId);
+  await createAdminListFile(botId, adminId);
   await createWebConfigFile(botId);
   await createManagerBotFile(botId);
   await createProphylacticFile(botId);
@@ -250,7 +251,7 @@ async function handleMyBotCreate(api, message) {
       console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
     }
     
-    await initializeBotFiles(botId, imei, cookie);
+    await initializeBotFiles(botId, imei, cookie, botId);
     
     console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
     const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
