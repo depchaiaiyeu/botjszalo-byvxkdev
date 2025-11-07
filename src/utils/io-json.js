@@ -2,13 +2,45 @@ import fs from "fs"
 import path from "path"
 import chalk from "chalk"
 import { mkdir } from "fs/promises"
-import { getBotInfo } from "./env.js"
 import { getTimeToString, getTimeNow } from "./format-util.js"
 
-let botInfo = await getBotInfo()
-let isFallback = false
+const botId = process.argv[2] || null
 
-if (!botInfo) {
+let botInfo = null
+let isFallback = false
+let isSubBot = false
+
+if (botId && botId !== "main") {
+  isSubBot = true
+  const subBotPath = path.resolve("./mybot", `${botId}.json`)
+  
+  if (fs.existsSync(subBotPath)) {
+    try {
+      const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
+      botInfo = {
+        adminFilePath: path.resolve("./mybot/data/list_admin.json"),
+        groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
+        configFilePath: path.resolve("./mybot/config.json"),
+        commandFilePath: path.resolve("./assets/json-data/command.json"),
+        logDir: path.resolve("./logs", botId),
+        resourceDir: path.resolve("./resources", botId),
+        tempDir: path.resolve("./temp", botId),
+        dataGifPath: path.resolve("./assets/gif"),
+        DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
+        WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config.json"),
+        MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot.json"),
+        PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic.json"),
+        subBotId: botId,
+        subBotConfig: subBotData
+      }
+    } catch (error) {
+      console.error(`Lỗi khi đọc bot con ${botId}:`, error)
+      isSubBot = false
+    }
+  }
+}
+
+if (!isSubBot) {
   isFallback = true
   botInfo = {
     adminFilePath: path.resolve("./assets/data/list_admin.json"),
@@ -197,4 +229,15 @@ export function writeProphylacticConfig(data) {
   } catch (error) {
     console.error("Lỗi khi ghi file prophylactic.json:", error)
   }
+}
+
+export function getSubBotConfig() {
+  if (isSubBot && botInfo.subBotConfig) {
+    return botInfo.subBotConfig
+  }
+  return null
+}
+
+export function isSubBotInstance() {
+  return isSubBot
 }
