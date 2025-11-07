@@ -95,24 +95,52 @@ export async function handleEval(api, message) {
     const prefix = await getGlobalPrefix();
     const content = removeMention(message);
     if (!content.startsWith(`${prefix}eval`)) return false;
+    
     const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
       await sendMessageComplete(api, message, `Vui lòng nhập code để thực thi.`);
-      return;
+      return true;
     }
+    
     const senderId = message.data?.uidFrom;
     const threadId = message.threadId;
     const senderName = message.data?.dName;
+    
     let output;
     try {
-      output = await eval(`(async () => { const senderId=${JSON.stringify(senderId)}; const threadId=${JSON.stringify(threadId)}; const senderName=${JSON.stringify(senderName)}; return ${code}; })()`);
+      // Eval với đầy đủ context
+      output = await eval(`(async () => { 
+        const api = ${JSON.stringify(api, null, 2)};
+        const message = ${JSON.stringify(message, null, 2)};
+        const senderId = ${JSON.stringify(senderId)};
+        const threadId = ${JSON.stringify(threadId)};
+        const senderName = ${JSON.stringify(senderName)};
+        return ${code}; 
+      })()`);
     } catch (err) {
-      output = `${err.message}`;
+      output = `❌ Lỗi thực thi: ${err.message}\nStack: ${err.stack}`;
+      console.error(`[Eval] Lỗi: ${err.message}`, err.stack);
     }
-    await sendMessageComplete(api, message, `${output}`);
-    console.log(`${err.message}`);
+    
+    // Format output
+    let outputStr = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
+    
+    // Log ra console
+    console.log(`[Eval] Kết quả:`, outputStr);
+    
+    // Gửi lên tin nhắn (cắt nếu quá dài)
+    const maxLength = 3500;
+    if (outputStr.length > maxLength) {
+      outputStr = outputStr.substring(0, maxLength) + `\n... (cắt, xem console để chi tiết)`;
+    }
+    
+    await sendMessageComplete(api, message, `📤 Kết quả eval:\n\`\`\`\n${outputStr}\n\`\`\``);
+    
+    return true;
   } catch (err) {
-    await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
+    console.error(`[Eval] Lỗi chung:`, err);
+    await sendMessageFailed(api, message, `❌ Lỗi lệnh eval: ${err.message}`);
+    return true;
   }
 }
 
