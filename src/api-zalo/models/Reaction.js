@@ -1,6 +1,7 @@
 import { appContext } from "../context.js";
 
 export const ReactionMap = {
+  COOL: { text: ":;", rType: 73 },
   FLASH: { text: "/-li", rType: 72 },
   UNDO: { text: "", rType: -1 },
   HAHA: { text: ":>", rType: 0 },
