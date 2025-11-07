@@ -12,7 +12,7 @@ const usePM2 = args.length > 0
 let cfgPath = null
 let botName = 'admin'
 
-if (botId) {
+if (botId && botId !== 'main') {
   botName = botId
   cfgPath = path.join(projectRoot, 'mybot', `${botId}.json`)
 } else {
@@ -101,14 +101,7 @@ function startWithPM2(indexPath) {
 
 function startDirect(indexPath) {
   const nodeProcess = spawn('node', [indexPath, botId || 'admin'], {
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      BOT_ID: botId || 'admin',
-      BOT_NAME: botName,
-      CONFIG_PATH: cfgPath,
-      PROJECT_ROOT: projectRoot
-    }
+    stdio: 'inherit'
   })
   
   nodeProcess.on('close', (code) => {
