@@ -22,7 +22,9 @@ const userAgents = [
 ];
 
 const paths = {
-  myBotDataDir: path.resolve("./mybot")
+  myBotDataDir: path.resolve("./mybot"),
+  myBotDataFolder: path.resolve("./mybot/data"),
+  myBotJsonDataFolder: path.resolve("./mybot/json-data")
 };
 
 function getRandomUserAgent() {
@@ -50,8 +52,9 @@ function parseTimeToMs(timeStr) {
 
 async function ensureDirectories() {
   const dirs = [
-    path.resolve("./mybot"),
-    path.resolve("./mybot/data")
+    paths.myBotDataDir,
+    paths.myBotDataFolder,
+    paths.myBotJsonDataFolder
   ];
   
   for (const dir of dirs) {
@@ -93,6 +96,96 @@ async function saveBotConfig(botId, config) {
   }
 }
 
+// Tạo file group_settings.json cho bot con
+async function createGroupSettingsFile(botId) {
+  const filePath = path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`);
+  try {
+    const defaultSettings = {};
+    await fs.writeFile(filePath, JSON.stringify(defaultSettings, null, 2));
+    console.log(`[MyBot] ✅ Tạo file group settings: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file group settings:`, error);
+  }
+}
+
+// Tạo file list_admin.json cho bot con
+async function createAdminListFile(botId) {
+  const filePath = path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`);
+  try {
+    const defaultAdmins = [];
+    await fs.writeFile(filePath, JSON.stringify(defaultAdmins, null, 2));
+    console.log(`[MyBot] ✅ Tạo file admin list: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file admin list:`, error);
+  }
+}
+
+// Tạo file command.json cho bot con
+async function createCommandFile(botId) {
+  const filePath = path.resolve(paths.myBotJsonDataFolder, `command_${botId}.json`);
+  try {
+    const defaultCommands = { commands: [] };
+    await fs.writeFile(filePath, JSON.stringify(defaultCommands, null, 2));
+    console.log(`[MyBot] ✅ Tạo file command: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file command:`, error);
+  }
+}
+
+// Tạo file web-config.json cho bot con
+async function createWebConfigFile(botId) {
+  const filePath = path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`);
+  try {
+    const defaultWebConfig = {};
+    await fs.writeFile(filePath, JSON.stringify(defaultWebConfig, null, 2));
+    console.log(`[MyBot] ✅ Tạo file web-config: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file web-config:`, error);
+  }
+}
+
+// Tạo file manager-bot.json cho bot con
+async function createManagerBotFile(botId) {
+  const filePath = path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`);
+  try {
+    const defaultManager = {};
+    await fs.writeFile(filePath, JSON.stringify(defaultManager, null, 2));
+    console.log(`[MyBot] ✅ Tạo file manager-bot: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file manager-bot:`, error);
+  }
+}
+
+// Tạo file prophylactic.json cho bot con
+async function createProphylacticFile(botId) {
+  const filePath = path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`);
+  try {
+    const defaultProphylactic = {
+      prophylacticUploadAttachment: {
+        enable: false,
+        lastBlocked: "",
+        numRequestZalo: 0
+      }
+    };
+    await fs.writeFile(filePath, JSON.stringify(defaultProphylactic, null, 2));
+    console.log(`[MyBot] ✅ Tạo file prophylactic: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file prophylactic:`, error);
+  }
+}
+
+// Tạo config.json cho bot con
+async function createConfigFile(botId) {
+  const filePath = path.resolve(paths.myBotDataFolder, `config_${botId}.json`);
+  try {
+    const defaultConfig = {};
+    await fs.writeFile(filePath, JSON.stringify(defaultConfig, null, 2));
+    console.log(`[MyBot] ✅ Tạo file config.json: ${filePath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file config.json:`, error);
+  }
+}
+
 async function initializeBotFiles(botId, imei, cookie) {
   console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
   
@@ -111,6 +204,15 @@ async function initializeBotFiles(botId, imei, cookie) {
   console.log(`[MyBot] 📦 Config tạo: ${JSON.stringify(botConfig, null, 2)}`);
   
   await saveBotConfig(botId, botConfig);
+  
+  // Tạo tất cả các file cần thiết
+  await createGroupSettingsFile(botId);
+  await createAdminListFile(botId);
+  await createCommandFile(botId);
+  await createWebConfigFile(botId);
+  await createManagerBotFile(botId);
+  await createProphylacticFile(botId);
+  await createConfigFile(botId);
   
   console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
@@ -182,7 +284,7 @@ async function listAllBots() {
     const bots = [];
     
     for (const file of files) {
-      if (file.endsWith(".json")) {
+      if (file.endsWith(".json") && !file.includes("config_") && !file.includes("list_admin_") && !file.includes("group_settings_")) {
         const botId = file.replace(".json", "");
         console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
         
