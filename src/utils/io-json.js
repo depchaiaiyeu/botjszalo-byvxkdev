@@ -103,34 +103,18 @@ export function mkdirRecursive(dirPath) {
 export function readConfig() {
   try {
     const data = fs.readFileSync(configFilePath, "utf-8")
-    let config = JSON.parse(data)
+    const config = JSON.parse(data)
     
     // Nếu là bot con và config trống, dùng config từ bot chính
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
       console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
       try {
         const mainConfig = JSON.parse(fs.readFileSync(botInfo.mainBotConfigPath, "utf-8"))
-        config = mainConfig
+        return mainConfig
       } catch (err) {
         console.error("Lỗi đọc config bot chính:", err)
         return config
       }
-    }
-    
-    // Parse cookie nếu là string JSON
-    if (config.cookie && typeof config.cookie === "string") {
-      try {
-        config.cookie = JSON.parse(config.cookie)
-        console.log(chalk.cyan(`📦 Config Loader: Parse cookie từ string JSON`))
-      } catch (err) {
-        console.log(chalk.yellow(`⚠️ Config Loader: Cookie không phải JSON string`))
-      }
-    }
-    
-    // Nếu cookie là object có "cookies" array, extract nó
-    if (config.cookie && typeof config.cookie === "object" && config.cookie.cookies) {
-      console.log(chalk.cyan(`📦 Config Loader: Extract cookies array từ cookie object`))
-      config.cookie = config.cookie.cookies
     }
     
     return config
