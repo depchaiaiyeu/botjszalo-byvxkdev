@@ -10,7 +10,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node index.js main"
   },
   "dependencies": {
     "@ffprobe-installer/ffprobe": "^2.1.2",
