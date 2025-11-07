@@ -248,7 +248,8 @@ async function handleMyBotCreate(api, message) {
     await sendMessageWarning(api, message, `❌ Cookie JSON không hợp lệ: ${err.message}`);
     return;
   }
-  
+
+  await api.deleteMessage(message);
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
   console.log(`[MyBot] 🔑 IMEI: ${imei}`);
