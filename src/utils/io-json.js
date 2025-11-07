@@ -7,6 +7,9 @@ import { getTimeToString, getTimeNow } from "./format-util.js"
 const botId = process.argv[2] || 'main'
 const isMainBot = botId === 'main'
 
+console.log(chalk.cyan(`📦 Config Loader: Bot ID = ${botId}`))
+console.log(chalk.cyan(`📦 Config Loader: Is Main Bot = ${isMainBot}`))
+
 let botInfo = {
   adminFilePath: path.resolve("./assets/data/list_admin.json"),
   groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
@@ -24,10 +27,12 @@ let botInfo = {
 
 if (!isMainBot) {
   const subBotPath = path.resolve("./mybot", `${botId}.json`)
+  console.log(chalk.yellow(`📦 Config Loader: Tìm bot con tại ${subBotPath}`))
   
   if (fs.existsSync(subBotPath)) {
     try {
       const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
+      console.log(chalk.green(`✅ Config Loader: Tìm thấy bot con ${botId}`))
       botInfo = {
         adminFilePath: path.resolve("./mybot/data/list_admin.json"),
         groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
@@ -45,13 +50,15 @@ if (!isMainBot) {
         subBotConfig: subBotData
       }
     } catch (error) {
-      console.error(`Lỗi khi đọc bot con ${botId}:`, error)
+      console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
       process.exit(1)
     }
   } else {
-    console.error(`Bot con ${botId} không tồn tại`)
+    console.error(chalk.red(`❌ Config Loader: Bot con ${botId} không tồn tại`))
     process.exit(1)
   }
+} else {
+  console.log(chalk.green(`✅ Config Loader: Load bot chính từ /assets`))
 }
 
 const adminFilePath = botInfo.adminFilePath
