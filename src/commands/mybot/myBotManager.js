@@ -274,8 +274,16 @@ async function listAllBots() {
     const bots = [];
     
     for (const file of files) {
-      if (file.endsWith(".json") && !file.includes("config_") && !file.includes("list_admin_") && !file.includes("group_settings_")) {
+      // Chỉ lấy file .json và loại bỏ các file không phải bot config
+      if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
         const botId = file.replace(".json", "");
+        
+        // Check nếu botId là số (UID) hoặc format hợp lệ
+        if (isNaN(botId) || botId.length < 10) {
+          console.log(`[MyBot] ⏭️ Bỏ qua file: ${file} (không phải bot config)`);
+          continue;
+        }
+        
         console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
         
         const botConfig = await getBotConfig(botId);
