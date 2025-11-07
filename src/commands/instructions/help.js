@@ -76,7 +76,7 @@ export async function helpCommand(api, message, groupAdmins) {
         icon: "🌤️",
       },
       dich: {
-        command: `${prefix}dich [nội dung]&&(ngôn ngữ dịch)`,
+        command: `${prefix}dich [nội dung]&&(language)`,
         description: "Dịch văn bản",
         icon: "🌐",
       },
@@ -116,7 +116,7 @@ export async function helpCommand(api, message, groupAdmins) {
         icon: "🔖",
       },
     },
-    titleAdmin: "👮 Lệnh dành cho Admin 👮",
+    titleAdmin: "👮 LỆNH CHO ADMIN 👮",
     admin: {
       manager: {
         command: `${prefix}manager`,
