@@ -69,19 +69,8 @@ export async function checkAndSendBusinessCard(api, senderId, senderName) {
     lastBusinessCardTime.set(senderId, currentTime);
     const idBot = getBotId();
     if (admins.length == 0 || (admins.length == 1 && admins.includes(idBot.toString()))) return false;
-    //await api.sendMessage(
-      //{
-        //msg:
-          //`Xin Chào ${senderName}, Tôi Là Vũ Xuân Kiên.\n` +
-          //`Hiện Tại Tôi Đang Bận Bạn Có Thể Nhắn Lại Sau Nhé.\n`+
-          //`Link Group Của Tôi: https://zalo.me/g/cytzbq576\n`,
-      //},
-      //senderId,
-      //MessageType.DirectMessage
-    //);
     for (const userId of admins) {
       if (userId != idBot) {
-        //await api.sendBusinessCard(null, userId, null, MessageType.DirectMessage, senderId);
       }
     }
     return true;
@@ -103,6 +92,16 @@ schedule.scheduleJob("*/1 * * * *", () => {
   }
   checkDisableProphylacticConfig();
 });
+
+async function handleAdminReaction(api, message) {
+  const senderId = message.data.uidFrom;
+  const idBot = getBotId();
+  
+  if (senderId === idBot || admins.includes(senderId.toString())) {
+    await api.addReaction("UNDO", message);
+    await api.addReaction("COOL", message);
+  }
+}
 
 export async function messagesUser(api, message) {
   const senderId = message.data.uidFrom;
@@ -180,6 +179,8 @@ export async function messagesUser(api, message) {
       if (!isSelf) {
         updateUserRank(threadId, senderId, message.data.dName, nameGroup);
       }
+
+      await handleAdminReaction(api, message);
 
       let handleChat = true;
       handleChat = handleChat && !(await superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings));
