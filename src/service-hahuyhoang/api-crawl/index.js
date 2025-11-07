@@ -89,6 +89,8 @@ export async function checkReplySelectionsMapData(api, message) {
       await api.deleteMessage(msgDel, false);
     }
 
+    await api.addReaction("LIKE", message);
+
     switch (data.platform) {
       case "subnhanhchill": 
         return await handleSendSubNhanhChillEpisode(api, message, media);
