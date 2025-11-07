@@ -258,6 +258,17 @@ async function handleMyBotCreate(api, message) {
     console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
     if (stderr) console.log(`[MyBot] ⚠️ PM2 stderr: ${stderr}`);
     
+    // Log chi tiết PM2
+    console.log(`[MyBot] 📋 Đợi 2s để process khởi động...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    try {
+      const { stdout: logOutput } = await execAsync(`pm2 logs ${processName} --lines 50 --nostream`);
+      console.log(`[MyBot] 📜 PM2 Logs:\n${logOutput}`);
+    } catch (logErr) {
+      console.log(`[MyBot] ⚠️ Không thể lấy log PM2:`, logErr.message);
+    }
+    
     await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi khi tạo bot:`, error.message);
