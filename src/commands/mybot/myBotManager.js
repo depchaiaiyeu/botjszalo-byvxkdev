@@ -195,10 +195,9 @@ async function initializeBotFiles(botId, imei, cookie) {
   
   await saveBotConfig(botId, botConfig);
   
-  // Tạo tất cả các file cần thiết
+  // Tạo tất cả các file cần thiết (command.json dùng chung với bot chính)
   await createGroupSettingsFile(botId);
   await createAdminListFile(botId);
-  await createCommandFile(botId);
   await createWebConfigFile(botId);
   await createManagerBotFile(botId);
   await createProphylacticFile(botId);
