@@ -34,18 +34,18 @@ if (!isMainBot) {
       const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
       console.log(chalk.green(`✅ Config Loader: Tìm thấy bot con ${botId}`))
       botInfo = {
-        adminFilePath: path.resolve("./mybot/data/list_admin.json"),
-        groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
-        configFilePath: path.resolve("./mybot/config.json"),
-        commandFilePath: path.resolve("./assets/json-data/command.json"),
+        adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
+        groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
+        configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
+        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"),
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
         dataGifPath: path.resolve("./assets/gif"),
         DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
-        WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config.json"),
-        MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot.json"),
-        PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic.json"),
+        WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config_" + botId + ".json"),
+        MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot_" + botId + ".json"),
+        PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic_" + botId + ".json"),
         subBotId: botId,
         subBotConfig: subBotData
       }
