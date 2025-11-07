@@ -47,7 +47,8 @@ if (!isMainBot) {
         MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot_" + botId + ".json"),
         PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic_" + botId + ".json"),
         subBotId: botId,
-        subBotConfig: subBotData
+        subBotConfig: subBotData,
+        mainBotConfigPath: path.resolve("./assets/config.json")
       }
       console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (dùng chung bot chính)`))
     } catch (error) {
@@ -102,7 +103,27 @@ export function mkdirRecursive(dirPath) {
 export function readConfig() {
   try {
     const data = fs.readFileSync(configFilePath, "utf-8")
-    return JSON.parse(data)
+    let config = JSON.parse(data)
+    
+    // Nếu là bot con và config trống, dùng config từ bot chính
+    if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
+      console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
+      try {
+        const mainConfig = JSON.parse(fs.readFileSync(botInfo.mainBotConfigPath, "utf-8"))
+        config = mainConfig
+      } catch (err) {
+        console.error("Lỗi đọc config bot chính:", err)
+        return config
+      }
+    }
+    
+    // Nếu cookie là object có "url" và "cookies", extract cookies array
+    if (config.cookie && typeof config.cookie === "object" && config.cookie.cookies) {
+      console.log(chalk.cyan(`📦 Config Loader: Extract cookies array từ cookie object`))
+      config.cookie = config.cookie.cookies
+    }
+    
+    return config
   } catch (error) {
     console.error("Lỗi đọc tệp config.json:", error)
     return {}
