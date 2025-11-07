@@ -4,40 +4,6 @@ import path from "path";
 import fsPromises from "fs/promises";
 import { loadImageBuffer } from "../util.js";
 import { formatStatistic } from "../format-util.js";
-import { createHelpBackground } from "./help.js";
-
-const CARD_WIDTH = 700;
-const PADDING = 25;
-
-const THUMB_SIZE = 160;
-const THUMB_BORDER_WIDTH = 4;
-const THUMB_SHADOW_BLUR = 10;
-const THUMB_SHADOW_OFFSET = 4;
-
-const ICON_SIZE = 45;
-const ICON_BORDER_WIDTH = 2;
-const ICON_BORDER_COLOR = 'rgba(255, 255, 255, 0.8)';
-
-const MUSIC_AVATAR_SIZE = 60;
-const MUSIC_AVATAR_BORDER_WIDTH = 3;
-const MUSIC_AVATAR_SHADOW_BLUR = 8;
-const MUSIC_AVATAR_SHADOW_OFFSET = 3;
-
-const FONT_FAMILY = "BeVietnamPro";
-const TITLE_FONT_SIZE = 23;
-const TITLE_LINE_SPACING = 9;
-const ARTIST_FONT_SIZE = 21;
-const SOURCE_FONT_SIZE = 21;
-const STATS_FONT_SIZE = 21;
-
-const TEXT_SHADOW_COLOR = 'rgba(0, 0, 0, 0.6)';
-const TEXT_SHADOW_BLUR = 4;
-const TEXT_SHADOW_OFFSET = 1;
-
-const TITLE_SPACING_FACTOR = 0.5;
-const ARTIST_SPACING_FACTOR = 0.7;
-const SOURCE_SPACING_FACTOR = 0.8;
-const STATS_SPACING_FACTOR = 0;
 
 const dataIconPlatform = {
     "zingmp3": {
@@ -59,310 +25,240 @@ const dataIconPlatform = {
     "tiktok": {
         "linkIcon": "https://sf-static.tiktokcdn.com/obj/eden-sg/uhtyvueh7nulogpoguhm/tiktok-icon2.png",
         "shape": "circle"
+    },
+    "spotify": {
+        "linkIcon": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Spotify_icon.svg/1200px-Spotify_icon.svg.png",
+        "shape": "circle"
+    },
+    "telegram": {
+        "linkIcon": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Telegram_2019_Logo.svg/1200px-Telegram_2019_Logo.svg.png",
+        "shape": "circle"
     }
-};
-
-function truncateText(ctx, text, font, maxWidth) {
-    ctx.font = font;
-    let width = ctx.measureText(text).width;
-    const ellipsis = "...";
-    const ellipsisWidth = ctx.measureText(ellipsis).width;
-
-    if (width <= maxWidth) {
-        return text;
-    }
-
-    let truncated = text;
-    while (width + ellipsisWidth > maxWidth && truncated.length > 0) {
-        truncated = truncated.slice(0, -1);
-        width = ctx.measureText(truncated).width;
-    }
-    return truncated + ellipsis;
 }
-
-function wrapTextToTwoLines(ctx, text, font, maxWidth) {
-    ctx.font = font;
-    const words = text.split(' ');
-    let line1 = '';
-    let line2 = '';
-    
-    for (let i = 0; i < words.length; i++) {
-        const word = words[i];
-        const testLine1 = line1 + (line1 ? ' ' : '') + word;
-        
-        if (ctx.measureText(testLine1).width <= maxWidth) {
-            line1 = testLine1;
-        } else {
-            const remainingWords = words.slice(i).join(' ');
-            line2 = truncateText(ctx, remainingWords, font, maxWidth);
-            break;
-        }
-    }
-    
-    return line2 ? [line1, line2] : [line1];
-}
-
-const drawTextWithShadow = (ctx, text, x, y, font, maxWidth = null) => {
-    ctx.save();
-    ctx.font = font;
-    ctx.shadowColor = TEXT_SHADOW_COLOR;
-    ctx.shadowBlur = TEXT_SHADOW_BLUR;
-    ctx.shadowOffsetX = TEXT_SHADOW_OFFSET;
-    ctx.shadowOffsetY = TEXT_SHADOW_OFFSET;
-    if (maxWidth) {
-        ctx.fillText(text, x, y, maxWidth);
-    } else {
-        ctx.fillText(text, x, y);
-    }
-    ctx.restore();
-};
 
 export async function createMusicCard(musicInfo) {
-
-    let estimatedHeight = PADDING;
-    estimatedHeight += TITLE_FONT_SIZE * 2;
-    estimatedHeight += TITLE_LINE_SPACING;
-    estimatedHeight += TITLE_FONT_SIZE * TITLE_SPACING_FACTOR;
-    estimatedHeight += ARTIST_FONT_SIZE;
-    estimatedHeight += ARTIST_FONT_SIZE * ARTIST_SPACING_FACTOR;
-    estimatedHeight += SOURCE_FONT_SIZE * 2;
-    estimatedHeight += SOURCE_FONT_SIZE * SOURCE_SPACING_FACTOR;
-
-    const stats = [
-        { icon: "🎧", value: formatStatistic(musicInfo.listen) },
-        { icon: "👀", value: formatStatistic(musicInfo.viewCount) },
-        { icon: "💜", value: formatStatistic(musicInfo.like) },
-        { icon: "💬", value: formatStatistic(musicInfo.comment) },
-        { icon: "🔗", value: formatStatistic(musicInfo.share) },
-        { icon: "📅", value: musicInfo.publishedTime ? formatStatistic(musicInfo.publishedTime) : null }
-    ].filter(stat => stat.value !== null && stat.value !== undefined && String(stat.value).trim() !== '');
-
-    if (stats.length > 0) {
-        estimatedHeight += STATS_FONT_SIZE;
-        estimatedHeight += STATS_FONT_SIZE * STATS_SPACING_FACTOR;
-    }
-
-    estimatedHeight += PADDING;
-
-    const minHeightForElements = Math.max(
-        THUMB_SIZE + PADDING * 2,
-        MUSIC_AVATAR_SIZE + PADDING * 2
-    );
-
-    const finalHeight = Math.ceil(Math.max(minHeightForElements, estimatedHeight));
-
-    const canvas = createCanvas(CARD_WIDTH, finalHeight);
+    const width = 660;
+    const height = 200;
+    const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
     try {
-        createHelpBackground(ctx, CARD_WIDTH, finalHeight);
-
-        let thumbnailImage = null;
         if (musicInfo.thumbnailPath) {
-            try {
-                const processedThumbnail = await loadImageBuffer(musicInfo.thumbnailPath);
-                if (processedThumbnail) {
-                    thumbnailImage = await loadImage(processedThumbnail);
-                }
-            } catch (thumbError) {
-            }
-        }
+            const processedThumbnail = await loadImageBuffer(musicInfo.thumbnailPath);
+            if (processedThumbnail) {
+                const thumbnail = await loadImage(processedThumbnail);
 
-        if (thumbnailImage) {
-            const thumbX = PADDING;
-            const thumbY = (finalHeight - THUMB_SIZE) / 2;
-            const thumbCenterX = thumbX + THUMB_SIZE / 2;
-            const thumbCenterY = thumbY + THUMB_SIZE / 2;
+                ctx.filter = 'blur(10px)';
+                ctx.drawImage(thumbnail, -20, -20, width + 40, height + 40);
+                ctx.filter = 'none';
 
-            ctx.save();
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-            ctx.shadowBlur = THUMB_SHADOW_BLUR + 2;
-            ctx.shadowOffsetX = THUMB_SHADOW_OFFSET;
-            ctx.shadowOffsetY = THUMB_SHADOW_OFFSET + 1;
+                const overlay = ctx.createLinearGradient(0, 0, 0, height);
+                overlay.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+                overlay.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+                ctx.fillStyle = overlay;
+                ctx.fillRect(0, 0, width, height);
 
-            ctx.beginPath();
-            ctx.arc(thumbCenterX, thumbCenterY, THUMB_SIZE / 2, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(thumbnailImage, thumbX, thumbY, THUMB_SIZE, THUMB_SIZE);
-            ctx.restore();
+                ctx.save();
+                ctx.beginPath();
+                const thumbSize = 150;
+                const thumbX = 40;
+                const thumbY = (height - thumbSize) / 2;
+                ctx.arc(thumbX + thumbSize / 2, thumbY + thumbSize / 2, thumbSize / 2, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(thumbnail, thumbX, thumbY, thumbSize, thumbSize);
+                ctx.restore();
 
-            ctx.save();
-            ctx.strokeStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
-            ctx.lineWidth = THUMB_BORDER_WIDTH;
-            ctx.beginPath();
-            ctx.arc(thumbCenterX, thumbCenterY, THUMB_SIZE / 2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
+                ctx.strokeStyle = cv.getRandomGradient(ctx, width);
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(thumbX + thumbSize / 2, thumbY + thumbSize / 2, thumbSize / 2, 0, Math.PI * 2);
+                ctx.stroke();
 
-            const source = musicInfo.source?.toLowerCase() || "zingmp3";
-            const dataIcon = dataIconPlatform[source];
+                const source = musicInfo.source?.toLowerCase() || "zingmp3";
+                const dataIcon = dataIconPlatform[source];
 
-            if (dataIcon) {
-                try {
-                    const iconX = thumbX + THUMB_SIZE - ICON_SIZE * 1.1;
-                    const iconY = thumbY + THUMB_SIZE - ICON_SIZE * 1.1;
-                    const iconCenterX = iconX + ICON_SIZE / 2;
-                    const iconCenterY = iconY + ICON_SIZE / 2;
+                if (dataIcon) {
+                    try {
+                        const iconSize = 45;
+                        const iconX = thumbX + thumbSize - iconSize;
+                        const iconY = thumbY + thumbSize - iconSize;
 
-                    ctx.save();
-                    ctx.fillStyle = ICON_BORDER_COLOR;
-                    ctx.beginPath();
-                    if (dataIcon.shape === 'rectangle') {
-                        const borderRadius = 8;
-                        ctx.roundRect(iconX - ICON_BORDER_WIDTH, iconY - ICON_BORDER_WIDTH, ICON_SIZE + 2 * ICON_BORDER_WIDTH, ICON_SIZE + 2 * ICON_BORDER_WIDTH, borderRadius + ICON_BORDER_WIDTH);
-                    } else {
-                        ctx.arc(iconCenterX, iconCenterY, ICON_SIZE / 2 + ICON_BORDER_WIDTH, 0, Math.PI * 2);
+                        ctx.save();
+                        ctx.beginPath();
+                        if (dataIcon.shape === 'rectangle') {
+                            const borderRadius = 8;
+                            ctx.roundRect(iconX, iconY, iconSize, iconSize, borderRadius);
+                        } else {
+                            ctx.arc(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
+                        }
+                        ctx.clip();
+                        const icon = await loadImage(dataIcon.linkIcon);
+                        ctx.drawImage(icon, iconX, iconY, iconSize, iconSize);
+                        ctx.restore();
+                    } catch (error) {
+                        console.error("Lỗi khi vẽ icon nguồn nhạc:", error);
                     }
-                    ctx.fill();
-                    ctx.restore();
-
-                    ctx.save();
-                    ctx.beginPath();
-                    if (dataIcon.shape === 'rectangle') {
-                        const borderRadius = 8;
-                        ctx.roundRect(iconX, iconY, ICON_SIZE, ICON_SIZE, borderRadius);
-                    } else {
-                        ctx.arc(iconCenterX, iconCenterY, ICON_SIZE / 2, 0, Math.PI * 2);
-                    }
-                    ctx.clip();
-                    const icon = await loadImage(dataIcon.linkIcon);
-                    ctx.drawImage(icon, iconX, iconY, ICON_SIZE, ICON_SIZE);
-                    ctx.restore();
-
-                } catch (iconError) {
                 }
-            }
-        }
-
-        const textX = PADDING + (thumbnailImage ? THUMB_SIZE : 0) + PADDING;
-        const maxTextWidth = CARD_WIDTH - textX - PADDING;
-        let currentY = PADDING + 5;
-
-        const title = musicInfo.title || "Unknown Title";
-        const titleFont = `bold ${TITLE_FONT_SIZE}px ${FONT_FAMILY}`;
-        const titleLines = wrapTextToTwoLines(ctx, title, titleFont, maxTextWidth);
-        ctx.fillStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
-        titleLines.forEach((line, index) => {
-            currentY += TITLE_FONT_SIZE;
-            drawTextWithShadow(ctx, line, textX, currentY, titleFont, maxTextWidth);
-            if (index < titleLines.length - 1) {
-                currentY += TITLE_LINE_SPACING;
-            }
-        });
-        currentY += TITLE_FONT_SIZE * TITLE_SPACING_FACTOR;
-
-        const artistText = musicInfo.artists || "Unknown Artist";
-        const artistFont = `${ARTIST_FONT_SIZE}px ${FONT_FAMILY}`;
-        const truncatedArtist = truncateText(ctx, artistText, artistFont, maxTextWidth);
-        currentY += ARTIST_FONT_SIZE;
-        ctx.fillStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
-        drawTextWithShadow(ctx, truncatedArtist, textX, currentY, artistFont, maxTextWidth);
-        currentY += ARTIST_FONT_SIZE * ARTIST_SPACING_FACTOR;
-
-        const sourceText = `From ${musicInfo.source || "ZingMp3"}${musicInfo.rank ? ` - 🏆 Top ${musicInfo.rank}` : ""}`;
-        const sourceFont = `${SOURCE_FONT_SIZE}px ${FONT_FAMILY}`;
-        const truncatedSource = truncateText(ctx, sourceText, sourceFont, maxTextWidth);
-        currentY += SOURCE_FONT_SIZE;
-        ctx.fillStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
-        drawTextWithShadow(ctx, truncatedSource, textX, currentY, sourceFont, maxTextWidth);
-
-        let sourceSecondLine = null;
-        if (ctx.measureText(sourceText).width > maxTextWidth) {
-            const words = sourceText.split(' ');
-            let line1 = '';
-            let line2 = '';
-            for (let word of words) {
-                if (ctx.measureText(line1 + word).width <= maxTextWidth) {
-                    line1 += (line1 ? ' ' : '') + word;
-                } else {
-                    line2 += (line2 ? ' ' : '') + word;
-                }
-            }
-            if (line2) {
-                sourceSecondLine = line2;
-                currentY += SOURCE_FONT_SIZE * SOURCE_SPACING_FACTOR;
-                drawTextWithShadow(ctx, sourceSecondLine, textX, currentY, sourceFont, maxTextWidth);
-                currentY += SOURCE_FONT_SIZE * SOURCE_SPACING_FACTOR;
+            } else {
+                const gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, "#2C3E50");
+                gradient.addColorStop(1, "#3498DB");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
             }
         } else {
-            currentY += SOURCE_FONT_SIZE * SOURCE_SPACING_FACTOR;
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, "#2C3E50");
+            gradient.addColorStop(1, "#3498DB");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
         }
 
-        if (stats.length > 0) {
-            currentY += STATS_FONT_SIZE;
-            const statsFont = `${STATS_FONT_SIZE}px ${FONT_FAMILY}`;
-            ctx.font = statsFont;
-            const statSpacing = 15;
-            let currentX = textX;
+        const textX = 220;
+        let textY = 50;
+        let lineHeight = 35;
+        let lineHeight2 = 8;
+        let lineHeight3 = 25;
+        let lineHeight4 = 35;
+        let lineHeight5 = 35;
+        const maxWidth = width - textX - 80;
 
-            ctx.fillStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
-            stats.forEach((stat) => {
-                const statText = `${stat.icon} ${stat.value}`;
-                const statWidth = ctx.measureText(statText).width;
-                if (currentX + statWidth <= CARD_WIDTH - PADDING) {
-                    drawTextWithShadow(ctx, statText, currentX, currentY, statsFont);
-                    currentX += statWidth + statSpacing;
+        const title = musicInfo.title || "Unknown Title";
+        ctx.font = "bold 24px BeVietnamPro";
+        const titleWidth = ctx.measureText(title).width;
+
+        if (titleWidth > maxWidth) {
+            ctx.font = "bold 20px BeVietnamPro";
+
+            const words = title.split(' ');
+            let firstLine = '';
+            let secondLine = '';
+            let currentLine = '';
+
+            for (const word of words) {
+                const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                const testWidth = ctx.measureText(testLine).width;
+
+                if (testWidth > maxWidth) {
+                    if (!firstLine) {
+                        firstLine = currentLine;
+                        currentLine = word;
+                    } else {
+                        secondLine = currentLine + (currentLine ? ' ' : '') + word;
+                        break;
+                    }
                 } else {
-                    return;
+                    currentLine = testLine;
                 }
+            }
+
+            if (!secondLine && currentLine) {
+                if (!firstLine) {
+                    firstLine = currentLine;
+                } else {
+                    secondLine = currentLine;
+                }
+            }
+
+            if (secondLine) {
+                const secondLineWidth = ctx.measureText(secondLine).width;
+                if (secondLineWidth > maxWidth) {
+                    secondLine = secondLine.substring(0, Math.floor(secondLine.length * (maxWidth / secondLineWidth) - 3)) + "...";
+                }
+            }
+
+            ctx.fillStyle = cv.getRandomGradient(ctx, width);
+            textY -= 8;
+            ctx.fillText(firstLine, textX, textY);
+
+            if (secondLine) {
+                textY += lineHeight - 10;
+                ctx.fillText(secondLine, textX, textY);
+            }
+
+            textY += lineHeight2;
+        } else {
+            ctx.font = "bold 24px BeVietnamPro";
+            ctx.fillStyle = cv.getRandomGradient(ctx, width);
+            ctx.fillText(title, textX, textY);
+            lineHeight3 = 35;
+            lineHeight4 = 35;
+            lineHeight5 = 35;
+        }
+
+        textY += lineHeight3;
+        ctx.font = "20px BeVietnamPro";
+        ctx.fillStyle = cv.getRandomGradient(ctx, width);
+        const artist = musicInfo.artists ? "Artist: " + musicInfo.artists : "Artist: Unknown";
+        ctx.fillText(artist, textX, textY);
+
+        textY += lineHeight4;
+        ctx.fillStyle = cv.getRandomGradient(ctx, width);
+        ctx.font = "18px BeVietnamPro";
+        ctx.fillText(`From ${musicInfo.source || "ZingMp3"}${musicInfo.rank ? ` - 🏆 Now is Top ${musicInfo.rank} BXH` : ""}`, textX, textY);
+
+        textY += lineHeight5;
+        ctx.font = "18px BeVietnamPro";
+
+        const stats = [
+            { icon: "🎧", value: formatStatistic(musicInfo.listen) },
+            { icon: "👀", value: formatStatistic(musicInfo.viewCount) },
+            { icon: "💜", value: formatStatistic(musicInfo.like) },
+            { icon: "💬", value: formatStatistic(musicInfo.comment) },
+            { icon: "🔗", value: formatStatistic(musicInfo.share) },
+            { icon: "📅", value: formatStatistic(musicInfo.publishedTime) }
+        ].filter(stat => stat.value !== null);
+
+        if (stats.length > 0) {
+            const fixedSpacing = 12;
+
+            const statsWidths = stats.map(stat => {
+                const text = `${stat.icon} ${stat.value}`;
+                return ctx.measureText(text).width;
+            });
+
+            const totalTextWidth = statsWidths.reduce((sum, width) => sum + width, 0);
+            const totalSpacingWidth = (stats.length - 1) * fixedSpacing;
+            const totalWidth = totalTextWidth + totalSpacingWidth;
+
+            const startX = textX;
+
+            let currentX = startX;
+            stats.forEach((stat, index) => {
+                ctx.fillText(`${stat.icon} ${stat.value}`, currentX, textY);
+                currentX += statsWidths[index] + fixedSpacing;
             });
         }
 
-        if (musicInfo.musicAvatar) {
+        if (musicInfo.userAvatar) {
             try {
-                const musicAvatar = await loadImage(musicInfo.musicAvatar);
-                const musicAvatarX = CARD_WIDTH - PADDING - MUSIC_AVATAR_SIZE;
-                const musicAvatarY = finalHeight - PADDING - MUSIC_AVATAR_SIZE;
-                const musicAvatarCenterX = musicAvatarX + MUSIC_AVATAR_SIZE / 2;
-                const musicAvatarCenterY = musicAvatarY + MUSIC_AVATAR_SIZE / 2;
+                const avatar = await loadImage(musicInfo.userAvatar);
+                const avatarSize = 60;
+                const avatarX = width - avatarSize - 20;
+                const avatarY = height - avatarSize - 20;
 
-                ctx.save();
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-                ctx.shadowBlur = MUSIC_AVATAR_SHADOW_BLUR;
-                ctx.shadowOffsetX = MUSIC_AVATAR_SHADOW_OFFSET;
-                ctx.shadowOffsetY = MUSIC_AVATAR_SHADOW_OFFSET;
-
-                ctx.fillStyle = cv.getRandomGradient(ctx, CARD_WIDTH);
                 ctx.beginPath();
-                ctx.arc(musicAvatarCenterX, musicAvatarCenterY, MUSIC_AVATAR_SIZE / 2 + MUSIC_AVATAR_BORDER_WIDTH, 0, Math.PI * 2);
+                ctx.fillStyle = cv.getRandomGradient(ctx, width);
+                ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2 + 2, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.restore();
 
                 ctx.save();
                 ctx.beginPath();
-                ctx.arc(musicAvatarCenterX, musicAvatarCenterY, MUSIC_AVATAR_SIZE / 2, 0, Math.PI * 2);
+                ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
                 ctx.clip();
-                ctx.drawImage(musicAvatar, musicAvatarX, musicAvatarY, MUSIC_AVATAR_SIZE, MUSIC_AVATAR_SIZE);
+                ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
                 ctx.restore();
-
-            } catch (avatarError) {
+            } catch (error) {
+                console.error("Lỗi khi vẽ avatar người dùng:", error);
             }
         }
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0.5, 0.5, CARD_WIDTH - 1, finalHeight - 1);
-
     } catch (error) {
-        ctx.fillStyle = 'red';
-        ctx.fillRect(0, 0, CARD_WIDTH, finalHeight);
-        ctx.font = '20px Arial';
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.fillText('Error generating card', CARD_WIDTH / 2, finalHeight / 2);
+        console.error("Lỗi khi tạo music card:", error);
+        throw error;
     }
 
-    const tempDir = path.resolve('./assets/temp');
-    try {
-        await fsPromises.mkdir(tempDir, { recursive: true });
-    } catch (dirError) {
-        if (dirError.code !== 'EEXIST') {
-            throw dirError;
-        }
-    }
-
-    const filePath = path.join(tempDir, `music_${Date.now()}.png`);
-    await fsPromises.writeFile(filePath, canvas.toBuffer("image/png"));
+    const filePath = path.resolve(`./assets/temp/music_${Date.now()}.png`);
+    await fsPromises.writeFile(filePath, canvas.toBuffer());
     return filePath;
 }
