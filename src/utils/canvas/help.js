@@ -94,11 +94,7 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
   const commandBoxMargin = 15;
   const borderRadius = 15;
   const titleHeight = 100;
-  
-  const ctxTemp = createCanvas(999, 999).getContext("2d");
-  ctxTemp.font = "bold 24px BeVietnamPro";
-  
-  let totalHeight = titleHeight + 40;
+  const rowHeight = 70;
   
   const allCommands = [];
   for (const key in helpContent.allMembers) {
@@ -116,13 +112,12 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
     }
   }
   
-  const commandWidth = (width - padding * 2 - commandBoxMargin) / 2;
-  
-  totalHeight += Math.ceil(allCommands.length / 2) * 70;
+  let totalHeight = titleHeight + 40;
+  totalHeight += allCommands.length * rowHeight;
   
   if (adminCommands.length > 0) {
     totalHeight += 80;
-    totalHeight += Math.ceil(adminCommands.length / 2) * 70;
+    totalHeight += adminCommands.length * rowHeight;
   }
   
   totalHeight += padding;
@@ -160,20 +155,15 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
   };
   
   let currentY = titleHeight + 40;
+  const boxWidth = width - padding * 2;
   
   for (let i = 0; i < allCommands.length; i++) {
     const cmd = allCommands[i];
     const commandText = `${cmd.icon} ${cmd.command}`;
     const descriptionText = cmd.description;
     
-    const col = i % 2;
-    const x = padding + col * (commandWidth + commandBoxMargin);
-    
-    drawCommandBox(commandText, descriptionText, x, currentY, commandWidth);
-    
-    if (col === 1 || i === allCommands.length - 1) {
-      currentY += 70;
-    }
+    drawCommandBox(commandText, descriptionText, padding, currentY, boxWidth);
+    currentY += rowHeight;
   }
   
   if (adminCommands.length > 0) {
@@ -192,14 +182,8 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       const commandText = `${cmd.icon} ${cmd.command}`;
       const descriptionText = cmd.description;
       
-      const col = i % 2;
-      const x = padding + col * (commandWidth + commandBoxMargin);
-      
-      drawCommandBox(commandText, descriptionText, x, currentY, commandWidth);
-      
-      if (col === 1 || i === adminCommands.length - 1) {
-        currentY += 70;
-      }
+      drawCommandBox(commandText, descriptionText, padding, currentY, boxWidth);
+      currentY += rowHeight;
     }
   }
   
