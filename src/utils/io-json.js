@@ -117,7 +117,17 @@ export function readConfig() {
       }
     }
     
-    // Nếu cookie là object có "url" và "cookies", extract cookies array
+    // Parse cookie nếu là string JSON
+    if (config.cookie && typeof config.cookie === "string") {
+      try {
+        config.cookie = JSON.parse(config.cookie)
+        console.log(chalk.cyan(`📦 Config Loader: Parse cookie từ string JSON`))
+      } catch (err) {
+        console.log(chalk.yellow(`⚠️ Config Loader: Cookie không phải JSON string`))
+      }
+    }
+    
+    // Nếu cookie là object có "cookies" array, extract nó
     if (config.cookie && typeof config.cookie === "object" && config.cookie.cookies) {
       console.log(chalk.cyan(`📦 Config Loader: Extract cookies array từ cookie object`))
       config.cookie = config.cookie.cookies
