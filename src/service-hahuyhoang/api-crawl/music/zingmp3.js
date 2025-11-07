@@ -690,7 +690,7 @@ export async function handleRandomChartZingMp3(
     const object = {
       trackId: randomSong.encodeId,
       title: randomSong.title,
-      artists: `Artist: ${randomSong.artistsNames}`,
+      artists: randomSong.artistsNames,
       like: randomSong.like,
       listen: randomSong.listen,
       comment: randomSong.comment,
