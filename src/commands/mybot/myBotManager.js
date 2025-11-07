@@ -1,1854 +1,550 @@
-import path from "path";
-import * as fs from "fs";
-import { spawn } from "child_process";
-import { createBot } from "./createBot.js";
-import { stopBot } from "./stopBot.js";
-import { startBot } from "./startBot.js";
-import { deleteBot } from "./deleteBot.js";
-import { infoBot, detailBot } from "./infoBot.js";
+import { writeGroupSettings } from "../../utils/io-json.js";
+import { sendMessageComplete, sendMessageInsufficientAuthority, sendMessageQuery, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
-import { sendMessageFailed, sendMessageComplete, sendMessageWarning, sendMessageResultRequest } from "./chat-style-fake.js";
-import { MessageType } from "zlbotdqt";
+import { removeMention } from "../../utils/format-util.js";
+import fs from "fs/promises";
+import { fileURLToPath } from "url";
+import path from "path";
+import { createAdminListImage } from "../../utils/canvas/info.js";
+import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
+import { exec } from "child_process";
+import { promisify } from "util";
 
-const projectRoot = path.resolve(process.cwd());
-const myBotDir = path.join(projectRoot, "mybot");
-const myBotsPath = path.join(myBotDir, "mybots.json");
-const configsDir = path.join(myBotDir, "configs");
-const jsonDataDir = path.join(myBotDir, "json-data");
-const adminListPath = path.join(projectRoot, "assets", "data", "list_admin.json");
+const execAsync = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const CHECK_INTERVAL = 5 * 60 * 1000;
+const userAgents = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+];
 
-async function stopPM2Process(processName) {
-  return new Promise((resolve) => {
-    const pm2Command = "pm2";
-    const pm2Process = spawn(pm2Command, ["stop", processName], {
-      stdio: "pipe",
-      shell: true,
-    });
-    pm2Process.on("close", (code) => {
-      resolve(code === 0);
-    });
-    pm2Process.on("error", () => {
-      resolve(false);
-    });
-    setTimeout(() => {
-      pm2Process.kill();
-      resolve(false);
-    }, 5000);
-  });
+const paths = {
+  adminFilePath: path.resolve("./mybot/data/list_admin.json"),
+  groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
+  configFilePath: path.resolve("./mybot/config.json"),
+  commandFilePath: path.resolve("./assets/json-data/command.json"),
+  logDir: path.resolve("./logs"),
+  resourceDir: path.resolve("./resources"),
+  tempDir: path.resolve("./temp"),
+  dataGifPath: path.resolve("./assets/gif"),
+  DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
+  WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config.json"),
+  MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot.json"),
+  PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic.json"),
+  myBotDataDir: path.resolve("./mybot")
+};
+
+function getRandomUserAgent() {
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
-function startExpirationCheck(api) {
-  setInterval(async () => {
-    try {
-      if (!fs.existsSync(myBotsPath)) {
-        return;
-      }
-      const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-      const now = new Date();
-      for (const [botUid, botInfo] of Object.entries(myBots)) {
-        const expiryAt = new Date(botInfo.expiryAt);
-        if (expiryAt <= now && botInfo.status === "running") {
-          const modifiedMessage = {
-            threadId: null,
-            data: { uidFrom: botUid, dName: botInfo.displayName || botInfo.name },
-            type: 1
-          };
-          await stopBot(api, modifiedMessage, []);
-          const pm2Stopped = await stopPM2Process(botUid);
-          if (pm2Stopped) {
-            
-          } else {
-
-          }
-          myBots[botUid].status = "expired";
-          myBots[botUid].lastUpdated = now.toISOString();
-          myBots[botUid].hsd = formatDateTime(expiryAt);
-          fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-        }
-      }
-    } catch (error) {
-
-    }
-  }, CHECK_INTERVAL);
+function parseTimeToMs(timeStr) {
+  const match = timeStr.match(/^(-?\d+)([hpmd])$/);
+  if (!match) return null;
+  
+  const value = parseInt(match[1]);
+  const unit = match[2];
+  
+  if (value === -1) return -1;
+  
+  const multipliers = {
+    'h': 3600000,
+    'p': 60000,
+    'm': 60000,
+    'd': 86400000
+  };
+  
+  return value * (multipliers[unit] || 0);
 }
 
-startExpirationCheck({ sendMessage: async (options, threadId, type) => {
-
-}});
-
-export async function myBot(api, message, groupAdmins) {
-  const { threadId, data: { uidFrom, dName, content, mentions }, type } = message;
-  const args = content.split(/\s+/);
-  const prefix = getGlobalPrefix();
-
-  try {
-    if (!args || args.length < 2) {
-      try {
-        await sendMessageWarning(
-          api,
-          message,
-          `《 🤖 HỆ THỐNG QUẢN LÝ BOT VXK 🤖 》
-
-➤ 🆕 Tạo/Sửa Bot:
-『${prefix}mybot create』
-• 📝 Cú pháp: ${prefix}mybot create cookie imei 
-• ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
-• ⚠️ Lưu ý: 
-   - Không cần nhập dấu []
-   - Nếu không biết cách điền, chat "${prefix}mybot create" để xem hướng dẫn
-   - Chỉ hoạt động trong tin nhắn riêng
-
-➤ ❓ Trợ Giúp:
-『${prefix}mybot help』
-• 💡 Hiển thị hướng dẫn sử dụng các lệnh cơ bản`, 
-true
-        );
-      } catch (err) {
-      
-      }
-      return;
-    }
-
-    const subCommand = args[1].toLowerCase();
-    const arg = args.slice(1);
-
-    let isMotherBotAdmin = false;
+async function ensureDirectories() {
+  const dirs = [
+    path.resolve("./mybot/data"),
+    path.resolve("./mybot/json-data"),
+    path.resolve("./temp")
+  ];
+  
+  for (const dir of dirs) {
     try {
-      if (fs.existsSync(adminListPath)) {
-        const adminList = JSON.parse(fs.readFileSync(adminListPath, "utf8"));
-        isMotherBotAdmin = Array.isArray(adminList) && adminList.includes(uidFrom.toString());
-      }
+      await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-
-    }
-
-    if (isMotherBotAdmin && ["del", "rs", "start", "stop", "detail", "info", "active", "restart", "shutdown", "addtime", "subtime", "approve", "reject"].includes(subCommand) && args.length >= 3 && /^\d+$/.test(args[2])) {
-      const index = parseInt(args[2], 10);
-      const botUid = await getBotUidByIndex(index);
-      if (!botUid) {
-        try {
-          const messageOptions = { msg: `🚫 Không tìm thấy bot với số thứ tự ${index}!`, ttl: 120000 };
-          if (message && typeof message === 'object' && message.messageID) {
-            messageOptions.quote = message;
-          }
-          await api.sendMessage(messageOptions, threadId, type);
-        } catch (err) {
-        
-        }
-        return;
-      }
-      const modifiedMessage = {
-        ...message,
-        data: { ...message.data, uidFrom: botUid }
-      };
-      switch (subCommand) {
-        case "del":
-          await deleteBot(api, modifiedMessage, groupAdmins);
-          break;
-        case "rs":
-        case "start":
-        case "active":
-        case "restart":
-          await startBot(api, modifiedMessage, groupAdmins);
-          break;
-        case "stop":
-        case "shutdown":
-          await stopBot(api, modifiedMessage, groupAdmins);
-          break;
-        case "detail":
-          await detailBot(api, modifiedMessage, groupAdmins);
-          break;
-        case "info":
-          await infoBot(api, modifiedMessage, groupAdmins);
-          break;
-        case "addtime":
-          if (args.length < 4) {
-            try {
-              const messageOptions = { 
-                msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot addtime [index] [thời hạn]
-Ví dụ: ${prefix}mybot addtime 1 24h`, 
-                ttl: 120000 
-              };
-              if (message && typeof message === 'object' && message.messageID) {
-                messageOptions.quote = message;
-              }
-              await api.sendMessage(messageOptions, threadId, type);
-            } catch (err) {
-            
-            }
-            return;
-          }
-          await handleAddTime(api, botUid, dName, args[3], threadId, type, message);
-          break;
-        case "subtime":
-          if (args.length < 4) {
-            try {
-              const messageOptions = { 
-                msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot subtime [index] [thời hạn]
-Ví dụ: ${prefix}mybot subtime 1 24h`, 
-                ttl: 120000 
-              };
-              if (message && typeof message === 'object' && message.messageID) {
-                messageOptions.quote = message;
-              }
-              await api.sendMessage(messageOptions, threadId, type);
-            } catch (err) {
-            
-            }
-            return;
-          }
-          await handleSubTime(api, botUid, dName, args[3], threadId, type, message);
-          break;
-        case "approve":
-          if (args.length < 4) {
-            try {
-              const messageOptions = { 
-                msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot approve [index] [thời hạn]
-Ví dụ: ${prefix}mybot approve 1 24h`, 
-                ttl: 120000 
-              };
-              if (message && typeof message === 'object' && message.messageID) {
-                messageOptions.quote = message;
-              }
-              await api.sendMessage(messageOptions, threadId, type);
-            } catch (err) {
-            
-            }
-            return;
-          }
-          await handleApprove(api, botUid, dName, args[3], threadId, type, message);
-          break;
-        case "reject":
-          await handleReject(api, botUid, dName, threadId, type, message);
-          break;
-      }
-      return;
-    }
-
-    switch (subCommand) {
-      case "info":
-        await infoBot(api, message, groupAdmins);
-        break;
-      case "detail":
-        await detailBot(api, message, groupAdmins);
-        break;
-      case "start":
-      case "restart":
-      case "rs":
-        const checkResult = await checkBotExists(uidFrom);
-        if (!checkResult.exists) {
-          try {
-            const messageOptions = { msg: "🚫 Bạn chưa có bot nào được tạo!", ttl: 120000 };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        if (checkResult.botInfo.status !== "running") {
-          try {
-            const messageOptions = { 
-              msg: "🚫 Có bot đéo đâu mà đòi reset!!! Vui lòng chờ phê duyệt hoặc liên hệ ADMIN để gia hạn.", 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await startBot(api, message, groupAdmins, arg);
-        break;
-      case "stop":
-        await stopBot(api, message, groupAdmins, arg);
-        break;
-      case "delete":
-      case "del":
-        await deleteBot(api, message, groupAdmins, arg);
-        break;
-      case "login":
-      case "create":
-        await createBot(api, message, groupAdmins, arg);
-        break;
-      case "list":
-        await handleListBots(api, threadId, type, message);
-        break;
-      case "update":
-        if (args.length < 3) {
-          try {
-            const messageOptions = { 
-              msg: `🚫 Sai cú pháp!
-📝 Cách dùng:
-• ${prefix}mybot update name [tên mới]
-• ${prefix}mybot update description [mô tả mới]
-• ${prefix}mybot update nameserver [tên server mới]`, 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        const updateType = args[2].toLowerCase();
-        const newValue = args.slice(3).join(" ");
-        if (updateType === "name") {
-          await handleUpdateName(api, uidFrom, dName, newValue, threadId, type, message);
-        } else if (updateType === "description") {
-          await handleUpdateDescription(api, uidFrom, dName, newValue, threadId, type, message);
-        } else if (updateType === "nameserver") {
-          await handleUpdateNameServer(api, uidFrom, dName, newValue, threadId, type, message);
-        } else if (updateType === "credentials") {
-          try {
-            const messageOptions = { msg: "🚫 Chỉ hỗ trợ update: name, description, nameserver hoặc credentials", ttl: 120000 };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          }
-        }
-        break;
-      case "add":
-        if (args.length < 3 || args[2].toLowerCase() !== "admin") {
-          try {
-            const messageOptions = { 
-              msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot add admin [uid] hoặc @tag`, 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        let adminUid = args[3];
-        if (mentions && mentions.length > 0) adminUid = mentions[0].uid;
-        await handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, message);
-        break;
-      case "remove":
-        if (args.length < 3 || args[2].toLowerCase() !== "admin") {
-          try {
-            const messageOptions = { 
-              msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot remove admin [uid] hoặc @tag`, 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        let removeAdminUid = args[3];
-        if (mentions && mentions.length > 0) removeAdminUid = mentions[0].uid;
-        await handleRemoveAdmin(api, uidFrom, dName, removeAdminUid, threadId, type, message);
-        break;
-      case "admin":
-        if (args.length < 3 || args[2].toLowerCase() !== "list") {
-          try {
-            const messageOptions = { 
-              msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot admin list`, 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await handleListAdmins(api, uidFrom, dName, threadId, type, message);
-        break;
-      case "notify":
-        if (!isMotherBotAdmin) {
-          try {
-            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        if (args.length < 3) {
-          try {
-            const messageOptions = { 
-              msg: `🚫 Sai cú pháp!
-📝 Cách dùng: ${prefix}mybot notify [nội dung thông báo]`, 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await handleNotify(api, uidFrom, dName, args.slice(2).join(" "), threadId, type, message);
-        break;
-      case "load":
-        if (!isMotherBotAdmin) {
-          try {
-            const messageOptions = { 
-              msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", 
-              ttl: 120000 
-            };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await handleLoadBots(api, uidFrom, dName, threadId, type, message);
-        break;        
-      case "activeall":
-        if (!isMotherBotAdmin) {
-          try {
-            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await handleActiveAll(api, uidFrom, dName, threadId, type, message, groupAdmins);
-        break;
-      case "shutdownall":
-        if (!isMotherBotAdmin) {
-          try {
-            const messageOptions = { msg: "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", ttl: 120000 };
-            if (message && typeof message === 'object' && message.messageID) {
-              messageOptions.quote = message;
-            }
-            await api.sendMessage(messageOptions, threadId, type);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        await handleShutdownAll(api, uidFrom, dName, threadId, type, message, groupAdmins);
-        break;             
-      case "help":
-        await sendMessageWarning(
-          api,
-          message,
-          `📋 HƯỚNG DẪN QUẢN LÝ BOT VXK 📋
-
-1️⃣ Các lệnh cơ bản
-
-➤ 『${prefix}mybot info』 - ℹ️ Xem thông tin chủ bot của bạn
-➤ 『${prefix}mybot detail』 - 🔎 Xem thông tin chi tiết bot của bạn
-➤ 『${prefix}mybot start』 - ▶️ Kích hoạt bot
-➤ 『${prefix}mybot restart』 - 🔄 Khởi động lại bot
-➤ 『${prefix}mybot stop』 - ⏹️ Tắt bot
-2️⃣ Các lệnh quản lý bot
-
-➤ 『${prefix}mybot qtv』 - ⚙️ Xem danh sách lệnh quản lý bot
-3️⃣ Đối với quản trị viên
-
-➤ 『${prefix}mybot manager』 - 👮 Xem danh sách lệnh quản lý hệ thống bot`,
-          true
-        );
-        break;
-      case "qtv": {
-        const qtvMessage = `📋 HƯỚNG DẪN QUẢN LÝ BOT 📋
-
-➤ 『${prefix}mybot update name』- ✏️ Cập nhật tên hiển thị
-➤ 『${prefix}mybot update description』- 📝 Cập nhật mô tả bot
-➤ 『${prefix}mybot update nameserver』- 🌐 Cập nhật name server của bot
-➤ 『${prefix}mybot add admin』- ➕ Thêm admin bot
-➤ 『${prefix}mybot remove admin』- ➖ Xoá admin bot
-➤ 『${prefix}mybot admin list』- 👥 Xem danh sách admin bot
-➤ 『${prefix}mybot delete』- 🗑️ Xoá bot khỏi hệ thống VXK Bot Team`;
-        try {
-          await sendMessageWarning(api, message, qtvMessage, true);
-        } catch (err) {
-        
-        }
-        break;
-      }
-      case "manager": {
-        const listAdmin = JSON.parse(fs.readFileSync(adminListPath, "utf8"));
-        if (!listAdmin.includes(uidFrom.toString())) {
-          try {
-            await sendMessageFailed(api, message, "🚫 Lệnh này chỉ dành cho quản trị viên hệ thống!", true);
-          } catch (err) {
-          
-          }
-          return;
-        }
-        const managerMessage = `👮 LỆNH QUẢN TRỊ BOT 👮
-
-➤ Quản lý danh sách:
-• ${prefix}mybot list - 📋 Xem danh sách tất cả bot
-• ${prefix}mybot load - 🔄 Tải lại dữ liệu bot từ file json
-• ${prefix}mybot notify - 📢 Thông báo cho tất cả khách hàng đang thuê bot
-
-➤ Quản lý bot cụ thể:
-• ${prefix}mybot detail [index] - 🔎 Xem thông tin bot theo số thứ tự
-• ${prefix}mybot info [index] - ℹ️ Xem thông tin cơ bản bot theo số thứ tự
-• ${prefix}mybot active [index] - ▶️ Kích hoạt bot theo số thứ tự
-• ${prefix}mybot restart [index] - 🔄 Khởi động lại bot theo số thứ tự
-• ${prefix}mybot shutdown [index] - ⏹️ Tắt bot theo số thứ tự
-
-➤ Phê duyệt/Từ chối bot:
-• ${prefix}mybot addtime [index/ID] [thời hạn] - ➕ Tăng thời hạn dùng bot
-• ${prefix}mybot subtime [index/ID] [thời hạn] - ➖ Giảm thời hạn dùng bot
-• ${prefix}mybot approve [index/ID] [thời hạn] - ✅ Phê duyệt bot
-   Ví dụ: ${prefix}mybot approve 1 24h
-• ${prefix}mybot reject [index/ID] - 🚫 Từ chối bot
-• ${prefix}mybot delete [index/ID] - 🗑️ Xóa bot
-
-➤ Quản lý hệ thống:
-• ${prefix}mybot activeall - 🚀 Khởi chạy tất cả bot
-• ${prefix}mybot shutdownall - 🚨 Tắt tất cả bot
-
-📝 Lưu ý về thời hạn:
-• Định dạng: số + đơn vị
-• Đơn vị: s (giây), m (phút), h (giờ), d (ngày)
-• Ví dụ: 30s, 15m, 24h, 7d, -1 (vô thời hạn)`;
-        try {
-          await sendMessageWarning(api, message, managerMessage, true);
-        } catch (err) {
-        
-        }
-        break;
-      }
-      default:
-        try {
-          const messageOptions = { msg: `🚫 Lệnh "${subCommand}" không tồn tại!`, ttl: 120000 };
-          if (message && typeof message === 'object' && message.messageID) {
-            messageOptions.quote = message;
-          }
-          await api.sendMessage(messageOptions, threadId, type);
-        } catch (err) {
-        
-        }
-        break;
-    }
-  } catch (error) {
- 
-    try {
-      const messageOptions = { 
-        msg: `🚫 Đã xảy ra lỗi khi xử lý lệnh mybot!
-Chi tiết: ${error.message}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
+      console.error(`Lỗi tạo thư mục ${dir}:`, error);
     }
   }
 }
 
-async function getBotUidByIndex(index) {
-  try {
-    if (!fs.existsSync(myBotsPath)) return null;
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    const botUids = Object.keys(myBots);
-    return botUids[index - 1] || null;
-  } catch (error) {
+async function getBotDataPath(botId) {
+  return path.resolve(paths.myBotDataDir, `${botId}.json`);
+}
 
+async function getBotConfig(botId) {
+  const botPath = await getBotDataPath(botId);
+  try {
+    const data = await fs.readFile(botPath, "utf-8");
+    return JSON.parse(data);
+  } catch {
     return null;
   }
 }
 
-async function handleListBots(api, threadId, type, message) {
-  try {
-    if (!threadId) {
-      return;
-    }
-
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        await sendMessageFailed(api, message, "🚫 Chưa có bot nào được tạo!", true);
-      } catch (err) {
-
-      }
-      return;
-    }
-
-    let myBots;
-    try {
-      myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    } catch (parseError) {
-      await sendMessageFailed(api, message, `🚫 Lỗi khi đọc file bot: ${parseError.message}`, true);
-      return;
-    }
-
-    const botList = Object.entries(myBots);
-    if (botList.length === 0) {
-      try {
-        await sendMessageFailed(api, message, "🚫 Danh sách bot trống!", true);
-      } catch (err) {
-
-      }
-      return;
-    }
-
-    let listMessage = "📜 Danh sách bot con hệ thống VXK:\n\n";
-
-    botList.forEach(([botUid, botInfo], index) => {
-      const statusEmoji = {
-        "running": "🟢",
-        "stopped": "🔴",
-        "pending": "🟡",
-        "expired": "⚫",
-        "rejected": "🚫"
-      }[botInfo.status] || "⚪";
-      const botName = botInfo.displayName || botInfo.name || botUid;
-      const hsd = botInfo.hsd || "Không xác định";
-      const creationDate = botInfo.createdAt ? formatDateTime(new Date(botInfo.createdAt)) : "N/A";
-
-      listMessage += `${index + 1}️⃣. ${botName}\n`;
-      listMessage += `├─ 🆔 ID Chủ Bot: ${botUid}\n`;
-      listMessage += `├─ ⚔️ Trạng Thái: ${statusEmoji} ${botInfo.status.toUpperCase()}\n`;
-      listMessage += `├─ ⏳ Hạn Sử Dụng: ${hsd}\n`;
-      listMessage += `└─ 📆 Ngày Tạo: ${creationDate}\n\n`;
-    });
-
-    try {
-      const messageOptions = {
-        msg: listMessage,
-        ttl: 600000
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (sendError) {
-      
-      await sendMessageFailed(api, message, `🚫 Không thể gửi tin nhắn danh sách bot: ${sendError.message}`, true);
-    }
-
-  } catch (error) {
-
-    await sendMessageFailed(api, message, `🚫 Không thể lấy danh sách bot: ${error.message}`, true);
-  }
+async function saveBotConfig(botId, config) {
+  const botPath = await getBotDataPath(botId);
+  await fs.writeFile(botPath, JSON.stringify(config, null, 4));
 }
 
-async function handleAddTime(api, botUid, dName, duration, threadId, type, message) {
+async function initializeBotFiles(botId, imei, cookie) {
+  await ensureDirectories();
+  
+  const botConfig = {
+    cookie: cookie,
+    imei: imei,
+    userAgent: getRandomUserAgent(),
+    createdAt: new Date().toISOString(),
+    expiresAt: -1,
+    isRunning: false,
+    processId: null
+  };
+  
+  const adminList = [botId];
+  
+  await saveBotConfig(botId, botConfig);
+  
   try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    if (!myBots[botUid]) {
-      try {
-        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const durationMs = parseDuration(duration);
-    if (durationMs === null) {
-      try {
-        const messageOptions = { 
-          msg: `🚫 Thời hạn không hợp lệ! 
-Định dạng: số + đơn vị (s, m, h, d). 
-Ví dụ: 30s, 15m, 24h, 7d`, 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const currentExpiry = new Date(myBots[botUid].expiryAt);
-    const newExpiry = duration === "-1" ? new Date(9999, 11, 31) : new Date(currentExpiry.getTime() + durationMs);
-    myBots[botUid].expiryAt = newExpiry.toISOString();
-    myBots[botUid].hsd = formatDateTime(new Date(newExpiry));
-    myBots[botUid].lastUpdated = new Date().toISOString();
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-    const formattedExpiry = formatDateTime(new Date(newExpiry));
+    await fs.readFile(paths.adminFilePath, "utf-8");
+  } catch {
+    await fs.writeFile(paths.adminFilePath, JSON.stringify(adminList, null, 4));
+  }
+  
+  const defaultFiles = [
+    { path: paths.configFilePath, data: {} },
+    { path: paths.WEB_CONFIG_PATH, data: {} },
+    { path: paths.MANAGER_FILE_PATH, data: {} },
+    { path: paths.PROPHYLACTIC_CONFIG_PATH, data: {} }
+  ];
+  
+  for (const file of defaultFiles) {
     try {
-      const messageOptions = { 
-        msg: `✅ Đã tăng thời hạn bot thành công!
-
-🤖 Bot ID: ${botUid}
-⏰ Thời hạn mới: ${formattedExpiry}
-👤 Cập nhật bởi: ${dName}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
-
-    if (new Date(newExpiry) > new Date() && myBots[botUid].status === "expired") {
-      const modifiedMessage = {
-        threadId: null,
-        data: { uidFrom: botUid, dName: myBots[botUid].displayName || myBots[botUid].name },
-        type: 1
-      };
-      await startBot(api, modifiedMessage, []);
-      myBots[botUid].status = "running";
-      fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-
-    }
-  } catch (error) {
-
-    try {
-      const messageOptions = { 
-        msg: `🚫 Đã xảy ra lỗi khi tăng thời hạn bot!
-Chi tiết: ${error.message}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
+      await fs.readFile(file.path, "utf-8");
+    } catch {
+      await fs.writeFile(file.path, JSON.stringify(file.data, null, 4));
     }
   }
 }
 
-async function handleSubTime(api, botUid, dName, duration, threadId, type, message) {
+async function handleMyBotCreate(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  
+  if (!mentions || mentions.length === 0) {
+    await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot cho họ");
+    return;
+  }
+  
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  if (parts.length < 4) {
+    await sendMessageQuery(api, message, "Cú pháp: mybot create @mention cookie imei");
+    return;
+  }
+  
+  const mention = mentions[0];
+  const botId = mention.uid;
+  const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
+  
+  const cookie = parts[2];
+  const imei = parts[3];
+  
   try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    if (!myBots[botUid]) {
-      try {
-        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const durationMs = parseDuration(duration);
-    if (durationMs === null) {
-      try {
-        const messageOptions = { 
-          msg: `🚫 Thời hạn không hợp lệ! 
-Định dạng: số + đơn vị (s, m, h, d). 
-Ví dụ: 30s, 15m, 24h, 7d`, 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const currentExpiry = new Date(myBots[botUid].expiryAt);
-    const newExpiry = new Date(currentExpiry.getTime() - durationMs);
-    if (newExpiry < new Date()) {
-      try {
-        const messageOptions = { 
-          msg: `🚫 Không thể giảm thời hạn! Thời hạn mới sẽ nhỏ hơn thời gian hiện tại.`, 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    myBots[botUid].expiryAt = newExpiry.toISOString();
-    myBots[botUid].hsd = formatDateTime(new Date(newExpiry));
-    myBots[botUid].lastUpdated = new Date().toISOString();
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-    const formattedExpiry = formatDateTime(new Date(newExpiry));
-    try {
-      const messageOptions = { 
-        msg: `✅ Đã giảm thời hạn bot thành công!
-
-🤖 Bot ID: ${botUid}
-⏰ Thời hạn mới: ${formattedExpiry}
-👤 Cập nhật bởi: ${dName}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
-
+    await initializeBotFiles(botId, imei, cookie);
+    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}`);
   } catch (error) {
-
-    try {
-      const messageOptions = { 
-        msg: `🚫 Đã xảy ra lỗi khi giảm thời hạn bot!
-Chi tiết: ${error.message}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
+    await sendMessageWarning(api, message, `❌ Lỗi khi tạo bot: ${error.message}`);
   }
 }
 
-async function handleApprove(api, botUid, dName, duration, threadId, type, message) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      await sendMessageResultRequest(
-        api,
-        type || MessageType.GroupMessage,
-        threadId,
-        "🚫 File mybots.json không tồn tại!",
-        false,
-        120000
-      );
-      return;
-    }
-
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    if (!myBots[botUid]) {
-      await sendMessageResultRequest(
-        api,
-        type || MessageType.GroupMessage,
-        threadId,
-        `🚫 Không tìm thấy bot với ID ${botUid}!`,
-        false,
-        120000
-      );
-      return;
-    }
-
-    const durationMs = parseDuration(duration);
-    if (durationMs === null) {
-      await sendMessageResultRequest(
-        api,
-        type || MessageType.GroupMessage,
-        threadId,
-        `🚫 Thời hạn không hợp lệ! 
-Định dạng: số + đơn vị (s, m, h, d). 
-Ví dụ: 30s, 15m, 24h, 7d, -1 (vô thời hạn)`,
-        false,
-        120000
-      );
-      return;
-    }
-
-    let newExpiry;
-    if (duration === "-1") {
-      newExpiry = new Date(9999, 11, 31).toISOString();
+async function handleMyBotAddTime(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  if (parts.length < 3) {
+    await sendMessageQuery(api, message, "Cú pháp: mybot addtime @mention/index thời_gian\nVí dụ: mybot addtime @mention 1h hoặc mybot addtime 1 30p");
+    return;
+  }
+  
+  let botId = null;
+  let botName = "Bot";
+  
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else {
+    const botList = await listAllBots();
+    const index = parseInt(parts[1]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
     } else {
-      newExpiry = new Date(Date.now() + durationMs).toISOString();
-    }
-
-    myBots[botUid].status = "running";
-    myBots[botUid].expiryAt = newExpiry;
-    myBots[botUid].hsd = formatDateTime(new Date(newExpiry));
-    myBots[botUid].lastUpdated = new Date().toISOString();
-    myBots[botUid].approvedBy = dName;
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-
-    const modifiedMessage = {
-      threadId: threadId,
-      data: {
-        uidFrom: botUid,
-        dName: myBots[botUid].displayName || myBots[botUid].name || "Unknown"
-      },
-      type: MessageType.GroupMessage
-    };
-
-    try {
-      await startBot(api, modifiedMessage, []);
-    } catch (startBotError) {
-      
-      await sendMessageResultRequest(
-        api,
-        type || MessageType.GroupMessage,
-        threadId,
-        `🚫 Lỗi khi khởi động bot: ${startBotError.message}`,
-        false,
-        120000
-      );
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
       return;
     }
-    try {
-      await api.sendMessage(
-        {
-          msg: `📢 Bot của bạn đã được phê duyệt!
-
-⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}
-
-👤 Phê duyệt bởi: ${dName}`,
-          ttl: 120000
-        },
-        botUid,
-        MessageType.DirectMessage
-      );
-    } catch (err) {      
-    }
-    await sendMessageResultRequest(
-      api,
-      type || MessageType.GroupMessage,
-      threadId,
-      `✅ Đã phê duyệt bot thành công!
-
-🤖 Bot ID: ${botUid}
-⏰ Thời hạn: ${formatDateTime(new Date(newExpiry))}
-👤 Phê duyệt bởi: ${dName}`,
-      true,
-      120000
-    );
-  } catch (error) {
+  }
   
-    await sendMessageResultRequest(
-      api,
-      type || MessageType.GroupMessage,
-      threadId,
-      `🚫 Đã xảy ra lỗi khi phê duyệt bot!
-Chi tiết: ${error.message}`,
-      false,
-      120000
-    );
-  }
-}
-async function handleReject(api, botUid, dName, threadId, type, message) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        const messageOptions = { msg: "🚫 File mybots.json không tồn tại!", ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    if (!myBots[botUid]) {
-      try {
-        const messageOptions = { msg: `🚫 Không tìm thấy bot với ID ${botUid}!`, ttl: 120000 };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    myBots[botUid].status = "rejected";
-    myBots[botUid].lastUpdated = new Date().toISOString();
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-    const modifiedMessage = {
-      threadId: null,
-      data: { uidFrom: botUid, dName: myBots[botUid].displayName || myBots[botUid].name },
-      type: 1
-    };
-    await stopBot(api, modifiedMessage, []);
-    try {
-      const messageOptions = { 
-        msg: `✅ Đã từ chối bot thành công!
-
-🤖 Bot ID: ${botUid}
-👤 Từ chối bởi: ${dName}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
-    try {
-      await api.sendMessage({ 
-        msg: `📢 Bot của bạn đã bị từ chối!
-
-👤 Từ chối bởi: ${dName}`, 
-        ttl: 120000 
-      }, botUid, 1);
-    } catch (err) {
-
-    }
-
-  } catch (error) {
-
-    try {
-      const messageOptions = { 
-        msg: `🚫 Đã xảy ra lỗi khi từ chối bot!
-Chi tiết: ${error.message}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
-  }
-}
-
-async function handleActiveAll(api, uidFrom, dName, threadId, type, message, groupAdmins) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        await sendMessageFailed(api, message, "🚫 File mybots.json không tồn tại!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    let successCount = 0;
-    let failCount = 0;
-    for (const [botUid, botInfo] of Object.entries(myBots)) {
-      const modifiedMessage = {
-        threadId: threadId,
-        data: { uidFrom: botUid, dName: botInfo.displayName || botInfo.name },
-        type: MessageType.GroupMessage
-      };
-      try {
-        await startBot(api, modifiedMessage, groupAdmins);
-        successCount++;
-      } catch (error) {
-
-        failCount++;
-      }
-    }
-    try {
-      await sendMessageComplete(
-        api,
-        message,
-        `✅ Đã khởi chạy tất cả bot thành công!
-
-Thành công: ${successCount}
-Thất bại: ${failCount}
-👤 Thực hiện bởi: ${dName}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-
-  } catch (error) {
-
-    try {
-      await sendMessageFailed(
-        api,
-        message,
-        `🚫 Đã xảy ra lỗi khi khởi chạy tất cả bot!
-Chi tiết: ${error.message}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-  }
-}
-
-async function handleShutdownAll(api, uidFrom, dName, threadId, type, message, groupAdmins) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        await sendMessageFailed(api, message, "🚫 File mybots.json không tồn tại!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    let successCount = 0;
-    let failCount = 0;
-    for (const [botUid, botInfo] of Object.entries(myBots)) {
-      const modifiedMessage = {
-        threadId: threadId,
-        data: { uidFrom: botUid, dName: botInfo.displayName || botInfo.name },
-        type: MessageType.GroupMessage
-      };
-      try {
-        await stopBot(api, modifiedMessage, groupAdmins);
-        successCount++;
-      } catch (error) {
-       
-        failCount++;
-      }
-    }
-    try {
-      await sendMessageComplete(
-        api,
-        message,
-        `⏹️ Đã tắt tất cả bot thành công!
-
-Thành công: ${successCount}
-Thất bại: ${failCount}
-👤 Thực hiện bởi: ${dName}`,
-        true
-      );
-    } catch (err) {
-    
-    }
+  const timeStr = parts[parts.length - 1];
+  const timeMs = parseTimeToMs(timeStr);
   
-  } catch (error) {
-
-    try {
-      await sendMessageFailed(
-        api,
-        message,
-        `🚫 Đã xảy ra lỗi khi tắt tất cả bot!
-Chi tiết: ${error.message}`,
-        true
-      );
-    } catch (err) {
-    
-    }
+  if (timeMs === null) {
+    await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h, 30p, 1d, -1 (vô hạn)");
+    return;
   }
-}
-async function handleAddAdmin(api, uidFrom, dName, adminUid, threadId, type, message) {
-  try {
-    const checkResult = await checkBotExists(uidFrom);
-    if (!checkResult.exists) {
-      try {
-        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    if (!adminUid || adminUid.trim().length === 0) {
-      try {
-        await sendMessageFailed(api, message, "🚫 UID admin không được để trống!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    if (!/^\d+$/.test(adminUid.trim())) {
-      try {
-        await sendMessageFailed(api, message, "🚫 UID admin phải là một chuỗi số!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const trimmedUid = adminUid.trim();
-    if (!fs.existsSync(configsDir)) {
-      fs.mkdirSync(configsDir, { recursive: true });
-    }
-    const adminFilePath = path.join(configsDir, `admins-${uidFrom}.json`);
-    let adminList = [];
-    if (fs.existsSync(adminFilePath)) {
-      try {
-        const adminData = fs.readFileSync(adminFilePath, "utf8");
-        adminList = JSON.parse(adminData);
-        if (!Array.isArray(adminList)) {
-          adminList = [];
-        }
-      } catch (parseError) {
-        adminList = [];
-      }
-    }
-    if (adminList.includes(trimmedUid)) {
-      try {
-        await sendMessageFailed(api, message, `🚫 UID ${trimmedUid} đã là admin của bot này rồi!`, true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    adminList.push(trimmedUid);
-    fs.writeFileSync(adminFilePath, JSON.stringify(adminList, null, 2));
-    try {
-      await sendMessageComplete(api, message, `✅ Đã thêm UID: ${trimmedUid} vào danh sách admin bot của bạn
-
-🤖 Bot ID: ${uidFrom}
-👤 Thêm bởi: ${dName}
-📊 Tổng admin hiện tại: ${adminList.length}`, true);
-    } catch (err) {
-    
-    }
-
-  } catch (error) {
   
-    try {
-      await sendMessageFailed(api, message, `🚫 Đã xảy ra lỗi khi thêm admin!
-Chi tiết: ${error.message}`, true);
-    } catch (err) {
-    
-    }
-  }
-}
-
-async function handleRemoveAdmin(api, uidFrom, dName, adminUid, threadId, type, message) {
   try {
-    const checkResult = await checkBotExists(uidFrom);
-    if (!checkResult.exists) {
-      try {
-        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
-      } catch (err) {
-      
-      }
+    const botConfig = await getBotConfig(botId);
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
       return;
     }
-    if (!adminUid || adminUid.trim().length === 0) {
-      try {
-        await sendMessageFailed(api, message, "🚫 UID admin không được để trống!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    if (!/^\d+$/.test(adminUid.trim())) {
-      try {
-        await sendMessageFailed(api, message, "🚫 UID admin phải là một chuỗi số!", true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const trimmedUid = adminUid.trim();
-    const adminFilePath = path.join(configsDir, `admins-${uidFrom}.json`);
-    let adminList = [];
-    if (fs.existsSync(adminFilePath)) {
-      try {
-        const adminData = fs.readFileSync(adminFilePath, "utf8");
-        adminList = JSON.parse(adminData);
-        if (!Array.isArray(adminList)) {
-          adminList = [];
-        }
-      } catch (parseError) {
-        adminList = [];
-      }
-    }
-    if (!adminList.includes(trimmedUid)) {
-      try {
-        await sendMessageFailed(api, message, `🚫 UID ${trimmedUid} không phải là admin của bot này!`, true);
-      } catch (err) {
-      
-      }
-      return;
-    }
-    adminList = adminList.filter(uid => uid !== trimmedUid);
-    fs.writeFileSync(adminFilePath, JSON.stringify(adminList, null, 2));
-    try {
-      await sendMessageComplete(api, message, `✅ Đã xóa UID: ${trimmedUid} khỏi danh sách admin bot của bạn
-
-🤖 Bot ID: ${uidFrom}
-👤 Xóa bởi: ${dName}
-📊 Tổng admin hiện tại: ${adminList.length}`, true);
-    } catch (err) {
     
+    if (timeMs === -1) {
+      botConfig.expiresAt = -1;
+    } else {
+      botConfig.expiresAt = Date.now() + timeMs;
     }
-
+    
+    await saveBotConfig(botId, botConfig);
+    await sendMessageComplete(api, message, `✅ Đã gia hạn thời gian cho bot ${botName}: ${timeStr}`);
   } catch (error) {
-   
-    try {
-      await sendMessageFailed(api, message, `🚫 Đã xảy ra lỗi khi xóa admin!
-Chi tiết: ${error.message}`, true);
-    } catch (err) {
-    
-    }
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
   }
 }
 
-async function handleListAdmins(api, uidFrom, dName, threadId, type, message) {
-  try {
-    const checkResult = await checkBotExists(uidFrom);
-    if (!checkResult.exists) {
-      try {
-        await sendMessageFailed(api, message, "🚫 Bạn chưa có bot nào được tạo!", true);
-      } catch (err) {
-
-      }
-      return;
-    }
-    const adminFilePath = path.join(configsDir, `admins-${uidFrom}.json`);
-    let adminList = [];
-    if (fs.existsSync(adminFilePath)) {
-      try {
-        const adminData = fs.readFileSync(adminFilePath, "utf8");
-        adminList = JSON.parse(adminData);
-        if (!Array.isArray(adminList)) {
-          adminList = [];
-        }
-      } catch (parseError) {
-
-        adminList = [];
-      }
-    }
-    if (adminList.length === 0) {
-      try {
-        await sendMessageComplete(api, message, `📋 Danh sách admin bot của bạn trống!
-
-🤖 Bot ID: ${uidFrom}`, true);
-      } catch (err) {
-
-      }
-      return;
-    }
-    let listMessage = `📋 DANH SÁCH ADMIN BOT (${adminList.length} admin)\n\n`;
-    adminList.forEach((uid, index) => {
-      listMessage += `${index + 1}. 🆔 UID: ${uid}\n`;
-    });
-    listMessage += `\n🤖 Bot ID: ${uidFrom}
-👤 Yêu cầu bởi: ${dName}`;
-    try {
-      await sendMessageComplete(api, message, listMessage, true);
-    } catch (err) {
-
-    }
-  } catch (error) {
- 
-    try {
-      await sendMessageFailed(api, message, `🚫 Không thể lấy danh sách admin!
-Chi tiết: ${error.message}`, true);
-    } catch (err) {
-
-    }
-  }
-}
-
-async function handleNotify(api, uidFrom, dName, content, threadId, type, message) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        const messageOptions = { 
-          msg: "🚫 File mybots.json không tồn tại!", 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-
-      }
-      return;
-    }
-
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    let sentUids = new Set();
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const [botUid, botInfo] of Object.entries(myBots)) {
-      if (!/^\d+$/.test(botUid)) {
- 
-        failCount++;
-        continue;
-      }
-
-      if (!sentUids.has(botUid)) {
-        try {
-          await api.sendMessage(
-            {
-              msg: `📢 Thông báo từ hệ thống:
-
-${content}
-
-👤 Gửi bởi: ${dName}`,
-              ttl: 120000,
-            },
-            botUid,
-            MessageType.DirectMessage
-          );
-          sentUids.add(botUid);
-          successCount++;
-
-        } catch (err) {
-   
-          failCount++;
-        }
-      }
-
-      const adminFilePath = path.join(configsDir, `admins-${botUid}.json`);
-      if (fs.existsSync(adminFilePath)) {
-        let adminList = [];
-        try {
-          const adminData = fs.readFileSync(adminFilePath, "utf8");
-          adminList = JSON.parse(adminData);
-          if (!Array.isArray(adminList)) {
-            adminList = [];
-          }
-        } catch (parseError) {
+async function handleMyBotShutdown(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
   
-          adminList = [];
-        }
+  let botId = null;
+  let botName = "Bot";
+  
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else if (parts.length >= 2) {
+    const botList = await listAllBots();
+    const index = parseInt(parts[1]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  } else {
+    await sendMessageQuery(api, message, "Cú pháp: mybot shutdown @mention hoặc mybot shutdown index");
+    return;
+  }
+  
+  try {
+    const botConfig = await getBotConfig(botId);
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
+    }
+    
+    botConfig.isRunning = false;
+    
+    if (botConfig.processId) {
+      try {
+        await execAsync(`pm2 stop ${botConfig.processId}`);
+      } catch {}
+    }
+    
+    await saveBotConfig(botId, botConfig);
+    await sendMessageComplete(api, message, `⏸️ Đã dừng bot ${botName}`);
+  } catch (error) {
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
+  }
+}
 
-        for (const adminUid of adminList) {
-          if (adminUid !== botUid && !sentUids.has(adminUid)) {
-            if (!/^\d+$/.test(adminUid)) {
+async function handleMyBotRestart(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  let botId = null;
+  let botName = "Bot";
+  
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else if (parts.length >= 2) {
+    const botList = await listAllBots();
+    const index = parseInt(parts[1]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  }
+  
+  try {
+    const botConfig = await getBotConfig(botId);
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
+    }
+    
+    if (botConfig.processId) {
+      try {
+        await execAsync(`pm2 restart ${botConfig.processId}`);
+      } catch {}
+    }
+    
+    botConfig.isRunning = true;
+    await saveBotConfig(botId, botConfig);
+    await sendMessageComplete(api, message, `🔄 Đã khởi động lại bot ${botName}`);
+  } catch (error) {
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
+  }
+}
 
-              failCount++;
-              continue;
-            }
+async function handleMyBotRemove(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  let botId = null;
+  let botName = "Bot";
+  
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else if (parts.length >= 2) {
+    const botList = await listAllBots();
+    const index = parseInt(parts[1]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  }
+  
+  try {
+    const botPath = await getBotDataPath(botId);
+    await fs.unlink(botPath);
+    await sendMessageComplete(api, message, `🗑️ Đã xóa toàn bộ dữ liệu bot ${botName}`);
+  } catch (error) {
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
+  }
+}
 
-            try {
-              await api.sendMessage(
-                {
-                  msg: `📢 Thông báo từ hệ thống (dành cho admin bot ${botUid}):
-
-${content}
-
-👤 Gửi bởi: ${dName}`,
-                  ttl: 120000,
-                },
-                adminUid,
-                MessageType.DirectMessage
-              );
-              sentUids.add(adminUid);
-              successCount++;
-
-            } catch (err) {
+async function listAllBots() {
+  try {
+    const files = await fs.readdir(paths.myBotDataDir);
+    const bots = [];
+    
+    for (const file of files) {
+      if (file.endsWith(".json") && file !== "config.json") {
+        const botId = file.replace(".json", "");
+        const botConfig = await getBotConfig(botId);
         
-              failCount++;
-            }
-          }
+        if (botConfig) {
+          const userInfo = await getUserInfoData(null, botId);
+          bots.push({
+            uid: botId,
+            name: userInfo?.name || "Unknown",
+            config: botConfig
+          });
         }
       }
     }
-
-    try {
-      const messageOptions = {
-        msg: `✅ Đã gửi thông báo đến ${successCount} người dùng!
-
-Nội dung: ${content}
-👤 Gửi bởi: ${dName}`,
-        ttl: 120000,
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
     
-    }
-
-  } catch (error) {
-
-    try {
-      const messageOptions = {
-        msg: `🚫 Đã xảy ra lỗi khi gửi thông báo!
-Chi tiết: ${error.message}`,
-        ttl: 120000,
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-    
-    }
+    return bots;
+  } catch {
+    return [];
   }
 }
 
-async function checkBotExists(uidFrom) {
+async function handleMyBotInfo(api, message) {
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  let botId = null;
+  let botName = "Bot";
+  
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else if (parts.length >= 2) {
+    const botList = await listAllBots();
+    const index = parseInt(parts[1]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+      botConfig = botList[index].config;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  }
+  
   try {
-    if (!fs.existsSync(myBotsPath)) {
-      return { exists: false };
+    const botConfig = await getBotConfig(botId);
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
     }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    const botInfo = myBots[uidFrom];
-    if (!botInfo) {
-      return { exists: false };
+    
+    const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
+    let expireInfo = "🎯 Thời gian còn lại: Vô hạn ♾️";
+    
+    if (botConfig.expiresAt !== -1) {
+      const remaining = botConfig.expiresAt - Date.now();
+      if (remaining > 0) {
+        const days = Math.floor(remaining / 86400000);
+        const hours = Math.floor((remaining % 86400000) / 3600000);
+        const mins = Math.floor((remaining % 3600000) / 60000);
+        expireInfo = `🎯 Thời gian còn lại: ${days}d ${hours}h ${mins}p`;
+      } else {
+        expireInfo = `⚠️ Hết hạn`;
+      }
     }
-    return { exists: true, botInfo };
+    
+    const status = botConfig.isRunning ? "✅ Đang chạy" : "❌ Dừng";
+    
+    const info = `📜 Thông tin BOT Từ dữ liệu VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
+    
+    await sendMessageComplete(api, message, info);
   } catch (error) {
-
-    return { exists: false };
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
   }
 }
 
-async function updateBotField(uidFrom, field, value) {
+async function handleMyBotList(api, message) {
   try {
-    if (!fs.existsSync(myBotsPath)) {
-      throw new Error("File mybots.json không tồn tại");
+    const bots = await listAllBots();
+    
+    if (bots.length === 0) {
+      await sendMessageQuery(api, message, "Chưa có bot nào trong hệ thống");
+      return;
     }
-    const myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    if (!myBots[uidFrom]) {
-      throw new Error("Bot không tồn tại trong danh sách");
+    
+    let listInfo = "📜 DANH SÁCH BOT VXK Bot Team:\n\n";
+    
+    for (let i = 0; i < bots.length; i++) {
+      const bot = bots[i];
+      const status = bot.config.isRunning ? "✅" : "❌";
+      
+      let expireInfo = "♾️ Vô hạn";
+      if (bot.config.expiresAt !== -1) {
+        const remaining = bot.config.expiresAt - Date.now();
+        if (remaining > 0) {
+          const days = Math.floor(remaining / 86400000);
+          expireInfo = `${days}d`;
+        } else {
+          expireInfo = "⚠️ Hết hạn";
+        }
+      }
+      
+      const createdTime = new Date(bot.config.createdAt).toLocaleDateString("vi-VN");
+      listInfo += `${i + 1}. ${bot.name}\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
     }
-    myBots[uidFrom][field] = value;
-    myBots[uidFrom].lastUpdated = new Date().toISOString();
-    myBots[uidFrom].hsd = formatDateTime(new Date(myBots[uidFrom].expiryAt));
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-
-    return true;
+    
+    await sendMessageComplete(api, message, listInfo);
   } catch (error) {
+    await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
+  }
+}
 
+function getHelpMessage() {
+  const prefix = getGlobalPrefix();
+  return `《 🤖 HỆ THỐNG QUẢN LÝ BOT VXK 🤖 》
+
+➤ 🆕 Tạo/Sửa Bot:
+『${prefix}mybot create』
+• 📝 Cú pháp: ${prefix}mybot create @mention cookie imei
+• ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
+• ⚠️ Lưu ý: 
+   - Không cần nhập dấu []
+   - Chỉ hoạt động trong tin nhắn riêng
+
+➤ ⏱️ Gia hạn Thời gian:
+『${prefix}mybot addtime』
+• 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
+• 💡 Ví dụ: ${prefix}mybot addtime @mention 1h
+• 📋 Đơn vị: h (giờ), p/m (phút), d (ngày), -1 (vô hạn)
+
+➤ 🛑 Dừng Bot:
+『${prefix}mybot shutdown』
+• 📝 Cú pháp: ${prefix}mybot shutdown @mention/index
+
+➤ 📋 Thông tin Bot:
+『${prefix}mybot info』
+• 📝 Cú pháp: ${prefix}mybot info @mention/index
+
+➤ 📊 Danh sách Bot:
+『${prefix}mybot list』
+• 📝 Hiển thị tất cả bot trong hệ thống
+
+➤ 🔄 Khởi động lại:
+『${prefix}mybot restart』
+• 📝 Cú pháp: ${prefix}mybot restart @mention/index
+
+➤ 🗑️ Xóa Bot:
+『${prefix}mybot remove』
+• 📝 Cú pháp: ${prefix}mybot remove @mention/index
+
+🚨🚨🚨`;
+}
+
+export async function handleMyBotCommands(api, message) {
+  const prefix = getGlobalPrefix();
+  const content = removeMention(message);
+  
+  if (!content.includes(`${prefix}mybot`)) {
     return false;
   }
-}
-async function handleLoadBots(api, uidFrom, dName, threadId, type, message) {
-  try {
-    if (!fs.existsSync(myBotsPath)) {
-      try {
-        const messageOptions = { 
-          msg: "🚫 File mybots.json không tồn tại!", 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-
-    let myBots;
-    try {
-      myBots = JSON.parse(fs.readFileSync(myBotsPath, "utf8"));
-    } catch (parseError) {
-
-      try {
-        const messageOptions = { 
-          msg: `🚫 Lỗi khi phân tích file mybots.json!
-Chi tiết: ${parseError.message}`, 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-
-    const botCount = Object.keys(myBots).length;
-    if (botCount === 0) {
-      try {
-        const messageOptions = { 
-          msg: "🚫 Danh sách bot trống!", 
-          ttl: 120000 
-        };
-        if (message && typeof message === 'object' && message.messageID) {
-          messageOptions.quote = message;
-        }
-        await api.sendMessage(messageOptions, threadId, type);
-      } catch (err) {
-      
-      }
-      return;
-    }
-
-    fs.writeFileSync(myBotsPath, JSON.stringify(myBots, null, 2));
-
-    try {
-      const messageOptions = { 
-        msg: `✅ Đã tải lại dữ liệu bot thành công!
-
-📊 Số lượng bot: ${botCount}
-👤 Thực hiện bởi: ${dName}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-
-    }
- 
-  } catch (error) {
   
-    try {
-      const messageOptions = { 
-        msg: `🚫 Đã xảy ra lỗi khi tải lại dữ liệu bot!
-Chi tiết: ${error.message}`, 
-        ttl: 120000 
-      };
-      if (message && typeof message === 'object' && message.messageID) {
-        messageOptions.quote = message;
-      }
-      await api.sendMessage(messageOptions, threadId, type);
-    } catch (err) {
-
-    }
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  if (parts.length < 2) return false;
+  
+  const command = parts[1];
+  
+  switch (command) {
+    case "create":
+      await handleMyBotCreate(api, message);
+      return true;
+    case "addtime":
+      await handleMyBotAddTime(api, message);
+      return true;
+    case "shutdown":
+      await handleMyBotShutdown(api, message);
+      return true;
+    case "info":
+      await handleMyBotInfo(api, message);
+      return true;
+    case "list":
+      await handleMyBotList(api, message);
+      return true;
+    case "restart":
+      await handleMyBotRestart(api, message);
+      return true;
+    case "remove":
+      await handleMyBotRemove(api, message);
+      return true;
+    case "help":
+      const helpMsg = getHelpMessage();
+      await sendMessageComplete(api, message, helpMsg);
+      return true;
+    default:
+      return false;
   }
-}
-async function handleUpdateName(api, uidFrom, dName, newName, threadId, type, message) {
-  try {
-    if (!newName || newName.trim().length === 0) {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Tên bot không được để trống!",
-          true
-        );
-      } catch (err) {
-       
-      }
-      return;
-    }
-    const success = await updateBotField(uidFrom, "displayName", newName.trim());
-    if (success) {
-      try {
-        await sendMessageComplete(
-          api,
-          message,
-          `✅ Đã cập nhật tên bot thành công!
-
-✏️ Tên mới: ${newName.trim()}
-🤖 Bot ID: ${uidFrom}
-👤 Cập nhật bởi: ${dName}`,
-          true
-        );
-      } catch (err) {
-       
-      }
-    } else {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Không thể cập nhật tên bot!",
-          true
-        );
-      } catch (err) {
-        
-      }
-    }
-  } catch (error) {
-    
-    try {
-      await sendMessageFailed(
-        api,
-        message,
-        `🚫 Đã xảy ra lỗi khi cập nhật tên bot!
-Chi tiết: ${error.message}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-  }
-}
-
-async function handleUpdateDescription(api, uidFrom, dName, description, threadId, type, message) {
-  try {
-    if (!description || description.trim().length === 0) {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Mô tả không được để trống!",
-          true
-        );
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const success = await updateBotField(uidFrom, "description", description.trim());
-    if (success) {
-      try {
-        await sendMessageComplete(
-          api,
-          message,
-          `✅ Đã cập nhật mô tả bot thành công!
-
-📝 Mô tả mới: ${description.trim()}
-🤖 Bot ID: ${uidFrom}
-👤 Cập nhật bởi: ${dName}`,
-          true
-        );
-      } catch (err) {
-      
-      }
-    } else {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Không thể cập nhật mô tả bot!",
-          true
-        );
-      } catch (err) {
-      
-      }
-    }
-  } catch (error) {
-   
-    try {
-      await sendMessageFailed(
-        api,
-        message,
-        `🚫 Đã xảy ra lỗi khi cập nhật mô tả bot!
-Chi tiết: ${error.message}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-  }
-}
-
-async function handleUpdateNameServer(api, uidFrom, dName, nameServer, threadId, type, message) {
-  try {
-    if (!nameServer || nameServer.trim().length === 0) {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Tên server không được để trống!",
-          true
-        );
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const databaseFile = path.join(myBotDir, "json-data", `database_config-${uidFrom}.json`);
-    if (!fs.existsSync(databaseFile)) {
-      try {
-        await sendMessageFailed(
-          api,
-          message,
-          "🚫 Không tìm thấy file cấu hình database!",
-          true
-        );
-      } catch (err) {
-      
-      }
-      return;
-    }
-    const dbConfig = JSON.parse(fs.readFileSync(databaseFile, "utf8"));
-    dbConfig.nameServer = nameServer.trim();
-    fs.writeFileSync(databaseFile, JSON.stringify(dbConfig, null, 2));
-    try {
-      await sendMessageComplete(
-        api,
-        message,
-        `✅ Đã cập nhật tên server thành công!
-
-🌐 Tên Server mới: ${nameServer.trim()}
-🤖 Bot ID: ${uidFrom}
-👤 Cập nhật bởi: ${dName}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-
-  } catch (error) {
-
-    try {
-      await sendMessageFailed(
-        api,
-        message,
-        `🚫 Đã xảy ra lỗi khi cập nhật tên server!
-Chi tiết: ${error.message}`,
-        true
-      );
-    } catch (err) {
-    
-    }
-  }
-}
-
-function parseDuration(duration) {
-  if (duration === "-1") return -1;
-  const match = duration.match(/^(\d+)([smhd])$/);
-  if (!match) return null;
-  const value = parseInt(match[1], 10);
-  const unit = match[2];
-  const multipliers = {
-    s: 1000,
-    m: 60 * 1000,
-    h: 60 * 60 * 1000,
-    d: 24 * 60 * 60 * 1000
-  };
-  return value * multipliers[unit];
-}
-
-function formatDateTime(date) {
-  const options = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh"
-  };
-  return date.toLocaleString("vi-VN", options);
 }
