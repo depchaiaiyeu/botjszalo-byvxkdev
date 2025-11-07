@@ -14,22 +14,12 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-async function deleteDirectory(dirPath) {
-  try {
-    await fs.promises.rm(dirPath, { recursive: true, force: true });
-    console.log(`[Sticker] ✅ Xóa folder: ${dirPath}`);
-  } catch (error) {
-    console.error(`[Sticker] ⚠️ Lỗi xóa folder ${dirPath}:`, error.message);
-  }
-}
-
 export async function createCircleWebp(api, message, imageUrl, idImage, rate = null) {
     const frameRate = rate || 30;
     const ext = await checkExstentionFileRemote(imageUrl);
     const downloadedImage = path.join(tempDir, `original_${idImage}.${ext}`);
     const framesDir = path.join(tempDir, `frames_${idImage}`);
     const outputWebp = path.join(tempDir, `circle_${idImage}.webp`);
-    
     try {
         await downloadFileFake(imageUrl, downloadedImage);
         const size = 512;
@@ -37,18 +27,15 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
         const totalFrames = 120;
         const numWorkers = Math.min(os.cpus().length, totalFrames);
         const framesPerWorker = Math.ceil(totalFrames / numWorkers);
-
         const resizedImageBuffer = await sharp(downloadedImage)
             .resize(size, size, {
                 fit: 'cover',
                 position: 'center'
             })
             .toBuffer();
-
         if (!fs.existsSync(framesDir)) {
             await fs.promises.mkdir(framesDir, { recursive: true });
         }
-
         const circleMask = Buffer.from(`
     <svg width="${size}" height="${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth}" fill="white"/>
@@ -59,14 +46,12 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - borderWidth / 2}" fill="none" stroke="#90EE90" stroke-width="${borderWidth}"/>
     </svg>
 `);
-
         const workers = [];
         const workerPath = path.join(__dirname, 'frame-worker.js');
         
         for (let i = 0; i < numWorkers; i++) {
             const startFrame = i * framesPerWorker;
             const endFrame = Math.min(startFrame + framesPerWorker, totalFrames);
-            
             const worker = new Worker(workerPath, {
                 workerData: {
                     startFrame,
@@ -79,7 +64,6 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                     circleBorder
                 }
             });
-
             workers.push(new Promise((resolve, reject) => {
                 worker.on('message', resolve);
                 worker.on('error', reject);
@@ -90,17 +74,13 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
                 });
             }));
         }
-
         await Promise.all(workers);
-
         const framePattern = path.join(framesDir, 'frame_%03d.png');
         await convertToWebpMulti(framePattern, outputWebp, frameRate);
-
         const [linkUploadZalo, stickerData] = await Promise.all([
             api.uploadAttachment([outputWebp], message.threadId, message.type),
             getVideoMetadata(outputWebp)
         ]);
-
         const finalUrl = linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl;
         
         return {
@@ -109,28 +89,12 @@ export async function createCircleWebp(api, message, imageUrl, idImage, rate = n
             stickerData: stickerData
         };
     } catch (error) {
-        console.error("[Sticker] ❌ Lỗi khi tạo Webp:", error);
+        console.error("Lỗi khi tạo Webp:", error);
         throw error;
     } finally {
-        console.log(`[Sticker] 🧹 Dọn dẹp file tạm...`);
-        
-        try {
-          await deleteFile(downloadedImage);
-        } catch (err) {
-          console.error(`[Sticker] ⚠️ Lỗi xóa file ${downloadedImage}:`, err.message);
-        }
-        
-        try {
-          await deleteDirectory(framesDir);
-        } catch (err) {
-          console.error(`[Sticker] ⚠️ Lỗi xóa folder ${framesDir}:`, err.message);
-        }
-        
-        try {
-          await deleteFile(outputWebp);
-        } catch (err) {
-          console.error(`[Sticker] ⚠️ Lỗi xóa file ${outputWebp}:`, err.message);
-        }
+        await deleteFile(downloadedImage);
+        await fs.promises.rm(framesDir, { recursive: true, force: true });
+        await deleteFile(outputWebp);
     }
 }
 
