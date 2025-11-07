@@ -120,17 +120,7 @@ async function createAdminListFile(botId) {
   }
 }
 
-// Tạo file command.json cho bot con
-async function createCommandFile(botId) {
-  const filePath = path.resolve(paths.myBotJsonDataFolder, `command_${botId}.json`);
-  try {
-    const defaultCommands = { commands: [] };
-    await fs.writeFile(filePath, JSON.stringify(defaultCommands, null, 2));
-    console.log(`[MyBot] ✅ Tạo file command: ${filePath}`);
-  } catch (error) {
-    console.error(`[MyBot] ❌ Lỗi tạo file command:`, error);
-  }
-}
+
 
 // Tạo file web-config.json cho bot con
 async function createWebConfigFile(botId) {
