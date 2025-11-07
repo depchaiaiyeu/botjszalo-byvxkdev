@@ -86,7 +86,7 @@ export async function checkReplySelectionsMapData(api, message) {
           uidFrom: getBotId(),
         },
       };
-      await api.deleteMessage(msgDel, false);
+      //await api.deleteMessage(msgDel, false);
     }
 
     await api.addReaction("LIKE", message);
