@@ -13,7 +13,7 @@ import * as path from "path";
 import axios from "axios";
 import { checkExstentionFileRemote } from "../../../utils/util.js";
 
-const geminiApiKey = "AIzaSyBDTyLJCj2etA-GEeObscK85s4GIkRhqYE";
+export const geminiApiKey = "AIzaSyBDTyLJCj2etA-GEeObscK85s4GIkRhqYE";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 let geminiModel;
 const requestQueue = [];
