@@ -87,13 +87,7 @@ async function getBotConfig(botId) {
 async function saveBotConfig(botId, config) {
   const botPath = await getBotDataPath(botId);
   try {
-    // Đảm bảo cookie là string JSON (stringify nếu là object)
-    if (config.cookie && typeof config.cookie === "object") {
-      config.cookie = JSON.stringify(config.cookie);
-      console.log(`[MyBot] 📝 Cookie stringify để lưu`);
-    }
-    
-    await fs.writeFile(botPath, JSON.stringify(config, null, 4));
+    await fs.writeFile(botPath, JSON.stringify(config, null, 2));
     console.log(`[MyBot] ✅ Lưu config bot ${botId} tại: ${botPath}`);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi lưu config ${botId}:`, error);
