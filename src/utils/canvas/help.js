@@ -90,11 +90,11 @@ function roundRect(ctx, x, y, width, height, radius) {
 
 export async function createInstructionsImage(helpContent, isAdminBox, width = 880) {
   const padding = 40;
-  const commandBoxPadding = 20;
-  const commandBoxMargin = 15;
-  const borderRadius = 15;
-  const titleHeight = 100;
-  const rowHeight = 70;
+  const boxPadding = 18;
+  const boxMargin = 15;
+  const borderRadius = 12;
+  const titleHeight = 90;
+  const boxHeight = 60;
   
   const allCommands = [];
   for (const key in helpContent.allMembers) {
@@ -112,12 +112,14 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
     }
   }
   
-  let totalHeight = titleHeight + 40;
-  totalHeight += allCommands.length * rowHeight;
+  const commandWidth = (width - padding * 2 - boxMargin) / 2;
+  
+  let totalHeight = titleHeight + 30;
+  totalHeight += allCommands.length * (boxHeight + boxMargin);
   
   if (adminCommands.length > 0) {
     totalHeight += 80;
-    totalHeight += adminCommands.length * rowHeight;
+    totalHeight += adminCommands.length * (boxHeight + boxMargin);
   }
   
   totalHeight += padding;
@@ -129,48 +131,53 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
   createHelpBackground(ctx, width, height);
   
   const titleText = toUpperCaseVietnamese(helpContent.title);
-  ctx.font = "bold 36px BeVietnamPro";
+  ctx.font = "bold 32px BeVietnamPro";
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.fillText(titleText, width / 2, 60);
+  ctx.fillText(titleText, width / 2, 55);
   
-  const drawCommandBox = (command, description, x, y, w) => {
-    roundRect(ctx, x, y, w, 55, borderRadius);
+  const drawCommandRow = (command, description, y) => {
+    roundRect(ctx, padding, y, commandWidth, boxHeight, borderRadius);
     ctx.fillStyle = "rgba(26, 58, 80, 0.6)";
     ctx.fill();
-    
     ctx.strokeStyle = "rgba(100, 150, 200, 0.3)";
     ctx.lineWidth = 1;
     ctx.stroke();
     
     ctx.textAlign = "left";
-    ctx.font = "bold 24px BeVietnamPro";
-    ctx.fillStyle = cv.getRandomGradient(ctx, w);
-    ctx.fillText(command, x + commandBoxPadding, y + 35);
+    ctx.font = "bold 20px BeVietnamPro";
+    ctx.fillStyle = cv.getRandomGradient(ctx, commandWidth);
+    ctx.fillText(command, padding + boxPadding, y + boxHeight / 2 + 7);
     
-    ctx.textAlign = "right";
-    ctx.font = "20px BeVietnamPro";
+    roundRect(ctx, padding + commandWidth + boxMargin, y, commandWidth, boxHeight, borderRadius);
+    ctx.fillStyle = "rgba(18, 45, 60, 0.7)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(100, 150, 200, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.textAlign = "left";
+    ctx.font = "18px BeVietnamPro";
     ctx.fillStyle = "#E0E0E0";
-    ctx.fillText(description, x + w - commandBoxPadding, y + 35);
+    ctx.fillText(description, padding + commandWidth + boxMargin + boxPadding, y + boxHeight / 2 + 7);
   };
   
-  let currentY = titleHeight + 40;
-  const boxWidth = width - padding * 2;
+  let currentY = titleHeight + 30;
   
   for (let i = 0; i < allCommands.length; i++) {
     const cmd = allCommands[i];
     const commandText = `${cmd.icon} ${cmd.command}`;
     const descriptionText = cmd.description;
     
-    drawCommandBox(commandText, descriptionText, padding, currentY, boxWidth);
-    currentY += rowHeight;
+    drawCommandRow(commandText, descriptionText, currentY);
+    currentY += boxHeight + boxMargin;
   }
   
   if (adminCommands.length > 0) {
     currentY += 30;
     
     const adminTitleText = toUpperCaseVietnamese(helpContent.titleAdmin);
-    ctx.font = "bold 32px BeVietnamPro";
+    ctx.font = "bold 28px BeVietnamPro";
     ctx.textAlign = "center";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(adminTitleText, width / 2, currentY);
@@ -182,8 +189,8 @@ export async function createInstructionsImage(helpContent, isAdminBox, width = 8
       const commandText = `${cmd.icon} ${cmd.command}`;
       const descriptionText = cmd.description;
       
-      drawCommandBox(commandText, descriptionText, padding, currentY, boxWidth);
-      currentY += rowHeight;
+      drawCommandRow(commandText, descriptionText, currentY);
+      currentY += boxHeight + boxMargin;
     }
   }
   
