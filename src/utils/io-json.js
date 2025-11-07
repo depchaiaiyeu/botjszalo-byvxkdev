@@ -4,14 +4,25 @@ import chalk from "chalk"
 import { mkdir } from "fs/promises"
 import { getTimeToString, getTimeNow } from "./format-util.js"
 
-const botId = process.argv[2] || null
+const botId = process.argv[2] || 'main'
+const isMainBot = botId === 'main'
 
-let botInfo = null
-let isFallback = false
-let isSubBot = false
+let botInfo = {
+  adminFilePath: path.resolve("./assets/data/list_admin.json"),
+  groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
+  configFilePath: path.resolve("./assets/config.json"),
+  commandFilePath: path.resolve("./assets/json-data/command.json"),
+  logDir: path.resolve("./logs"),
+  resourceDir: path.resolve("./resources"),
+  tempDir: path.resolve("./temp"),
+  dataGifPath: path.resolve("./assets/gif"),
+  DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
+  WEB_CONFIG_PATH: path.resolve("./assets/json-data/web-config.json"),
+  MANAGER_FILE_PATH: path.resolve("./assets/json-data/manager-bot.json"),
+  PROPHYLACTIC_CONFIG_PATH: path.resolve("./assets/json-data/prophylactic.json")
+}
 
-if (botId && botId !== "main") {
-  isSubBot = true
+if (!isMainBot) {
   const subBotPath = path.resolve("./mybot", `${botId}.json`)
   
   if (fs.existsSync(subBotPath)) {
@@ -35,41 +46,26 @@ if (botId && botId !== "main") {
       }
     } catch (error) {
       console.error(`Lỗi khi đọc bot con ${botId}:`, error)
-      isSubBot = false
+      process.exit(1)
     }
+  } else {
+    console.error(`Bot con ${botId} không tồn tại`)
+    process.exit(1)
   }
 }
 
-if (!isSubBot) {
-  isFallback = true
-  botInfo = {
-    adminFilePath: path.resolve("./assets/data/list_admin.json"),
-    groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
-    configFilePath: path.resolve("./assets/config.json"),
-    commandFilePath: path.resolve("./assets/json-data/command.json"),
-    logDir: path.resolve("./logs"),
-    resourceDir: path.resolve("./resources"),
-    tempDir: path.resolve("./temp"),
-    dataGifPath: path.resolve("./assets/gif"),
-    DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
-    WEB_CONFIG_PATH: path.resolve("./assets/json-data/web-config.json"),
-    MANAGER_FILE_PATH: path.resolve("./assets/json-data/manager-bot.json"),
-    PROPHYLACTIC_CONFIG_PATH: path.resolve("./assets/json-data/prophylactic.json")
-  }
-}
-
-const adminFilePath = botInfo.adminFilePath || path.resolve("./assets/data/list_admin.json")
-const groupSettingsPath = botInfo.groupSettingsPath || path.resolve("./assets/data/group_settings.json")
-const configFilePath = botInfo.configFilePath || path.resolve("./assets/config.json")
-const commandFilePath = botInfo.commandFilePath || path.resolve("./assets/json-data/command.json")
-const logDir = botInfo.logDir || path.resolve("./logs")
-export const resourceDir = botInfo.resourceDir || path.resolve("./resources")
-export const tempDir = botInfo.tempDir || path.resolve("./temp")
-export const dataGifPath = botInfo.dataGifPath || path.resolve("./assets/gif")
+const adminFilePath = botInfo.adminFilePath
+const groupSettingsPath = botInfo.groupSettingsPath
+const configFilePath = botInfo.configFilePath
+const commandFilePath = botInfo.commandFilePath
+const logDir = botInfo.logDir
+export const resourceDir = botInfo.resourceDir
+export const tempDir = botInfo.tempDir
+export const dataGifPath = botInfo.dataGifPath
 const logManagerBotFilePath = path.join(logDir, "bot-manager.log")
 const loggingMessageFilePath = path.join(logDir, "message.txt")
 const loggingMessageJsonPath = path.join(logDir, "message.json")
-const dataGamePath = botInfo.DATA_GAME_FILE_PATH || path.resolve("./assets/data/game.json")
+const dataGamePath = botInfo.DATA_GAME_FILE_PATH
 
 export async function ensureLogFiles() {
   try {
@@ -165,7 +161,7 @@ export function writeCommandConfig(config) {
   }
 }
 
-const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH || path.resolve("./assets/json-data/web-config.json")
+const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH
 export function readWebConfig() {
   try {
     const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8")
@@ -180,7 +176,7 @@ export function writeWebConfig(config) {
   fs.writeFileSync(WEB_CONFIG_PATH, JSON.stringify(config, null, 2))
 }
 
-const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH || path.resolve("./assets/json-data/manager-bot.json")
+const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH
 export function readManagerFile() {
   try {
     const data = fs.readFileSync(MANAGER_FILE_PATH, "utf8")
@@ -205,7 +201,7 @@ export function pushMessageToWebLog(io, nameType, senderName, content, avtGroup)
   }
 }
 
-const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH || path.resolve("./assets/json-data/prophylactic.json")
+const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH
 export function readProphylacticConfig() {
   try {
     const data = fs.readFileSync(PROPHYLACTIC_CONFIG_PATH, "utf8")
@@ -232,12 +228,16 @@ export function writeProphylacticConfig(data) {
 }
 
 export function getSubBotConfig() {
-  if (isSubBot && botInfo.subBotConfig) {
+  if (!isMainBot && botInfo.subBotConfig) {
     return botInfo.subBotConfig
   }
   return null
 }
 
 export function isSubBotInstance() {
-  return isSubBot
+  return !isMainBot
+}
+
+export function isBotMain() {
+  return isMainBot
 }
