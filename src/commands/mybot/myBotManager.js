@@ -103,9 +103,9 @@ async function initializeBotFiles(botId, imei, cookie) {
     imei: imei,
     userAgent: getRandomUserAgent(),
     createdAt: new Date().toISOString(),
-    expiresAt: -1,
-    isRunning: false,
-    processId: null
+    expiresAt: Date.now() + 3600000,
+    isRunning: true,
+    processId: `mybot-${botId}`
   };
   
   const adminList = [botId];
@@ -158,10 +158,16 @@ async function handleMyBotCreate(api, message) {
   const imei = parts[3];
   
   try {
+    const processName = `mybot-${botId}`;
+    const indexPath = path.resolve("src/index.js");
+    
+    try {
+      await execAsync(`pm2 delete ${processName}`);
+    } catch {}
+    
     await initializeBotFiles(botId, imei, cookie);
     
-    const processName = `mybot-${botId}`;
-    await execAsync(`pm2 start index.js --name "${processName}" -- ${botId}`);
+    await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
     
     await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
   } catch (error) {
@@ -262,7 +268,7 @@ async function handleMyBotShutdown(api, message) {
     
     if (botConfig.processId) {
       try {
-        await execAsync(`pm2 stop ${botConfig.processId}`);
+        await execAsync(`pm2 delete ${botConfig.processId}`);
       } catch {}
     }
     
