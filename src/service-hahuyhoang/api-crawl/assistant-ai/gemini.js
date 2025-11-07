@@ -29,7 +29,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "jxl"];
 export function initGeminiModel() {
   if (geminiModel) return;
   geminiModel = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-lite",
     generationConfig: {
       temperature: 0.9,
       topK: 40,
