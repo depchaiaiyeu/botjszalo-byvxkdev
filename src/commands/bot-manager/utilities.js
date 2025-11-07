@@ -95,52 +95,28 @@ export async function handleEval(api, message) {
     const prefix = await getGlobalPrefix();
     const content = removeMention(message);
     if (!content.startsWith(`${prefix}eval`)) return false;
-    
     const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
       await sendMessageComplete(api, message, `Vui lòng nhập code để thực thi.`);
-      return true;
+      return;
     }
-    
     const senderId = message.data?.uidFrom;
     const threadId = message.threadId;
     const senderName = message.data?.dName;
-    
     let output;
+    let apiJson;
     try {
-      // Eval với đầy đủ context
-      output = await eval(`(async () => { 
-        const api = ${JSON.stringify(api, null, 2)};
-        const message = ${JSON.stringify(message, null, 2)};
-        const senderId = ${JSON.stringify(senderId)};
-        const threadId = ${JSON.stringify(threadId)};
-        const senderName = ${JSON.stringify(senderName)};
-        return ${code}; 
-      })()`);
+      apiJson = JSON.stringify(api, null, 2);
+      console.log('API JSON:', apiJson);
+      // Gửi JSON của api dưới dạng tin nhắn trong thread
+      await sendMessageComplete(api, message, `API JSON: ${apiJson}`);
+      output = await eval(`(async () => { const senderId=${JSON.stringify(senderId)}; const threadId=${JSON.stringify(threadId)}; const senderName=${JSON.stringify(senderName)}; return ${code}; })()`);
     } catch (err) {
-      output = `❌ Lỗi thực thi: ${err.message}\nStack: ${err.stack}`;
-      console.error(`[Eval] Lỗi: ${err.message}`, err.stack);
+      output = `${err.message}`;
     }
-    
-    // Format output
-    let outputStr = typeof output === 'string' ? output : JSON.stringify(output, null, 2);
-    
-    // Log ra console
-    console.log(`[Eval] Kết quả:`, outputStr);
-    
-    // Gửi lên tin nhắn (cắt nếu quá dài)
-    const maxLength = 3500;
-    if (outputStr.length > maxLength) {
-      outputStr = outputStr.substring(0, maxLength) + `\n... (cắt, xem console để chi tiết)`;
-    }
-    
-    await sendMessageComplete(api, message, `📤 Kết quả eval:\n\`\`\`\n${outputStr}\n\`\`\``);
-    
-    return true;
+    await sendMessageComplete(api, message, `Output: ${output}`);
   } catch (err) {
-    console.error(`[Eval] Lỗi chung:`, err);
-    await sendMessageFailed(api, message, `❌ Lỗi lệnh eval: ${err.message}`);
-    return true;
+    await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
 }
 
