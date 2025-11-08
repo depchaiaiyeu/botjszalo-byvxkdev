@@ -328,7 +328,7 @@ async function handleMyBotCreate(api, message) {
   }
 }
 
-async function listAllBots() {
+async function listAllBots(api) {
   console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
   try {
     const files = await fs.readdir(paths.myBotDataDir);
@@ -352,14 +352,16 @@ async function listAllBots() {
         if (botConfig) {
           let botName = botId;
           try {
-            const userInfo = await getUserInfoData(null, botId);
-            botName = userInfo?.name || botId;
+            const userInfo = await getUserInfoData(api, botId);
+            if (userInfo && userInfo.name) {
+              botName = userInfo.name;
+            }
             bots.push({
               uid: botId,
               name: botName,
               config: botConfig
             });
-            console.log(`[MyBot] ✅ Thêm bot: ${botId}`);
+            console.log(`[MyBot] ✅ Thêm bot: ${botId} (Tên: ${botName})`);
           } catch (err) {
             console.log(`[MyBot] ⚠️ Không thể lấy thông tin user ${botId}. Dùng UID làm tên.`);
             bots.push({
@@ -406,7 +408,7 @@ async function handleMyBotInfo(api, message) {
 
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
-  const botList = await listAllBots();
+  const botList = await listAllBots(api);
   
   const { botId, botName } = getBotTarget(message, parts, botList);
 
@@ -452,7 +454,7 @@ async function handleMyBotList(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
 
   try {
-    const bots = await listAllBots();
+    const bots = await listAllBots(api);
 
     console.log(`[MyBot] 📊 Số bot tìm được: ${bots.length}`);
 
@@ -500,7 +502,7 @@ async function handleMyBotAddTime(api, message) {
     return;
   }
   
-  const botList = await listAllBots();
+  const botList = await listAllBots(api);
   let botId = null;
   let botName = "Bot";
   let timeStr = parts[parts.length - 1];
@@ -601,7 +603,7 @@ async function handleMyBotDelete(api, message) {
 
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
-  const botList = await listAllBots();
+  const botList = await listAllBots(api);
 
   const target = getBotTarget(message, parts, botList);
   const botId = target.botId;
@@ -626,8 +628,92 @@ async function handleMyBotDelete(api, message) {
 
     await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName} (ID: ${botId}) khỏi VXK Bot Team.`);
   } catch (error) {
-    console.error(`[MyBot] ❌ Lỗi khi xóa bot:`, error.message);
+    console.error(`[MyBot] ❌ Lỗi khi xóa bot:`, error);
     await sendMessageWarning(api, message, `❌ Lỗi khi xóa bot: ${error.message}`);
+  }
+}
+
+async function handleMyBotShutdown(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot shutdown`);
+
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  const botList = await listAllBots(api);
+
+  const target = getBotTarget(message, parts, botList);
+  const botId = target.botId;
+  const botName = target.botName;
+
+  if (!botId) {
+    await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để tắt bot.");
+    return;
+  }
+
+  try {
+    const processName = `mybot-${botId}`;
+    const botConfig = await getBotConfig(botId);
+    
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
+    }
+    
+    await execAsync(`pm2 stop ${processName}`);
+    console.log(`[MyBot] ✅ Đã dừng process PM2: ${processName}`);
+    
+    botConfig.isRunning = false;
+    await saveBotConfig(botId, botConfig);
+    
+    await sendMessageComplete(api, message, `✅ Đã tắt bot của ${botName} (ID: ${botId}).`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi tắt bot:`, error);
+    await sendMessageWarning(api, message, `❌ Lỗi khi tắt bot: ${error.message}`);
+  }
+}
+
+async function handleMyBotActive(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot active`);
+
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  const botList = await listAllBots(api);
+
+  const target = getBotTarget(message, parts, botList);
+  const botId = target.botId;
+  const botName = target.botName;
+
+  if (!botId) {
+    await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để bật bot.");
+    return;
+  }
+
+  try {
+    const processName = `mybot-${botId}`;
+    const botConfig = await getBotConfig(botId);
+    
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
+    }
+    
+    await execAsync(`pm2 start ${processName}`);
+    console.log(`[MyBot] ✅ Đã khởi động process PM2: ${processName}`);
+    
+    botConfig.isRunning = true;
+    await saveBotConfig(botId, botConfig);
+    
+    await sendMessageComplete(api, message, `✅ Đã bật bot của ${botName} (ID: ${botId}).\nĐang theo dõi log...`);
+
+    console.log(`[MyBot] 📡 Bắt đầu stream log trực tiếp cho: ${processName}`);
+    const logStream = spawn('pm2', ['logs', processName, '--raw']);
+    logStream.stdout.on('data', (data) => process.stdout.write(`[LOG|${botId}] ${data.toString()}`));
+    logStream.stderr.on('data', (data) => process.stderr.write(`[ERR|${botId}] ${data.toString()}`));
+    logStream.on('close', (code) => console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`));
+    logStream.on('error', (err) => console.error(`[MyBot] ❌ Lỗi khi stream log cho ${processName}:`, err));
+
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi bật bot:`, error);
+    await sendMessageWarning(api, message, `❌ Lỗi khi bật bot: ${error.message}`);
   }
 }
 
@@ -637,7 +723,7 @@ function getHelpMessage() {
 
 ➤ 🆕 Tạo/Sửa Bot:
 『${prefix}mybot create』
-• 📝 Cú pháp: ${prefix}mybot create @mention cookie imei
+• 📝 Cú pháp: ${prefix}mybot create @mentions <cookie> <imei>
 • ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
 
 ---
@@ -645,13 +731,25 @@ function getHelpMessage() {
 『${prefix}mybot addtime』
 • 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
 • ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
-• ⚙️ Ví dụ: ${prefix}mybot addtime @user 1d
+• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index 1d
 
 ---
 ➤ 🗑️ Xóa Bot:
 『${prefix}mybot delete/remove』
 • 📝 Cú pháp: ${prefix}mybot delete @mention/index
 • ⚙️ Chức năng: Xóa bot và toàn bộ data
+
+---
+➤ 🟢 Bật Bot:
+『${prefix}mybot active』
+• 📝 Cú pháp: ${prefix}mybot active @mention/index
+• ⚙️ Chức năng: Khởi động bot đã tắt
+
+---
+➤ 🔴 Tắt Bot:
+『${prefix}mybot shutdown』
+• 📝 Cú pháp: ${prefix}mybot shutdown @mention/index
+• ⚙️ Chức năng: Dừng bot (không xóa data)
 
 ---
 ➤ 📋 Thông tin Bot:
@@ -704,6 +802,12 @@ export async function handleMyBotCommands(api, message) {
     case "delete":
     case "remove":
       await handleMyBotDelete(api, message);
+      return true;
+    case "active":
+      await handleMyBotActive(api, message);
+      return true;
+    case "shutdown":
+      await handleMyBotShutdown(api, message);
       return true;
     case "help":
       const helpMsg = getHelpMessage();
