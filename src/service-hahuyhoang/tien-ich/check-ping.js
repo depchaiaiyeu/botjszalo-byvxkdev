@@ -97,7 +97,7 @@ export async function handleCheckPingCommand(api, message) {
         message: messageContent,
       },
       true,
-      60000
+      600000
     );
   } catch (error) {
     console.log(`Lỗi khi kiểm tra Ping: ${error.message}`);
