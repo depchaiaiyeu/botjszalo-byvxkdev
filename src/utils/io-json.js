@@ -4,7 +4,7 @@ import chalk from "chalk"
 import { mkdir } from "fs/promises"
 import { getTimeToString, getTimeNow } from "./format-util.js"
 
-const botId = process.argv[2] || 'main'
+export const botId = process.argv[2] || 'main'
 const isMainBot = botId === 'main'
 
 console.log(chalk.cyan(`📦 Config Loader: Bot ID = ${botId}`))
@@ -14,7 +14,7 @@ let botInfo = {
   adminFilePath: path.resolve("./assets/data/list_admin.json"),
   groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
   configFilePath: path.resolve("./assets/config.json"),
-  commandFilePath: path.resolve("./assets/json-data/command.json"), // Path mặc định cho bot chính
+  commandFilePath: path.resolve("./assets/json-data/command.json"),
   logDir: path.resolve("./logs"),
   resourceDir: path.resolve("./resources"),
   tempDir: path.resolve("./temp"),
@@ -37,7 +37,7 @@ if (!isMainBot) {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
         configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"), // Đã sửa: Load command riêng cho bot con
+        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"),
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
@@ -104,11 +104,14 @@ export function readConfig() {
   try {
     const data = fs.readFileSync(configFilePath, "utf-8")
     const config = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${configFilePath}:\n${JSON.stringify(config, null, 2)}`));
 
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
       console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
       try {
-        const mainConfig = JSON.parse(fs.readFileSync(botInfo.mainBotConfigPath, "utf-8"))
+        const mainData = fs.readFileSync(botInfo.mainBotConfigPath, "utf-8");
+        const mainConfig = JSON.parse(mainData);
+        console.log(chalk.blue(`[JSON Loader] Đọc ${botInfo.mainBotConfigPath}:\n${JSON.stringify(mainConfig, null, 2)}`));
         return mainConfig
       } catch (err) {
         console.error("Lỗi đọc config bot chính:", err)
@@ -126,7 +129,9 @@ export function readConfig() {
 export function readAdmins() {
   try {
     const data = fs.readFileSync(adminFilePath, "utf-8")
-    return JSON.parse(data)
+    const admins = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${adminFilePath}:\n${JSON.stringify(admins, null, 2)}`));
+    return admins
   } catch (error) {
     console.error("Lỗi đọc tệp admin:", error)
     return []
@@ -150,7 +155,9 @@ export function logMessageToFile(data, type = "message") {
 export function readGroupSettings() {
   try {
     const data = fs.readFileSync(groupSettingsPath, "utf-8")
-    return JSON.parse(data)
+    const settings = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${groupSettingsPath}:\n${JSON.stringify(settings, null, 2)}`));
+    return settings
   } catch (error) {
     console.error("Lỗi khi đọc file group_settings.json:", error)
     return {}
@@ -168,7 +175,9 @@ export function writeGroupSettings(settings) {
 export function readCommandConfig() {
   try {
     const data = fs.readFileSync(commandFilePath, "utf-8")
-    return JSON.parse(data)
+    const config = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${commandFilePath}:\n${JSON.stringify(config, null, 2)}`));
+    return config
   } catch (error) {
     console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
     return { commands: [] }
@@ -187,7 +196,9 @@ const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH
 export function readWebConfig() {
   try {
     const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8")
-    return JSON.parse(data)
+    const config = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${WEB_CONFIG_PATH}:\n${JSON.stringify(config, null, 2)}`));
+    return config
   } catch (error) {
     console.error("Lỗi khi đọc file web-config.json:", error)
     return {}
@@ -204,6 +215,7 @@ export function readManagerFile() {
     const data = fs.readFileSync(MANAGER_FILE_PATH, "utf8")
     let parsedData = JSON.parse(data)
     if (!parsedData) parsedData = {}
+    console.log(chalk.blue(`[JSON Loader] Đọc ${MANAGER_FILE_PATH}:\n${JSON.stringify(parsedData, null, 2)}`));
     return parsedData
   } catch (error) {
     if (error.code === "ENOENT") return {}
@@ -228,6 +240,7 @@ export function readProphylacticConfig() {
   try {
     const data = fs.readFileSync(PROPHYLACTIC_CONFIG_PATH, "utf8")
     const parsedData = JSON.parse(data)
+    console.log(chalk.blue(`[JSON Loader] Đọc ${PROPHYLACTIC_CONFIG_PATH}:\n${JSON.stringify(parsedData, null, 2)}`));
     return parsedData
   } catch (error) {
     console.error("Lỗi khi đọc file prophylactic.json:", error)
@@ -262,4 +275,8 @@ export function isSubBotInstance() {
 
 export function isBotMain() {
   return isMainBot
+}
+
+export function getBotId() {
+  return botId;
 }
