@@ -33,7 +33,7 @@ import { removeGroupAdminsFactory } from "./apis/removeGroupAdmins.js";
 import { getQRLinkFactory } from "./apis/getQRZalo.js";
 import { sendBusinessCardFactory } from "./apis/sendBusinessCard.js";
 import { sendFriendRequestFactory } from "./apis/sendFriendRequest.js";
-import { setBotId } from "../index.js";
+import { setBotId, reloadAdmins } from "../index.js";
 import { getGroupMembersJoinRequestFactory } from "./apis/getGroupMembersJoinRequest.js";
 import { handleGroupPendingMembersFactory } from "./apis/handleGroupPendingMembers.js";
 import { changeGroupOwnerFactory } from "./apis/changeGroupOwner.js";
@@ -65,7 +65,7 @@ import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
 
-import fs from "fs/promises";
+import fs from "fs";
 import path from "path";
 import { isSubBotInstance } from "../utils/io-json.js";
 
@@ -122,7 +122,7 @@ class Zalo {
       
       let admins = [];
       try {
-        const data = await fs.readFile(adminFilePath, "utf-8");
+        const data = fs.readFileSync(adminFilePath, "utf-8");
         admins = JSON.parse(data);
         if (!Array.isArray(admins)) admins = [];
       } catch (e) {
@@ -151,7 +151,7 @@ class Zalo {
       }
       
       try {
-        await fs.writeFile(adminFilePath, JSON.stringify(admins, null, 2));
+        fs.writeFileSync(adminFilePath, JSON.stringify(admins, null, 2));
         logger.info(`[MyBot Login] Đã cập nhật danh sách admin cho ${botId}: ${admins.join(", ")}`);
         if (this.reloadAdminsCallback) {
           this.reloadAdminsCallback();
