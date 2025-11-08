@@ -250,6 +250,8 @@ async function handleMyBotCreate(api, message) {
     return;
   }
 
+  // ĐÃ BỎ XÓA TIN NHẮN
+  // await api.deleteMessage(message); 
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
   console.log(`[MyBot] 🔑 IMEI: ${imei}`);
@@ -279,7 +281,8 @@ async function handleMyBotCreate(api, message) {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     try {
-      const { stdout: logOutput } = await execAsync(`pm2 logs ${processName} --lines 50 --nostream`);
+      // TĂNG LOG LÊN 500 DÒNG
+      const { stdout: logOutput } = await execAsync(`pm2 logs ${processName} --lines 500 --nostream`);
       console.log(`[MyBot] 📜 PM2 Logs:\n${logOutput}`);
     } catch (logErr) {
       console.log(`[MyBot] ⚠️ Không thể lấy log PM2:`, logErr.message);
