@@ -169,7 +169,7 @@ async function createStatusImage(text, userInfo) {
 
 	const now = new Date();
 	const timeStr = now.toLocaleString("vi-VN");
-	ctx.font = "26px BeVietnamPro, Arial";
+	ctx.font = "26px Arial";
 	ctx.fillStyle = "#666666";
 	ctx.fillText(timeStr + " 🌍", textX, timeY);
 
