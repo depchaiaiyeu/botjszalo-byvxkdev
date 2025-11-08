@@ -330,12 +330,9 @@ export async function sendVoiceMusic(api, message, object, ttl) {
       try {
         object.thumbnailPath = thumbnailPath;
         imagePath = await createMusicCard(object);
-        const idImage = Date.now();
-        stickerResult = await createCircleWebp(api, message, object.imageUrl, idImage, 20);
       } catch (error) {
-        console.error("Lỗi khi tạo music card/sticker:", error);
+        console.error("Lỗi khi tạo music card:", error);
         imagePath = null;
-        stickerResult = null;
       }
     }
     await sendMessageCompleteRequest(api, message, object, 180000);
@@ -348,15 +345,6 @@ export async function sendVoiceMusic(api, message, object, ttl) {
         },
         message.threadId,
         message.type
-      );
-    }
-    if (stickerResult) {
-      await api.sendCustomSticker(
-        message, 
-        stickerResult.url, 
-        stickerResult.url, 
-        stickerResult.stickerData.width, 
-        stickerResult.stickerData.height
       );
     }
     await api.sendVoice(message, voiceUrl, ttl);
