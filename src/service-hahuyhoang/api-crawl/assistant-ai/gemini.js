@@ -13,12 +13,12 @@ import * as path from "path";
 import axios from "axios";
 import { checkExstentionFileRemote } from "../../../utils/util.js";
 
-const GEMINI_API_KEYS = [
+export const GEMINI_API_KEYS = [
   "AIzaSyAcjgP3ia83DLvrBefVZWb4VAwOaxtY9Ho",
   "AIzaSyBDTyLJCj2etA-GEeObscK85s4GIkRhqYE"
 ];
 
-const MODEL_PRIORITY = [
+export const MODEL_PRIORITY = [
   "gemini-2.5-flash",
   "gemini-2.0-flash-lite",
   "gemini-2.0-flash-exp"
