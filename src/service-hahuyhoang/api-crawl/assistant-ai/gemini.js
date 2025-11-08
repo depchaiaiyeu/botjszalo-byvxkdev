@@ -17,7 +17,6 @@ export const apiKeys = [
 ];
 
 export const modelPriority = [
-  "gemini-2.5-flash",
   "gemini-2.0-flash-lite"
 ];
 
