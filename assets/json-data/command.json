@@ -2277,7 +2277,7 @@
       "description": "Xem xổ số các vùng",
       "syntax": "{p}xoso",
       "permission": "adminLevelHigh",
-      "countdown": 5,
+      "countdown": 15,
       "icon": "🎰",
       "type": 1,
       "author": "Vũ Xuân Kiên",
@@ -2348,6 +2348,6 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
-    },
+    }
   ]
 }
