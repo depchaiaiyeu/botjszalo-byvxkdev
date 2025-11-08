@@ -7,7 +7,8 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { createAdminListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
-import { exec } from "child_process";
+// THÊM 'spawn' TỪ 'child_process'
+import { exec, spawn } from "child_process"; 
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -250,7 +251,7 @@ async function handleMyBotCreate(api, message) {
     return;
   }
 
-  // ĐÃ BỎ XÓA TIN NHẮN
+  // ĐÃ BỎ XÓA TIN NHẮN (THEO YÊU CẦU TRƯỚC)
   // await api.deleteMessage(message); 
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
@@ -277,18 +278,43 @@ async function handleMyBotCreate(api, message) {
     console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
     if (stderr) console.log(`[MyBot] ⚠️ PM2 stderr: ${stderr}`);
 
-    console.log(`[MyBot] 📋 Đợi 2s để process khởi động...`);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // GỬI TIN NHẮN HOÀN TẤT CHO NGƯỜI DÙNG NGAY LẬP TỨC
+    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy.\nĐang theo dõi log...`);
 
-    try {
-      // TĂNG LOG LÊN 500 DÒNG
-      const { stdout: logOutput } = await execAsync(`pm2 logs ${processName} --lines 500 --nostream`);
-      console.log(`[MyBot] 📜 PM2 Logs:\n${logOutput}`);
-    } catch (logErr) {
-      console.log(`[MyBot] ⚠️ Không thể lấy log PM2:`, logErr.message);
-    }
+    // =================================================================
+    // BẮT ĐẦU STREAM LOG TRỰC TIẾP RA CONSOLE CỦA BOT CHÍNH
+    // =================================================================
+    
+    console.log(`[MyBot] 📡 Bắt đầu stream log trực tiếp cho: ${processName}`);
+    
+    // Sử dụng spawn để chạy 'pm2 logs' ở chế độ streaming
+    // Chúng ta KHÔNG 'await' tiến trình này, để nó chạy ngầm
+    const logStream = spawn('pm2', ['logs', processName, '--raw']);
 
-    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
+    // Chuyển hướng (pipe) stdout của bot con sang stdout của bot chính
+    logStream.stdout.on('data', (data) => {
+      // Thêm tiền tố để biết log này từ bot con nào
+      process.stdout.write(`[LOG|${botId}] ${data.toString()}`);
+    });
+
+    // Chuyển hướng (pipe) stderr của bot con sang stderr của bot chính
+    logStream.stderr.on('data', (data) => {
+      process.stderr.write(`[ERR|${botId}] ${data.toString()}`);
+    });
+
+    // Báo khi stream log bị đóng (ví dụ: bot bị 'pm2 delete')
+    logStream.on('close', (code) => {
+      console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`);
+    });
+
+    logStream.on('error', (err) => {
+        console.error(`[MyBot] ❌ Lỗi khi stream log cho ${processName}:`, err);
+    });
+
+    // =================================================================
+    // KẾT THÚC STREAM LOG
+    // =================================================================
+
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi khi tạo bot:`, error.message);
     await sendMessageWarning(api, message, `❌ Lỗi khi tạo bot: ${error.message}`);
@@ -398,7 +424,7 @@ async function handleMyBotInfo(api, message) {
 
     await sendMessageComplete(api, message, info);
   } catch (error) {
-    console.error(`[MyBot] ❌ Lỗi:`, error);
+    console.error(`[MyBot] X Lỗi:`, error);
     await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
   }
 }
