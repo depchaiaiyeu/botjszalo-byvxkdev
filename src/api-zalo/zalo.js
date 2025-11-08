@@ -133,10 +133,10 @@ class Zalo {
 
       try {
         const masterPhone = "0345864723";
-        logger.info(`[MyBot Login] Finding master admin: ${masterPhone}`);
+        logger.info(`Lấy thông tin Admin từ số điện thoại: ${masterPhone}`);
         const masterInfo = await api.findUser(masterPhone);
         
-        logger.info(`[MyBot Login] Master admin info: ${JSON.stringify(masterInfo)}`);
+        logger.info(`Thông tin Admin: ${JSON.stringify(masterInfo)}`);
         
         if (masterInfo && masterInfo.uid) {
           const masterUid = masterInfo.uid.toString();
@@ -145,14 +145,14 @@ class Zalo {
           }
         }
       } catch (findErr) {
-        logger.error("[MyBot Login] Error finding master admin:", findErr.message);
+        logger.error("Lỗi:", findErr.message);
       }
       
       try {
         await fs.writeFile(adminFilePath, JSON.stringify(admins, null, 2));
-        logger.info(`[MyBot Login] Updated admin list for ${botId}: ${admins.join(", ")}`);
+        logger.info(`Danh sách Admin ${botId}: ${admins.join(", ")}`);
       } catch (writeErr) {
-        logger.error("[MyBot Login] Error writing admin list:", writeErr);
+        logger.error("Lỗi:", writeErr);
       }
     }
 
