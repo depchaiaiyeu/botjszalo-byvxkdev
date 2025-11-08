@@ -77,11 +77,11 @@ export async function handleGoldPriceCommand(api, message) {
     let resultMessage = `💰 GIÁ VÀNG HÔM NAY - Cập nhật mới nhất\n`;
     resultMessage += `📡 Nguồn: Báo Mới\n`;
     resultMessage += `📊 Tổng số loại: ${totalItems}\n`;
-    resultMessage += '═'.repeat(50) + '\n\n';
+    resultMessage += '═'.repeat(33) + '\n\n';
 
     if (allGoldData.sjc.length > 0) {
       resultMessage += `🏆 VÀNG SJC (${allGoldData.sjc.length} loại)\n`;
-      resultMessage += '─'.repeat(50) + '\n';
+      resultMessage += '─'.repeat(33) + '\n';
       for (const item of allGoldData.sjc) {
         const spread = item.sell - item.buy;
         const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
@@ -95,7 +95,7 @@ export async function handleGoldPriceCommand(api, message) {
 
     if (allGoldData.doji.length > 0) {
       resultMessage += `\n🏆 VÀNG DOJI (${allGoldData.doji.length} loại)\n`;
-      resultMessage += '─'.repeat(50) + '\n';
+      resultMessage += '─'.repeat(33) + '\n';
       for (const item of allGoldData.doji.slice(0, 3)) {
         const spread = item.sell - item.buy;
         const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
@@ -109,7 +109,7 @@ export async function handleGoldPriceCommand(api, message) {
 
     if (allGoldData.pnj.length > 0) {
       resultMessage += `\n🏆 VÀNG PNJ (${allGoldData.pnj.length} loại)\n`;
-      resultMessage += '─'.repeat(50) + '\n';
+      resultMessage += '─'.repeat(33) + '\n';
       for (const item of allGoldData.pnj.slice(0, 3)) {
         const spread = item.sell - item.buy;
         const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
@@ -123,7 +123,7 @@ export async function handleGoldPriceCommand(api, message) {
 
     if (allGoldData.btmc.length > 0) {
       resultMessage += `\n🏆 VÀNG BẢO TÍN MINH CHÂU (${allGoldData.btmc.length} loại)\n`;
-      resultMessage += '─'.repeat(50) + '\n';
+      resultMessage += '─'.repeat(33) + '\n';
       for (const item of allGoldData.btmc.slice(0, 3)) {
         const spread = item.sell - item.buy;
         const spreadPercent = ((spread / item.buy) * 100).toFixed(2);
@@ -135,7 +135,7 @@ export async function handleGoldPriceCommand(api, message) {
       }
     }
 
-    resultMessage += '═'.repeat(50);
+    resultMessage += '═'.repeat(33);
     await sendMessageFromSQL(api, message, { message: resultMessage, success: true }, true, 1800000);
   } catch (error) {
     console.error("Error in handleGoldPriceCommand:", error);
