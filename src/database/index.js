@@ -5,12 +5,9 @@ import path from "path";
 import Database from "better-sqlite3";
 import { claimDailyReward, getMyCard } from "./player.js";
 import { getTopPlayers } from "./jdbc.js";
-import { getBotInfo } from "../utils/env.js";
 export * from "./player.js";
 export * from "./jdbc.js";
 
-const botInfo = await getBotInfo();
-const configPath = botInfo.databaseFile;
 let nameServer = "";
 let connection;
 let NAME_TABLE_PLAYERS;
