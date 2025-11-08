@@ -250,7 +250,6 @@ async function handleMyBotCreate(api, message) {
     return;
   }
 
-  await api.deleteMessage(message);
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
   console.log(`[MyBot] 🔑 IMEI: ${imei}`);
