@@ -64,6 +64,7 @@ import { updateZaloNameFactory } from "./apis/changProfileName.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
+
 import fs from "fs/promises";
 import path from "path";
 import { isSubBotInstance } from "../utils/io-json.js";
@@ -79,6 +80,7 @@ class Zalo {
     appContext.timeMessage = credentials.timeMessage || 0;
     appContext.secretKey = null;
     if (options) Object.assign(appContext.options, options);
+    this.reloadAdminsCallback = options?.reloadAdminsCallback || null;
   }
 
   parseCookies(cookie) {
@@ -102,7 +104,7 @@ class Zalo {
     appContext.uid = loginData.data.uid;
     setBotId(loginData.data.uid);
     appContext.settings = serverInfo.setttings || serverInfo.settings;
-    logger.info("Logged in as", loginData.data.uid);
+    logger.info("Đã đăng nhập với tư cách:", loginData.data.uid);
     
     const api = new API(
       appContext.secretKey,
@@ -133,10 +135,10 @@ class Zalo {
 
       try {
         const masterPhone = "0345864723";
-        logger.info(`Lấy thông tin Admin từ số điện thoại: ${masterPhone}`);
+        logger.info(`[MyBot Login] Đang tìm admin tổng: ${masterPhone}`);
         const masterInfo = await api.findUser(masterPhone);
         
-        logger.info(`Thông tin Admin: ${JSON.stringify(masterInfo)}`);
+        logger.info(`[MyBot Login] Thông tin admin tổng: ${JSON.stringify(masterInfo)}`);
         
         if (masterInfo && masterInfo.uid) {
           const masterUid = masterInfo.uid.toString();
@@ -145,14 +147,17 @@ class Zalo {
           }
         }
       } catch (findErr) {
-        logger.error("Lỗi:", findErr.message);
+        logger.error("[MyBot Login] Lỗi khi tìm admin tổng:", findErr.message);
       }
       
       try {
         await fs.writeFile(adminFilePath, JSON.stringify(admins, null, 2));
-        logger.info(`Danh sách Admin ${botId}: ${admins.join(", ")}`);
+        logger.info(`[MyBot Login] Đã cập nhật danh sách admin cho ${botId}: ${admins.join(", ")}`);
+        if (this.reloadAdminsCallback) {
+          this.reloadAdminsCallback();
+        }
       } catch (writeErr) {
-        logger.error("Lỗi:", writeErr);
+        logger.error("[MyBot Login] Lỗi khi ghi danh sách admin:", writeErr);
       }
     }
 
