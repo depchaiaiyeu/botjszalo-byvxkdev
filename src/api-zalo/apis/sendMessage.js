@@ -398,6 +398,12 @@ export function sendMessageFactory(api) {
     if (!threadId) throw new ZaloApiError("Missing threadId");
     if (typeof message == "string") message = { msg: message };
     let { msg, quote, attachments, mentions, ttl, linkOn = true, isUseProphylactic = false } = message;
+    
+    // ĐÃ SỬA: Đặt msg mặc định là một khoảng trắng nếu msg bị thiếu và có attachments
+    if ((!msg || msg.length === 0) && attachments && attachments.length > 0) {
+      msg = " ";
+    }
+    
     ttl = ttl || appContext.timeMessage || 0;
     if (!msg && (!attachments || (attachments && attachments.length == 0)))
       throw new ZaloApiError("Missing message content");
