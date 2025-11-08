@@ -14,7 +14,7 @@ let botInfo = {
   adminFilePath: path.resolve("./assets/data/list_admin.json"),
   groupSettingsPath: path.resolve("./assets/data/group_settings.json"),
   configFilePath: path.resolve("./assets/config.json"),
-  commandFilePath: path.resolve("./assets/json-data/command.json"),
+  commandFilePath: path.resolve("./assets/json-data/command.json"), // Path mặc định cho bot chính
   logDir: path.resolve("./logs"),
   resourceDir: path.resolve("./resources"),
   tempDir: path.resolve("./temp"),
@@ -28,7 +28,7 @@ let botInfo = {
 if (!isMainBot) {
   const subBotPath = path.resolve("./mybot", `${botId}.json`)
   console.log(chalk.yellow(`📦 Config Loader: Tìm bot con tại ${subBotPath}`))
-  
+
   if (fs.existsSync(subBotPath)) {
     try {
       const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
@@ -37,7 +37,7 @@ if (!isMainBot) {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
         configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./assets/json-data/command.json"),
+        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"), // Đã sửa: Load command riêng cho bot con
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
@@ -50,7 +50,7 @@ if (!isMainBot) {
         subBotConfig: subBotData,
         mainBotConfigPath: path.resolve("./assets/config.json")
       }
-      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (dùng chung bot chính)`))
+      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (riêng bot con)`))
     } catch (error) {
       console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
       process.exit(1)
@@ -104,8 +104,7 @@ export function readConfig() {
   try {
     const data = fs.readFileSync(configFilePath, "utf-8")
     const config = JSON.parse(data)
-    
-    // Nếu là bot con và config trống, dùng config từ bot chính
+
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
       console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
       try {
@@ -116,7 +115,7 @@ export function readConfig() {
         return config
       }
     }
-    
+
     return config
   } catch (error) {
     console.error("Lỗi đọc tệp config.json:", error)
@@ -171,7 +170,7 @@ export function readCommandConfig() {
     const data = fs.readFileSync(commandFilePath, "utf-8")
     return JSON.parse(data)
   } catch (error) {
-    console.error("Lỗi khi đọc file command.json:", error)
+    console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
     return { commands: [] }
   }
 }
@@ -180,7 +179,7 @@ export function writeCommandConfig(config) {
   try {
     fs.writeFileSync(commandFilePath, JSON.stringify(config, null, 2))
   } catch (error) {
-    console.error("Lỗi khi ghi file command.json:", error)
+    console.error(`Lỗi khi ghi file command.json (${commandFilePath}):`, error)
   }
 }
 
