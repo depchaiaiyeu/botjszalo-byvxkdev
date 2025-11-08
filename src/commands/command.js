@@ -165,6 +165,10 @@ import { handleCalendarCommand } from "./utilities-command/lich-van-nien.js";
 import { handleVirusScanCommand } from "../service-hahuyhoang/tien-ich/check-virus.js";
 import { handleJoinLeaveGroup } from "../service-hahuyhoang/tien-ich/spam-join.js";
 import { handleLotteryCommand } from "../service-hahuyhoang/tien-ich/lottery.js";
+import { handleCheckHttpCommand } from "../service-hahuyhoang/tien-ich/check-http.js";
+import { handleCheckPingCommand } from "../service-hahuyhoang/tien-ich/check-ping.js";
+import { handleCheckTcpCommand } from "../service-hahuyhoang/tien-ich/check-tcp.js";
+
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -1356,6 +1360,15 @@ export async function handleCommand(
                 break;
               case "xoso":
                 await handleLotteryCommand (api, message);
+                break;
+              case "checkhttp":
+                await handleCheckHttpCommand (api, message);
+                break;
+              case "checkping":
+                await handleCheckPingCommand (api, message);
+                break;
+              case "checktcp":
+                await handleCheckTcpCommand (api, message);
                 break;
             }
           } else {
