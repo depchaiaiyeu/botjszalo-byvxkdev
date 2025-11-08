@@ -24,7 +24,8 @@ const userAgents = [
 const paths = {
   myBotDataDir: path.resolve("./mybot"),
   myBotDataFolder: path.resolve("./mybot/data"),
-  myBotJsonDataFolder: path.resolve("./mybot/json-data")
+  myBotJsonDataFolder: path.resolve("./mybot/json-data"),
+  assetsJsonDataDir: path.resolve("./assets/json-data")
 };
 
 function getRandomUserAgent() {
@@ -34,19 +35,19 @@ function getRandomUserAgent() {
 function parseTimeToMs(timeStr) {
   const match = timeStr.match(/^(-?\d+)([hpmd])$/);
   if (!match) return null;
-  
+
   const value = parseInt(match[1]);
   const unit = match[2];
-  
+
   if (value === -1) return -1;
-  
+
   const multipliers = {
     'h': 3600000,
     'p': 60000,
     'm': 60000,
     'd': 86400000
   };
-  
+
   return value * (multipliers[unit] || 0);
 }
 
@@ -56,7 +57,7 @@ async function ensureDirectories() {
     paths.myBotDataFolder,
     paths.myBotJsonDataFolder
   ];
-  
+
   for (const dir of dirs) {
     try {
       await fs.mkdir(dir, { recursive: true });
@@ -95,7 +96,6 @@ async function saveBotConfig(botId, config) {
   }
 }
 
-// Tạo file group_settings.json cho bot con
 async function createGroupSettingsFile(botId) {
   const filePath = path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`);
   try {
@@ -107,7 +107,6 @@ async function createGroupSettingsFile(botId) {
   }
 }
 
-// Tạo file list_admin.json cho bot con
 async function createAdminListFile(botId, adminId = null) {
   const filePath = path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`);
   try {
@@ -120,9 +119,6 @@ async function createAdminListFile(botId, adminId = null) {
   }
 }
 
-
-
-// Tạo file web-config.json cho bot con
 async function createWebConfigFile(botId) {
   const filePath = path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`);
   try {
@@ -134,7 +130,6 @@ async function createWebConfigFile(botId) {
   }
 }
 
-// Tạo file manager-bot.json cho bot con
 async function createManagerBotFile(botId) {
   const filePath = path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`);
   try {
@@ -146,7 +141,6 @@ async function createManagerBotFile(botId) {
   }
 }
 
-// Tạo file prophylactic.json cho bot con
 async function createProphylacticFile(botId) {
   const filePath = path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`);
   try {
@@ -164,7 +158,6 @@ async function createProphylacticFile(botId) {
   }
 }
 
-// Tạo config.json cho bot con
 async function createConfigFile(botId) {
   const filePath = path.resolve(paths.myBotDataFolder, `config_${botId}.json`);
   try {
@@ -176,11 +169,22 @@ async function createConfigFile(botId) {
   }
 }
 
+async function copyCommandFile(botId) {
+  const sourcePath = path.resolve(paths.assetsJsonDataDir, `command.json`);
+  const destPath = path.resolve(paths.myBotJsonDataFolder, `command_${botId}.json`);
+  try {
+    await fs.copyFile(sourcePath, destPath);
+    console.log(`[MyBot] ✅ Copy command.json thành command_${botId}.json: ${destPath}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi copy file command.json:`, error);
+  }
+}
+
 async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
-  
+
   await ensureDirectories();
-  
+
   const botConfig = {
     cookie: cookie,
     imei: imei,
@@ -190,57 +194,54 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null) {
     isRunning: true,
     processId: `mybot-${botId}`
   };
-  
+
   console.log(`[MyBot] 📦 Config tạo: ${JSON.stringify(botConfig, null, 2)}`);
-  
+
   await saveBotConfig(botId, botConfig);
-  
-  // Tạo tất cả các file cần thiết (command.json dùng chung với bot chính)
+
   await createGroupSettingsFile(botId);
   await createAdminListFile(botId, adminId);
   await createWebConfigFile(botId);
   await createManagerBotFile(botId);
   await createProphylacticFile(botId);
   await createConfigFile(botId);
-  
+  await copyCommandFile(botId);
+
   console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
 async function handleMyBotCreate(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
   console.log(`[MyBot] 📨 Nội dung: ${message.data.content}`);
-  
+
   const mentions = message.data.mentions;
   const content = removeMention(message);
-  
+
   if (!mentions || mentions.length === 0) {
     await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot cho họ");
     return;
   }
-  
+
   const mention = mentions[0];
   const botId = mention.uid;
   const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
-  
-  // Extract cookie JSON object bằng regex
+
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     await sendMessageWarning(api, message, "❌ Cookie JSON không hợp lệ");
     return;
   }
-  
+
   const cookieStr = jsonMatch[0];
-  
-  // Extract IMEI - phần sau JSON object
+
   const imeiMatch = content.substring(content.lastIndexOf("}") + 1).trim().split(/\s+/);
   const imei = imeiMatch[imeiMatch.length - 1];
-  
+
   if (!imei) {
     await sendMessageWarning(api, message, "❌ IMEI không hợp lệ");
     return;
   }
-  
-  // Parse cookie JSON để validate
+
   let cookie;
   try {
     cookie = JSON.parse(cookieStr);
@@ -253,13 +254,13 @@ async function handleMyBotCreate(api, message) {
   console.log(`[MyBot] 👤 Bot ID: ${botId}`);
   console.log(`[MyBot] 👤 Bot Name: ${botName}`);
   console.log(`[MyBot] 🔑 IMEI: ${imei}`);
-  
+
   try {
     const processName = `mybot-${botId}`;
     const indexPath = path.resolve("src/index.js");
-    
+
     console.log(`[MyBot] 🚀 Index path: ${indexPath}`);
-    
+
     try {
       console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
       await execAsync(`pm2 delete ${processName}`);
@@ -267,25 +268,24 @@ async function handleMyBotCreate(api, message) {
     } catch (err) {
       console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
     }
-    
+
     await initializeBotFiles(botId, imei, cookie, botId);
-    
+
     console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
     const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
     console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
     if (stderr) console.log(`[MyBot] ⚠️ PM2 stderr: ${stderr}`);
-    
-    // Log chi tiết PM2
+
     console.log(`[MyBot] 📋 Đợi 2s để process khởi động...`);
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     try {
       const { stdout: logOutput } = await execAsync(`pm2 logs ${processName} --lines 50 --nostream`);
       console.log(`[MyBot] 📜 PM2 Logs:\n${logOutput}`);
     } catch (logErr) {
       console.log(`[MyBot] ⚠️ Không thể lấy log PM2:`, logErr.message);
     }
-    
+
     await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy với thời gian mặc định: 1h`);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi khi tạo bot:`, error.message);
@@ -298,24 +298,22 @@ async function listAllBots() {
   try {
     const files = await fs.readdir(paths.myBotDataDir);
     console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
-    
+
     const bots = [];
-    
+
     for (const file of files) {
-      // Chỉ lấy file .json và loại bỏ các file không phải bot config
       if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
         const botId = file.replace(".json", "");
-        
-        // Check nếu botId là số (UID) hoặc format hợp lệ
+
         if (isNaN(botId) || botId.length < 10) {
           console.log(`[MyBot] ⏭️ Bỏ qua file: ${file} (không phải bot config)`);
           continue;
         }
-        
+
         console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
-        
+
         const botConfig = await getBotConfig(botId);
-        
+
         if (botConfig) {
           try {
             const userInfo = await getUserInfoData(null, botId);
@@ -336,7 +334,7 @@ async function listAllBots() {
         }
       }
     }
-    
+
     console.log(`[MyBot] 📊 Tổng bot tìm được: ${bots.length}`);
     return bots;
   } catch (error) {
@@ -347,14 +345,14 @@ async function listAllBots() {
 
 async function handleMyBotInfo(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
-  
+
   const mentions = message.data.mentions;
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
-  
+
   let botId = null;
   let botName = "Bot";
-  
+
   if (mentions && mentions.length > 0) {
     botId = mentions[0].uid;
     botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
@@ -369,17 +367,17 @@ async function handleMyBotInfo(api, message) {
       return;
     }
   }
-  
+
   try {
     const botConfig = await getBotConfig(botId);
     if (!botConfig) {
       await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
       return;
     }
-    
+
     const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
     let expireInfo = "🎯 Thời gian còn lại: Vô hạn ♾️";
-    
+
     if (botConfig.expiresAt !== -1) {
       const remaining = botConfig.expiresAt - Date.now();
       if (remaining > 0) {
@@ -391,11 +389,11 @@ async function handleMyBotInfo(api, message) {
         expireInfo = `⚠️ Hết hạn`;
       }
     }
-    
+
     const status = botConfig.isRunning ? "✅ Đang chạy" : "❌ Dừng";
-    
+
     const info = `📜 Thông tin BOT Từ dữ liệu VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
-    
+
     await sendMessageComplete(api, message, info);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi:`, error);
@@ -405,23 +403,23 @@ async function handleMyBotInfo(api, message) {
 
 async function handleMyBotList(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
-  
+
   try {
     const bots = await listAllBots();
-    
+
     console.log(`[MyBot] 📊 Số bot tìm được: ${bots.length}`);
-    
+
     if (bots.length === 0) {
       await sendMessageQuery(api, message, "Chưa có bot nào trong hệ thống");
       return;
     }
-    
+
     let listInfo = "📜 DANH SÁCH BOT VXK Bot Team:\n\n";
-    
+
     for (let i = 0; i < bots.length; i++) {
       const bot = bots[i];
       const status = bot.config.isRunning ? "✅" : "❌";
-      
+
       let expireInfo = "♾️ Vô hạn";
       if (bot.config.expiresAt !== -1) {
         const remaining = bot.config.expiresAt - Date.now();
@@ -432,11 +430,11 @@ async function handleMyBotList(api, message) {
           expireInfo = "⚠️ Hết hạn";
         }
       }
-      
+
       const createdTime = new Date(bot.config.createdAt).toLocaleDateString("vi-VN");
-      listInfo += `${i + 1}. ${bot.name}\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
+      listInfo += `${i + 1}. ${bot.name}\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
     }
-    
+
     await sendMessageComplete(api, message, listInfo);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi:`, error);
@@ -467,25 +465,25 @@ function getHelpMessage() {
 export async function handleMyBotCommands(api, message) {
   const prefix = getGlobalPrefix();
   const content = removeMention(message);
-  
+
   console.log(`[MyBot] 📨 Tin nhắn nhận được: ${content}`);
-  
+
   if (!content.includes(`${prefix}mybot`)) {
     return false;
   }
-  
+
   const parts = content.split(/\s+/).filter(p => p.trim());
   console.log(`[MyBot] 🔍 Parts: ${JSON.stringify(parts)}`);
-  
+
   if (parts.length < 2) {
     const helpMsg = getHelpMessage();
     await sendMessageComplete(api, message, helpMsg);
     return true;
   }
-  
+
   const command = parts[1];
   console.log(`[MyBot] 🎯 Command: ${command}`);
-  
+
   switch (command) {
     case "create":
       await handleMyBotCreate(api, message);
