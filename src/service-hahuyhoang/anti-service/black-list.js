@@ -46,7 +46,6 @@ export async function handleBlackList(api, message, groupSettings, groupAdmins) 
 
     await api.sendMessage(
       {
-        msg: "Danh sách người dùng trong blacklist",
         attachments: [imagePath],
       },
       threadId,
