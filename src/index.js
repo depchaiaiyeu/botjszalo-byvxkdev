@@ -13,7 +13,8 @@ import {
   readProphylacticConfig,
   logManagerBot,
   getSubBotConfig,
-  isSubBotInstance
+  isSubBotInstance,
+  ensureLogFiles 
 } from "./utils/io-json.js"
 
 import { initService } from "./service-hahuyhoang/service.js"
@@ -37,6 +38,8 @@ if (isSubBotInstance()) {
 
 let commandConfig = readCommandConfig()
 
+await ensureLogFiles(); 
+
 const zalo = new Zalo(
   {
     cookie: config.cookie,
@@ -46,6 +49,7 @@ const zalo = new Zalo(
   {
     selfListen: true,
     checkUpdate: false,
+    reloadAdminsCallback: reloadAdmins
   }
 )
 
@@ -61,12 +65,17 @@ export function setBotId(id) {
   idBot = id
 }
 
+export function reloadAdmins() {
+  admins = readAdmins()
+  console.log(`[Index] ✅ Đã tải lại danh sách Bot Admin: ${admins.join(", ")}`);
+}
+
 export function getCommandConfig() {
   return commandConfig
 }
 
 export function reloadCommandConfig() {
-  commandConfig = readCommandConfig()
+  commandConfig = readCommandCofig()
   return commandConfig
 }
 
