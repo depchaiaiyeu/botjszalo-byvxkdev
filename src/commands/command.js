@@ -168,6 +168,8 @@ import { handleLotteryCommand } from "../service-hahuyhoang/tien-ich/lottery.js"
 import { handleCheckHttpCommand } from "../service-hahuyhoang/tien-ich/check-http.js";
 import { handleCheckPingCommand } from "../service-hahuyhoang/tien-ich/check-ping.js";
 import { handleCheckTcpCommand } from "../service-hahuyhoang/tien-ich/check-tcp.js";
+import { handleCheckOrderCommand } from "../service-hahuyhoang/tien-ich/check-order.js";
+
 
 const lastCommandUsage = {};
 
@@ -1369,6 +1371,9 @@ export async function handleCommand(
                 break;
               case "checktcp":
                 await handleCheckTcpCommand (api, message);
+                break;
+              case "checkorder":
+                await handleCheckOrderCommand (api, message);
                 break;
             }
           } else {
