@@ -2338,5 +2338,16 @@
       "author": "Vũ Xuân Kiên",
       "active": true
     },
+    {
+      "name": "checkorder",
+      "description": "Xem thông tin đơn hàng của bạn",
+      "syntax": "{p}checkorder <mã đơn hàng>",
+      "permission": "all",
+      "countdown": 15,
+      "icon": "🌟",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
   ]
 }
