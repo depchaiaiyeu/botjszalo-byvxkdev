@@ -2304,6 +2304,39 @@
       "type": 5,
       "author": "Vũ Xuân Kiên",
       "active": true
-    }
+    },
+    {
+      "name": "checkhttp",
+      "description": "Kiểm tra kết nối HTTP",
+      "syntax": "{p}checkhttp <url|host/ip>",
+      "permission": "all",
+      "countdown": 15,
+      "icon": "💡",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
+    {
+      "name": "checkping",
+      "description": "Kiểm tra kết nối Ping",
+      "syntax": "{p}checkping <url|host/ip>",
+      "permission": "all",
+      "countdown": 15,
+      "icon": "🌟",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
+    {
+      "name": "checktcp",
+      "description": "Kiểm tra kết nối TCP",
+      "syntax": "{p}checktcp <url|host/ip>",
+      "permission": "all",
+      "countdown": 15,
+      "icon": "🛡️",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
   ]
 }
