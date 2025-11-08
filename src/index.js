@@ -24,9 +24,7 @@ let idBot = -1
 const prophylacticConfig = readProphylacticConfig()
 export let admins = readAdmins()
 let config = readConfig()
-let commandConfig = readCommandConfig()
 
-// Nếu là bot con, lấy cookie và imei từ file subBotConfig
 if (isSubBotInstance()) {
   const subBotConfig = getSubBotConfig()
   if (subBotConfig) {
@@ -36,6 +34,8 @@ if (isSubBotInstance()) {
     console.log(`[Index] 🤖 Load config từ bot con`)
   }
 }
+
+let commandConfig = readCommandConfig()
 
 const zalo = new Zalo(
   {
