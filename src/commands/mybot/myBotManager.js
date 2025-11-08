@@ -350,16 +350,18 @@ async function listAllBots() {
         const botConfig = await getBotConfig(botId);
 
         if (botConfig) {
+          let botName = botId;
           try {
             const userInfo = await getUserInfoData(null, botId);
+            botName = userInfo?.name || botId;
             bots.push({
               uid: botId,
-              name: userInfo?.name || "Unknown",
+              name: botName,
               config: botConfig
             });
             console.log(`[MyBot] ✅ Thêm bot: ${botId}`);
           } catch (err) {
-            console.log(`[MyBot] ⚠️ Không thể lấy thông tin user ${botId}`);
+            console.log(`[MyBot] ⚠️ Không thể lấy thông tin user ${botId}. Dùng UID làm tên.`);
             bots.push({
               uid: botId,
               name: botId,
@@ -378,29 +380,39 @@ async function listAllBots() {
   }
 }
 
+function getBotTarget(mentions, parts, botList) {
+  let botId = null;
+  let botName = "Bot";
+  let mention = null;
+
+  if (mentions && mentions.length > 0) {
+    mention = mentions[0];
+    botId = mention.uid;
+    botName = mention.name;
+  } else if (parts.length >= 2) {
+    const index = parseInt(parts[2]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    }
+  }
+
+  return { botId, botName, mention };
+}
+
 async function handleMyBotInfo(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
 
   const mentions = message.data.mentions;
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
+  const botList = await listAllBots();
+  
+  const { botId, botName } = getBotTarget(mentions, parts, botList);
 
-  let botId = null;
-  let botName = "Bot";
-
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else if (parts.length >= 2) {
-    const botList = await listAllBots();
-    const index = parseInt(parts[1]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
+  if (!botId) {
+    await sendMessageWarning(api, message, "Không tìm thấy bot. Vui lòng @mention người dùng hoặc cung cấp index hợp lệ.");
+    return;
   }
 
   try {
@@ -467,7 +479,7 @@ async function handleMyBotList(api, message) {
       }
 
       const createdTime = new Date(bot.config.createdAt).toLocaleDateString("vi-VN");
-      listInfo += `${i + 1}. ${bot.name} (ID: ${bot.uid})\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
+      listInfo += `${i + 1}. ${bot.name} • ${bot.uid}\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
     }
 
     await sendMessageComplete(api, message, listInfo);
@@ -488,30 +500,30 @@ async function handleMyBotAddTime(api, message) {
     await sendMessageQuery(api, message, "Cú pháp không hợp lệ. Vui lòng cung cấp người dùng (@mention/index) và thời gian (ví dụ: 1d, 5h, -1)");
     return;
   }
-
+  
+  const botList = await listAllBots();
   let botId = null;
   let botName = "Bot";
-  const timeStr = parts[parts.length - 1];
+  let timeStr = parts[parts.length - 1];
+
+  const target = getBotTarget(mentions, parts, botList);
+  botId = target.botId;
+  botName = target.botName;
+  
+  if (target.mention) {
+    timeStr = parts[parts.length - 1];
+  } else if (botId) {
+    timeStr = parts[parts.length - 1];
+  } else {
+    await sendMessageWarning(api, message, "Không tìm thấy bot. Vui lòng @mention người dùng hoặc cung cấp index hợp lệ.");
+    return;
+  }
+
   const timeMs = parseTimeToMs(timeStr);
   
   if (timeMs === null && timeStr !== "-1") {
     await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
     return;
-  }
-
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else {
-    const botList = await listAllBots();
-    const index = parseInt(parts[2]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
   }
 
   try {
@@ -589,24 +601,13 @@ async function handleMyBotDelete(api, message) {
   const mentions = message.data.mentions;
   const content = removeMention(message);
   const parts = content.split(/\s+/).filter(p => p.trim());
+  const botList = await listAllBots();
 
-  let botId = null;
-  let botName = "Bot";
+  const target = getBotTarget(mentions, parts, botList);
+  const botId = target.botId;
+  const botName = target.botName;
 
-  if (mentions && mentions.length > 0) {
-    botId = mentions[0].uid;
-    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
-  } else if (parts.length >= 2 && parts[2]) {
-    const botList = await listAllBots();
-    const index = parseInt(parts[2]) - 1;
-    if (index >= 0 && index < botList.length) {
-      botId = botList[index].uid;
-      botName = botList[index].name;
-    } else {
-      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
-      return;
-    }
-  } else {
+  if (!botId) {
     await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để xóa bot.");
     return;
   }
