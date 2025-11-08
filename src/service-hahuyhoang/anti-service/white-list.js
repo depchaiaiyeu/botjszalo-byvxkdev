@@ -46,7 +46,6 @@ export async function handleWhiteList(api, message, groupSettings, groupAdmins) 
 
     await api.sendMessage(
       {
-        msg: "Danh sách người dùng trong white-list",
         attachments: [imagePath],
       },
       threadId,
