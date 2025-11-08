@@ -1,4 +1,4 @@
-import { writeGroupSettings } from "../../utils/io-json.js";
+import { writeGroupSettings, isBotMain, botId } from "../../utils/io-json.js";
 import { sendMessageComplete, sendMessageInsufficientAuthority, sendMessageQuery, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
@@ -10,6 +10,14 @@ import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function getAdminListPath() {
+  if (isBotMain()) {
+    return path.resolve(process.cwd(), "assets", "data", "list_admin.json");
+  } else {
+    return path.resolve(process.cwd(), "mybot", "data", `list_admin_${botId}.json`);
+  }
+}
 
 export async function handleAdminHighLevelCommands(api, message, groupAdmins, groupSettings, isAdminLevelHighest) {
   const content = removeMention(message);
@@ -57,8 +65,14 @@ async function handleHighLevelAdmin(api, message, action) {
     return;
   }
 
-  const adminListPath = path.resolve(process.cwd(), "assets", "data", "list_admin.json");
-  const adminList = JSON.parse(await fs.readFile(adminListPath, "utf-8"));
+  const adminListPath = getAdminListPath();
+  let adminList = [];
+  try {
+    adminList = JSON.parse(await fs.readFile(adminListPath, "utf-8"));
+  } catch (error) {
+    console.error(`Không thể đọc file admin: ${adminListPath}`, error.message);
+    adminList = [];
+  }
 
   for (const mention of mentions) {
     const targetId = mention.uid;
@@ -89,32 +103,46 @@ async function handleHighLevelAdmin(api, message, action) {
 export async function handleListAdmin(api, message, groupSettings) {
   const threadId = message.threadId;
 
-  const adminListPath = path.resolve(process.cwd(), "assets", "data", "list_admin.json");
-  const highLevelAdmins = JSON.parse(await fs.readFile(adminListPath, "utf-8"));
+  const adminListPath = getAdminListPath();
+  let highLevelAdmins = [];
+  try {
+    highLevelAdmins = JSON.parse(await fs.readFile(adminListPath, "utf-8"));
+  } catch (error) {
+    console.error(`Không thể đọc file admin: ${adminListPath}`, error.message);
+    highLevelAdmins = [];
+  }
 
   let highLevelAdminList = [];
   let groupAdminList = [];
 
   for (const adminId of highLevelAdmins) {
-    const adminInfo = await getUserInfoData(api, adminId);
-    if (adminInfo) {
-      highLevelAdminList.push({
-        name: adminInfo.name,
-        avatar: adminInfo.avatar,
-        uid: adminInfo.uid
-      });
+    try {
+      const adminInfo = await getUserInfoData(api, adminId);
+      if (adminInfo) {
+        highLevelAdminList.push({
+          name: adminInfo.name,
+          avatar: adminInfo.avatar,
+          uid: adminInfo.uid
+        });
+      }
+    } catch (error) {
+      console.error(`Lỗi lấy thông tin admin cấp cao ${adminId}:`, error.message);
     }
   }
 
-  const groupAdminIds = Object.keys(groupSettings[threadId].adminList);
+  const groupAdminIds = groupSettings[threadId]?.adminList ? Object.keys(groupSettings[threadId].adminList) : [];
   for (const adminId of groupAdminIds) {
-    const adminInfo = await getUserInfoData(api, adminId);
-    if (adminInfo) {
-      groupAdminList.push({
-        name: adminInfo.name,
-        avatar: adminInfo.avatar,
-        uid: adminInfo.uid
-      });
+    try {
+      const adminInfo = await getUserInfoData(api, adminId);
+      if (adminInfo) {
+        groupAdminList.push({
+          name: adminInfo.name,
+          avatar: adminInfo.avatar,
+          uid: adminInfo.uid
+        });
+      }
+    } catch (error) {
+      console.error(`Lỗi lấy thông tin admin nhóm ${adminId}:`, error.message);
     }
   }
 
@@ -142,6 +170,13 @@ async function handleAddRemoveAdmin(api, message, groupSettings, action) {
   const mentions = message.data.mentions;
   const threadId = message.threadId;
   const content = removeMention(message);
+
+  if (!groupSettings[threadId]) {
+    groupSettings[threadId] = {};
+  }
+  if (!groupSettings[threadId]["adminList"]) {
+    groupSettings[threadId]["adminList"] = {};
+  }
 
   if (action === "remove" && /\d+/.test(content)) {
     const indexMatch = content.match(/\d+/);
@@ -190,4 +225,4 @@ async function handleAddRemoveAdmin(api, message, groupSettings, action) {
         break;
     }
   }
-      }
+}
