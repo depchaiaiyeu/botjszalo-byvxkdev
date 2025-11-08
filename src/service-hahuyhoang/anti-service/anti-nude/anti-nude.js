@@ -6,8 +6,8 @@ import { MessageMention, MessageType } from "zlbotdqt";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
-  GEMINI_API_KEYS,
-  MODEL_PRIORITY
+  apiKeys,
+  modelPriority
 } from "../../api-crawl/assistant-ai/gemini.js";
 import { sendMessageStateQuote } from "../../chat-zalo/chat-style/chat-style.js";
 import { createBlockSpamImage } from "../../../utils/canvas/event-image.js";
@@ -34,8 +34,8 @@ export const PERCENT_NSFW = 40;
 const SUPPORTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"];
 
 function initializeGemini() {
-  const apiKey = GEMINI_API_KEYS[currentApiKeyIndex];
-  const modelName = MODEL_PRIORITY[currentModelIndex];
+  const apiKey = apiKeys[currentApiKeyIndex];
+  const modelName = modelPriority[currentModelIndex];
 
   if (!apiKey || !modelName) {
     throw new Error("Không còn API key hoặc model nào để sử dụng.");
@@ -58,10 +58,10 @@ function initializeGemini() {
 
 function switchGeminiConfig() {
   currentModelIndex++;
-  if (currentModelIndex >= MODEL_PRIORITY.length) {
+  if (currentModelIndex >= modelPriority.length) {
     currentModelIndex = 0;
     currentApiKeyIndex++;
-    if (currentApiKeyIndex >= GEMINI_API_KEYS.length) {
+    if (currentApiKeyIndex >= apiKeys.length) {
       currentApiKeyIndex = 0;
       console.error("Đã hết API Key để chuyển đổi. Quay lại key đầu tiên.");
       return false;
@@ -120,7 +120,7 @@ async function checkNudeImageWithGemini(fileUrl) {
     const mimeType = extension === "gif" ? "image/gif" : `image/${extension === "jpg" ? "jpeg" : extension}`;
 
     let replyText = null;
-    let maxAttempts = GEMINI_API_KEYS.length * MODEL_PRIORITY.length * 3;
+    let maxAttempts = apiKeys.length * modelPriority.length * 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -285,7 +285,7 @@ export async function antiNude(api, message, isAdminBox, groupSettings, botIsAdm
 
 async function handleNudeContent(api, message, threadId, senderId, senderName, groupSettings) {
   try {
-    console.log(`🚫 Block user ${senderName} (${senderId}) do vi phạm 5 lần`);
+    console.log(`🚫 Block user ${senderName} (${senderId}) do vi phạm 3 lần`);
     await api.deleteMessage(message, false);
     await api.blockUsers(threadId, [senderId]);
     blockedUsers.add(senderId);
@@ -306,7 +306,7 @@ async function handleNudeContent(api, message, threadId, senderId, senderName, g
     if (imagePath) {
       await api.sendMessage(
         {
-          msg: `Thành viên [ ${senderName} ] đã bị chặn do gửi nội dung nhạy cảm 5 lần! 🚫`,
+          msg: `Thành viên [ ${senderName} ] đã bị chặn do gửi nội dung nhạy cảm 3 lần! 🚫`,
           attachments: [imagePath],
         },
         threadId,
@@ -315,7 +315,7 @@ async function handleNudeContent(api, message, threadId, senderId, senderName, g
       try {
         await api.sendMessage(
           {
-            msg: `Bạn đã bị chặn do gửi nội dung nhạy cảm 5 lần! 🚫\nVui lòng không lặp lại hành vi này ở nơi khác.`,
+            msg: `Bạn đã bị chặn do gửi nội dung nhạy cảm 3 lần! 🚫\nVui lòng không lặp lại hành vi này ở nơi khác.`,
             attachments: [imagePath],
           },
           senderId,
@@ -328,7 +328,7 @@ async function handleNudeContent(api, message, threadId, senderId, senderName, g
     } else {
       await api.sendMessage(
         {
-          msg: `Thành viên [ ${senderName} ] đã bị chặn do gửi nội dung nhạy cảm 5 lần! 🚫`,
+          msg: `Thành viên [ ${senderName} ] đã bị chặn do gửi nội dung nhạy cảm 3 lần! 🚫`,
         },
         threadId,
         MessageType.GroupMessage
