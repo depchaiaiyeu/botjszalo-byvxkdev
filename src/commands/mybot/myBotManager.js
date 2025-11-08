@@ -25,7 +25,10 @@ const paths = {
   myBotDataDir: path.resolve("./mybot"),
   myBotDataFolder: path.resolve("./mybot/data"),
   myBotJsonDataFolder: path.resolve("./mybot/json-data"),
-  assetsJsonDataDir: path.resolve("./assets/json-data")
+  assetsJsonDataDir: path.resolve("./assets/json-data"),
+  logsDir: path.resolve("./logs"),
+  resourcesDir: path.resolve("./resources"),
+  tempDir: path.resolve("./temp")
 };
 
 function getRandomUserAgent() {
@@ -180,6 +183,27 @@ async function copyCommandFile(botId) {
   }
 }
 
+async function createLogFiles(botId) {
+  const logBotDir = path.resolve(paths.logsDir, botId);
+  const resourceBotDir = path.resolve(paths.resourcesDir, botId);
+  const tempBotDir = path.resolve(paths.tempDir, botId);
+  const logMessagePath = path.resolve(logBotDir, "message.txt");
+  const logMessageJsonPath = path.resolve(logBotDir, "message.json");
+  const logManagerPath = path.resolve(logBotDir, "bot-manager.log");
+
+  try {
+    await fs.mkdir(logBotDir, { recursive: true });
+    await fs.mkdir(resourceBotDir, { recursive: true });
+    await fs.mkdir(tempBotDir, { recursive: true });
+    await fs.writeFile(logMessagePath, "", "utf-8");
+    await fs.writeFile(logMessageJsonPath, "{}", "utf-8");
+    await fs.writeFile(logManagerPath, "", "utf-8");
+    console.log(`[MyBot] ✅ Tạo thư mục log và file cho ${botId}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi tạo file log cho ${botId}:`, error);
+  }
+}
+
 async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
 
@@ -206,6 +230,7 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   await createProphylacticFile(botId);
   await createConfigFile(botId);
   await copyCommandFile(botId);
+  await createLogFiles(botId);
 
   console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
@@ -268,7 +293,6 @@ async function handleMyBotCreate(api, message) {
       console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
     }
 
-    // ***ĐÃ SỬA: Truyền 'null' cho adminId để tạo list admin rỗng***
     await initializeBotFiles(botId, imei, cookie, null);
 
     console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
@@ -443,13 +467,166 @@ async function handleMyBotList(api, message) {
       }
 
       const createdTime = new Date(bot.config.createdAt).toLocaleDateString("vi-VN");
-      listInfo += `${i + 1}. ${bot.name}\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
+      listInfo += `${i + 1}. ${bot.name} (ID: ${bot.uid})\n   ${status} | ⏱️ ${expireInfo} | 📅 ${createdTime}\n\n`;
     }
 
     await sendMessageComplete(api, message, listInfo);
   } catch (error) {
     console.error(`[MyBot] ❌ Lỗi:`, error);
     await sendMessageWarning(api, message, `❌ Lỗi: ${error.message}`);
+  }
+}
+
+async function handleMyBotAddTime(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot addtime`);
+
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  
+  if (parts.length < 3) {
+    await sendMessageQuery(api, message, "Cú pháp không hợp lệ. Vui lòng cung cấp người dùng (@mention/index) và thời gian (ví dụ: 1d, 5h, -1)");
+    return;
+  }
+
+  let botId = null;
+  let botName = "Bot";
+  const timeStr = parts[parts.length - 1];
+  const timeMs = parseTimeToMs(timeStr);
+  
+  if (timeMs === null && timeStr !== "-1") {
+    await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
+    return;
+  }
+
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else {
+    const botList = await listAllBots();
+    const index = parseInt(parts[2]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  }
+
+  try {
+    const botConfig = await getBotConfig(botId);
+    if (!botConfig) {
+      await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+      return;
+    }
+
+    let newExpiresAt;
+
+    if (timeMs === -1) {
+      newExpiresAt = -1;
+    } else {
+      const currentExpiresAt = botConfig.expiresAt > 0 ? botConfig.expiresAt : Date.now();
+      newExpiresAt = currentExpiresAt + timeMs;
+    }
+
+    botConfig.expiresAt = newExpiresAt;
+    await saveBotConfig(botId, botConfig);
+
+    const expirationInfo = newExpiresAt === -1 
+      ? "vô hạn" 
+      : new Date(newExpiresAt).toLocaleString("vi-VN");
+
+    await sendMessageComplete(api, message, `✅ Gia hạn cho ${botName} (ID: ${botId}) thành công!\nThời gian hết hạn mới: ${expirationInfo}`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi gia hạn bot:`, error);
+    await sendMessageWarning(api, message, `❌ Lỗi khi gia hạn bot: ${error.message}`);
+  }
+}
+
+async function deleteBotFiles(botId) {
+  const filePaths = [
+    path.resolve(paths.myBotDataDir, `${botId}.json`),
+    path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`),
+    path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`),
+    path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`),
+    path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`),
+    path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`),
+    path.resolve(paths.myBotDataFolder, `config_${botId}.json`),
+    path.resolve(paths.myBotJsonDataFolder, `command_${botId}.json`),
+  ];
+  
+  const dirs = [
+    path.resolve(paths.logsDir, botId),
+    path.resolve(paths.resourcesDir, botId),
+    path.resolve(paths.tempDir, botId)
+  ];
+
+  for (const filePath of filePaths) {
+    try {
+      await fs.unlink(filePath);
+      console.log(`[MyBot] ✅ Xóa file: ${filePath}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`[MyBot] ⚠️ Lỗi khi xóa file ${filePath}:`, error.message);
+      }
+    }
+  }
+
+  for (const dirPath of dirs) {
+    try {
+      await fs.rm(dirPath, { recursive: true, force: true });
+      console.log(`[MyBot] ✅ Xóa thư mục: ${dirPath}`);
+    } catch (error) {
+      console.error(`[MyBot] ⚠️ Lỗi khi xóa thư mục ${dirPath}:`, error.message);
+    }
+  }
+}
+
+async function handleMyBotDelete(api, message) {
+  console.log(`[MyBot] 📨 Nhận lệnh: mybot delete/remove`);
+
+  const mentions = message.data.mentions;
+  const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+
+  let botId = null;
+  let botName = "Bot";
+
+  if (mentions && mentions.length > 0) {
+    botId = mentions[0].uid;
+    botName = message.data.content.substring(mentions[0].pos, mentions[0].pos + mentions[0].len).replace("@", "");
+  } else if (parts.length >= 2 && parts[2]) {
+    const botList = await listAllBots();
+    const index = parseInt(parts[2]) - 1;
+    if (index >= 0 && index < botList.length) {
+      botId = botList[index].uid;
+      botName = botList[index].name;
+    } else {
+      await sendMessageWarning(api, message, "Chỉ số bot không hợp lệ");
+      return;
+    }
+  } else {
+    await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để xóa bot.");
+    return;
+  }
+
+  try {
+    const processName = `mybot-${botId}`;
+    
+    try {
+      await execAsync(`pm2 delete ${processName}`);
+      console.log(`[MyBot] ✅ Dừng và xóa process PM2 thành công: ${processName}`);
+    } catch (err) {
+      console.log(`[MyBot] ℹ️ Process PM2 không tồn tại hoặc xóa thất bại (OK): ${processName}`);
+    }
+
+    await deleteBotFiles(botId);
+
+    await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName} (ID: ${botId}) khỏi VXK Bot Team.`);
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi xóa bot:`, error);
+    await sendMessageWarning(api, message, `❌ Lỗi khi xóa bot: ${error.message}`);
   }
 }
 
@@ -462,10 +639,25 @@ function getHelpMessage() {
 • 📝 Cú pháp: ${prefix}mybot create @mention cookie imei
 • ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
 
+---
+➤ ➕ Gia hạn/Đặt thời gian:
+『${prefix}mybot addtime』
+• 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
+• ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
+• ⚙️ Ví dụ: ${prefix}mybot addtime @user 1d
+
+---
+➤ 🗑️ Xóa Bot:
+『${prefix}mybot delete/remove』
+• 📝 Cú pháp: ${prefix}mybot delete @mention/index
+• ⚙️ Chức năng: Xóa bot và toàn bộ data
+
+---
 ➤ 📋 Thông tin Bot:
 『${prefix}mybot info』
 • 📝 Cú pháp: ${prefix}mybot info @mention/index
 
+---
 ➤ 📊 Danh sách Bot:
 『${prefix}mybot list』
 • 📝 Hiển thị tất cả bot trong hệ thống
@@ -504,6 +696,13 @@ export async function handleMyBotCommands(api, message) {
       return true;
     case "list":
       await handleMyBotList(api, message);
+      return true;
+    case "addtime":
+      await handleMyBotAddTime(api, message);
+      return true;
+    case "delete":
+    case "remove":
+      await handleMyBotDelete(api, message);
       return true;
     case "help":
       const helpMsg = getHelpMessage();
