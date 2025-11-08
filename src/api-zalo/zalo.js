@@ -67,7 +67,7 @@ import { callGroupFactory } from "./apis/callGroup.js";
 
 import fs from "fs";
 import path from "path";
-import { isSubBotInstance } from "../utils/io-json.js";
+import { isSubBotInstance, getBotId } from "../utils/io-json.js";
 
 class Zalo {
   constructor(credentials, options) {
@@ -117,8 +117,9 @@ class Zalo {
     );
 
     if (isSubBotInstance()) {
-      const botId = appContext.uid.toString();
-      const adminFilePath = path.resolve("./mybot/data", `list_admin_${botId}.json`);
+      const fileId = getBotId();
+      const botOwnUid = appContext.uid.toString();
+      const adminFilePath = path.resolve("./mybot/data", `list_admin_${fileId}.json`);
       
       let admins = [];
       try {
@@ -129,8 +130,8 @@ class Zalo {
         admins = [];
       }
 
-      if (!admins.includes(botId)) {
-        admins.push(botId);
+      if (!admins.includes(botOwnUid)) {
+        admins.push(botOwnUid);
       }
 
       try {
@@ -152,7 +153,7 @@ class Zalo {
       
       try {
         fs.writeFileSync(adminFilePath, JSON.stringify(admins, null, 2));
-        logger.info(`[MyBot Login] Đã cập nhật danh sách admin cho ${botId}: ${admins.join(", ")}`);
+        logger.info(`[MyBot Login] Đã cập nhật ${adminFilePath} cho ${fileId}: ${admins.join(", ")}`);
         if (this.reloadAdminsCallback) {
           this.reloadAdminsCallback();
         }
