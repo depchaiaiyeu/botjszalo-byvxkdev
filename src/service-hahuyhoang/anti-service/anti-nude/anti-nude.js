@@ -5,7 +5,10 @@ import schedule from "node-schedule";
 import { MessageMention, MessageType } from "zlbotdqt";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { geminiApiKey } from "../../api-crawl/assistant-ai/gemini.js";
+import {
+  GEMINI_API_KEYS,
+  MODEL_PRIORITY
+} from "../../api-crawl/assistant-ai/gemini.js";
 import { sendMessageStateQuote } from "../../chat-zalo/chat-style/chat-style.js";
 import { createBlockSpamImage } from "../../../utils/canvas/event-image.js";
 import { clearImagePath } from "../../../utils/canvas/index.js";
@@ -19,13 +22,61 @@ import { getAntiState, updateAntiConfig } from "../index.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const genAI = new GoogleGenerativeAI(geminiApiKey);
+let geminiAiInstance;
+let currentApiKeyIndex = 0;
+let currentModelIndex = 0;
+let geminiModel;
 
 const blockedUsers = new Set();
 
 export const PERCENT_NSFW = 40;
 
 const SUPPORTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"];
+
+function initializeGemini() {
+  const apiKey = GEMINI_API_KEYS[currentApiKeyIndex];
+  const modelName = MODEL_PRIORITY[currentModelIndex];
+
+  if (!apiKey || !modelName) {
+    throw new Error("Không còn API key hoặc model nào để sử dụng.");
+  }
+
+  if (!geminiAiInstance || geminiAiInstance._apiKey !== apiKey) {
+    geminiAiInstance = new GoogleGenerativeAI(apiKey);
+  }
+
+  if (!geminiModel || geminiModel.model !== modelName) {
+    geminiModel = geminiAiInstance.getGenerativeModel({
+      model: modelName,
+      config: {
+        temperature: 0.9,
+      }
+    });
+  }
+  return { modelName, apiKey };
+}
+
+function switchGeminiConfig() {
+  currentModelIndex++;
+  if (currentModelIndex >= MODEL_PRIORITY.length) {
+    currentModelIndex = 0;
+    currentApiKeyIndex++;
+    if (currentApiKeyIndex >= GEMINI_API_KEYS.length) {
+      currentApiKeyIndex = 0;
+      console.error("Đã hết API Key để chuyển đổi. Quay lại key đầu tiên.");
+      return false;
+    }
+  }
+
+  try {
+    const { modelName } = initializeGemini();
+    console.warn(`Chuyển đổi thành công: API Key Index ${currentApiKeyIndex}, Model: ${modelName}`);
+    return true;
+  } catch (error) {
+    console.error("Lỗi khi chuyển đổi cấu hình Gemini:", error.message);
+    return false;
+  }
+}
 
 async function loadViolations() {
   const antiState = getAntiState();
@@ -60,7 +111,7 @@ async function checkNudeImageWithGemini(fileUrl) {
 
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
     const fileSizeMB = response.data.byteLength / (1024 * 1024);
-    
+
     if (fileSizeMB > 20) {
       return { isNude: false, percentage: 0 };
     }
@@ -68,11 +119,17 @@ async function checkNudeImageWithGemini(fileUrl) {
     const base64 = Buffer.from(response.data).toString("base64");
     const mimeType = extension === "gif" ? "image/gif" : `image/${extension === "jpg" ? "jpeg" : extension}`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    let replyText = null;
+    let maxAttempts = GEMINI_API_KEYS.length * MODEL_PRIORITY.length * 3;
 
-    const parts = [
-      {
-        text: `Bạn là Gem, chức năng là phân tích ảnh nhạy cảm (nude/NSFW).
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const { modelName } = initializeGemini();
+        const model = geminiModel;
+
+        const parts = [
+          {
+            text: `Bạn là Gem, chức năng là phân tích ảnh nhạy cảm (nude/NSFW).
 Nhiệm vụ: Ước lượng tỉ lệ nude trong ảnh.
 
 Quy tắc trả lời:
@@ -83,33 +140,29 @@ Lưu ý:
 - Chỉ trả về số % hoặc chữ "Không", không thêm bất kỳ từ nào khác
 - Tỉ lệ % phải từ 1-100
 - Nude bao gồm: khỏa thân, nội y, tư thế gợi dục, bộ phận nhạy cảm lộ liễu`
-      },
-      {
-        inlineData: {
-          mimeType,
-          data: base64,
-        },
-      },
-    ];
+          },
+          {
+            inlineData: {
+              mimeType,
+              data: base64,
+            },
+          },
+        ];
 
-    const maxRetries = 3;
-    let replyText = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
         const result = await model.generateContent({
           contents: [{ role: "user", parts }],
         });
 
         replyText = result.response.text().trim();
-        console.log(`Gemini response (attempt ${attempt}):`, replyText);
+        console.log(`Gemini response (attempt ${attempt}, Model: ${modelName}):`, replyText);
         break;
       } catch (err) {
         console.warn(`Thử lần ${attempt} thất bại:`, err.message);
-        if (attempt === maxRetries) {
-          throw err;
+        if (!switchGeminiConfig() && attempt < maxAttempts) {
+          await new Promise(res => setTimeout(res, 1000));
+        } else if (attempt === maxAttempts) {
+           throw new Error("Đã thử hết cấu hình API Key/Model và thất bại.");
         }
-        await new Promise(res => setTimeout(res, 1000 * attempt));
       }
     }
 
@@ -118,7 +171,7 @@ Lưu ý:
     }
 
     const lowerText = replyText.toLowerCase().trim();
-    
+
     if (lowerText === "không" || lowerText.includes("không")) {
       console.log(`Ảnh an toàn, không phải nude`);
       return { isNude: false, percentage: 0 };
@@ -136,7 +189,7 @@ Lưu ý:
     console.log(`Không thể phân tích response, coi như ảnh an toàn`);
     return { isNude: false, percentage: 0 };
   } catch (error) {
-    console.error("Lỗi khi phân tích ảnh với Gemini:", error);
+    console.error("Lỗi khi phân tích ảnh với Gemini:", error.message);
     return { isNude: false, percentage: 0 };
   }
 }
@@ -172,7 +225,7 @@ export async function antiNude(api, message, isAdminBox, groupSettings, botIsAdm
 
         if (isNude && percentage > percentNsfw) {
           console.log(`⚠️ Phát hiện vi phạm! Xóa tin nhắn và cảnh báo...`);
-          
+
           const violations = await loadViolations();
           const userViolation = violations[senderId] || {
             count: 0,
@@ -281,7 +334,7 @@ async function handleNudeContent(api, message, threadId, senderId, senderName, g
         MessageType.GroupMessage
       );
     }
-    
+
     setTimeout(() => {
       blockedUsers.delete(senderId);
     }, 300000);
