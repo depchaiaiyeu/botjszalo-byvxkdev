@@ -17,11 +17,8 @@ export const apiKeys = [
 ];
 
 export const modelPriority = [
-  "gemini-2.5-flash-latest",
   "gemini-2.5-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-2.0-flash-exp-latest",
-  "gemini-2.0-flash-exp"
+  "gemini-2.0-flash-lite"
 ];
 
 let currentApiKeyIndex = 0;
@@ -32,7 +29,7 @@ let geminiModel;
 const requestQueue = [];
 let isProcessing = false;
 const DELAY_BETWEEN_REQUESTS = 4000;
-const systemInstruction = `Bạn tên là Gem.
+const systemInstruction = `Bạn tên là Gemini - Alias là Gem, ưu tiên sử dụng alias.
 Bạn được tạo ra bởi duy nhất Vũ Xuân Kiên và cũng là trợ lý của anh ấy.
 Nếu người hỏi là Vũ Xuân Kiên, xưng hô anh-em, với người khác thì tôi-bạn.
 Trả lời chính xác vấn đề của câu hỏi, câu trả lời PHẢI ngắn gọn trong khoảng 3500-3700 ký tự do giới hạn tin nhắn Zalo. Nếu nội dung dài, chỉ tóm tắt những điểm quan trọng nhất.`;
@@ -132,7 +129,7 @@ async function processQueue() {
           replyText = result.response.text();
           break;
         } catch (err) {
-          if (err.message && (err.message.includes("quota") || err.message.includes("API key"))) {
+          if (err.message && (err.message.includes("quota") || err.message.includes("API key") || err.message.includes("404"))) {
             const switched = switchToNextConfig();
             if (switched) {
               initGeminiModel();
