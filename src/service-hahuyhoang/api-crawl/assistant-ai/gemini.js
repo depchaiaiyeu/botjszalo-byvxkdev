@@ -13,12 +13,12 @@ import * as path from "path";
 import axios from "axios";
 import { checkExstentionFileRemote } from "../../../utils/util.js";
 
-export const GEMINI_API_KEYS = [
+const GEMINI_API_KEYS = [
   "AIzaSyAcjgP3ia83DLvrBefVZWb4VAwOaxtY9Ho",
   "AIzaSyBDTyLJCj2etA-GEeObscK85s4GIkRhqYE"
 ];
 
-export const MODEL_PRIORITY = [
+const MODEL_PRIORITY = [
   "gemini-2.5-flash",
   "gemini-2.0-flash-lite",
   "gemini-2.0-flash-exp"
@@ -47,16 +47,20 @@ function initializeGemini() {
     throw new Error("Không còn API key hoặc model nào để sử dụng.");
   }
 
-  geminiAiInstance = new GoogleGenerativeAI(apiKey);
-  geminiModel = geminiAiInstance.getGenerativeModel({
-    model: modelName,
-    generationConfig: {
-      temperature: 0.9,
-      topK: 40,
-      topP: 0.8,
-    }
-  });
+  if (!geminiAiInstance || geminiAiInstance._apiKey !== apiKey) {
+    geminiAiInstance = new GoogleGenerativeAI(apiKey);
+  }
 
+  if (!geminiModel || geminiModel.model !== modelName) {
+    geminiModel = geminiAiInstance.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        temperature: 0.9,
+        topK: 40,
+        topP: 0.8,
+      }
+    });
+  }
   return { modelName, apiKey };
 }
 
@@ -66,13 +70,14 @@ function switchGeminiConfig() {
     currentModelIndex = 0;
     currentApiKeyIndex++;
     if (currentApiKeyIndex >= GEMINI_API_KEYS.length) {
-      console.error("Đã hết API Key để chuyển đổi.");
+      currentApiKeyIndex = 0;
+      console.error("Đã hết API Key để chuyển đổi. Quay lại key đầu tiên.");
       return false;
     }
   }
 
   try {
-    const { modelName, apiKey } = initializeGemini();
+    const { modelName } = initializeGemini();
     console.warn(`Chuyển đổi thành công: API Key Index ${currentApiKeyIndex}, Model: ${modelName}`);
     return true;
   } catch (error) {
@@ -204,8 +209,10 @@ export async function askGeminiCommand(api, message, aliasCommand) {
       try {
         const attachData = JSON.parse(quotedAttach);
         imageUrl = attachData.hdUrl || attachData.href || attachData.oriUrl || attachData.normalUrl || attachData.thumbUrl;
-        if (attachData.title) {
-          fullPrompt = `${senderName} hỏi về ảnh có caption: "${attachData.title}"\n\n${question}`;
+        
+        const attachTitle = attachData.title || "";
+        if (attachTitle.length > 0) {
+          fullPrompt = `${senderName} hỏi về ảnh có caption: "${attachTitle}"\n\n${question}`;
         } else {
           fullPrompt = `${senderName} hỏi về một ảnh\n\n${question}`;
         }
@@ -225,9 +232,10 @@ export async function askGeminiCommand(api, message, aliasCommand) {
     await sendMessageProcessingRequest(api, message, "Đang xử lý yêu cầu...");
     let replyText = await callGeminiAPI(api, message, fullPrompt, imageUrl);
     if (!replyText) replyText = "Xin lỗi, hiện tại tôi không thể trả lời câu hỏi này. 🙏";
+    
     await sendMessageStateQuote(api, message, replyText, true, 1800000, false);
-    await sendMessageComplete(api, message, replyText);
   } catch (error) {
+    console.error("Lỗi khi xử lý yêu cầu Gemini:", error);
     await sendMessageFailed(api, message, `Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. Chi tiết: ${error.message} 😢`, true);
   }
 }
