@@ -29,7 +29,7 @@ const paths = {
   assetsJsonDataDir: path.resolve("./assets/json-data"),
   logsDir: path.resolve("./logs"),
   resourcesDir: path.resolve("./resources"),
-  tempDir: path.resolve("./temp")
+  tempDir: path.resolve("./assets/temp")
 };
 
 async function waitForFile(filePath, timeout = 5000) {
@@ -72,7 +72,8 @@ async function ensureDirectories() {
   const dirs = [
     paths.myBotDataDir,
     paths.myBotDataFolder,
-    paths.myBotJsonDataFolder
+    paths.myBotJsonDataFolder,
+    paths.tempDir
   ];
 
   for (const dir of dirs) {
@@ -253,6 +254,9 @@ async function handleMyBotCreateQR(api, message, botId, botName) {
   const ctx = new Zalo({
     options: { logging: false },
   });
+  
+  await ensureDirectories();
+
   const qrPath = path.resolve(paths.tempDir, `loginqr-${botId}.png`);
   const userAgent = getRandomUserAgent();
 
