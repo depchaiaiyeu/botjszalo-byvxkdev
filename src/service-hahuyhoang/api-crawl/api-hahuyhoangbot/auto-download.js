@@ -82,6 +82,7 @@ export async function handleAutoDownloadCommand(api, message, groupSettings) {
 }
 
 export async function autoDownload(api, message, isSelf, groupSettings) {
+  if (isSelf) return false;
 
   let content = message.data.content;
   const threadId = message.threadId;
@@ -135,59 +136,39 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
         continue;
       }
 
-      await api.addReaction("UNDO", message);
-
-      const dataLink = [];
+      const audios = dataDownload.medias.filter(m => m.type.toLowerCase() === "audio");
+      const videos = dataDownload.medias.filter(m => m.type.toLowerCase() === "video");
+      const images = dataDownload.medias.filter(m => m.type.toLowerCase() === "image");
+      
       let uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-      dataDownload.medias.forEach((item) => {
-        if (item.type.toLowerCase() !== "audio") {
-          dataLink.push({
-            url: item.url,
-            quality: item.quality || "unknown",
-            type: item.type.toLowerCase(),
-            title: dataDownload.title,
-            thumbnail: dataDownload.thumbnail,
-            extension: item.extension,
-          });
-        }
-      });
-
-      if (dataLink.length === 0) {
-        await api.addReaction("OK", message);
-        continue;
-      }
-
-      const onlyImages = dataLink.every(item => item.type.toLowerCase() === "image");
       const mediaType = dataDownload.source;
       const title = dataDownload.title;
       const author = dataDownload.author || "Unknown Author";
       const duration = dataDownload.duration || 0;
+      const captionPrefix = 
+        `[ ${senderName} ]\n` +
+        `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
+        `🎬 Tiêu Đề: ${title}\n` +
+        `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}`;
 
-      if (onlyImages) {
-        if (dataLink.length === 1) {
-          const media = dataLink[0];
+      const audioToSend = audios.length > 0 ? audios[0] : null;
+
+      if (images.length > 0) {
+        if (images.length === 1) {
+          const media = images[0];
           const uniqueFileName = `${uniqueId}_${Math.random().toString(36).substring(7)}.${media.extension}`;
           const filePath = path.resolve(tempDir, uniqueFileName);
           
           await downloadFile(media.url, filePath);
 
-          const caption =
-            `[ ${senderName} ]\n` +
-            `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
-            `🎬 Tiêu Đề: ${title}\n` +
-            `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}` +
-            `📊 Chất Lượng: Ảnh`;
+          const caption = captionPrefix + `📊 Chất Lượng: Ảnh`;
 
           await api.sendMessage(
-            {
-              msg: caption,
-              attachments: [filePath],
-            },
+            { msg: caption, attachments: [filePath] },
             threadId,
             message.type
           );
-
+          
           try {
             await clearImagePath(filePath);
           } catch (error) {
@@ -196,33 +177,23 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
         } else {
           const attachmentPaths = [];
 
-          for (const media of dataLink) {
+          for (const media of images) {
             const uniqueFileName = `${uniqueId}_${Math.random().toString(36).substring(7)}.${media.extension}`;
             const filePath = path.resolve(tempDir, uniqueFileName);
             await downloadFile(media.url, filePath);
             attachmentPaths.push(filePath);
           }
 
-          const caption =
-            `[ ${senderName} ]\n` +
-            `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
-            `🎬 Tiêu Đề: ${title}\n` +
-            `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}` +
-            `📊 Số ảnh: ${attachmentPaths.length}`;
+          const caption = captionPrefix + `📊 Số ảnh: ${attachmentPaths.length}`;
 
           await api.sendMessage(
-            {
-              msg: caption,
-            },
+            { msg: caption },
             threadId,
             message.type
           );
 
           await api.sendMessage(
-            {
-              msg: "",
-              attachments: attachmentPaths,
-            },
+            { attachments: attachmentPaths },
             threadId,
             message.type
           );
@@ -235,14 +206,7 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
             }
           }
         }
-      } else {
-        const videos = dataLink.filter(item => item.type.toLowerCase() === "video");
-        
-        if (videos.length === 0) {
-          await api.addReaction("OK", message);
-          continue;
-        }
-
+      } else if (videos.length > 0) {
         const sortedVideos = videos.sort((a, b) => {
           const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
           const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
@@ -260,7 +224,18 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
           author,
           senderId,
           senderName,
+          captionPrefix,
         });
+      } else if (audioToSend) {
+        const caption = captionPrefix + `🎵 Chất Lượng: ${audioToSend.quality || 'Âm thanh'}`;
+        await api.sendVoice(message, audioToSend.url, 0, { msg: caption, quote: message });
+      } else {
+        await api.addReaction("UNDO", message);
+        continue;
+      }
+      
+      if (audioToSend && (images.length > 0 || videos.length > 0)) {
+        await api.sendVoice(message, audioToSend.url);
       }
 
       await api.addReaction("OK", message);
