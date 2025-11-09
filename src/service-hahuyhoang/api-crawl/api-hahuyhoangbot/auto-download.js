@@ -150,7 +150,8 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
         `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
         `🎬 Tiêu Đề: ${title}\n` +
         `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}`;
-
+      
+      let mediaSent = false;
       const audioToSend = audios.length > 0 ? audios[0] : null;
 
       if (images.length > 0) {
@@ -160,7 +161,6 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
           const filePath = path.resolve(tempDir, uniqueFileName);
           
           await downloadFile(media.url, filePath);
-
           const caption = captionPrefix + `📊 Chất Lượng: Ảnh`;
 
           await api.sendMessage(
@@ -206,6 +206,7 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
             }
           }
         }
+        mediaSent = true;
       } else if (videos.length > 0) {
         const sortedVideos = videos.sort((a, b) => {
           const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
@@ -226,20 +227,25 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
           senderName,
           captionPrefix,
         });
-      } else if (audioToSend) {
-        const caption = captionPrefix + `🎵 Chất Lượng: ${audioToSend.quality || 'Âm thanh'}`;
-        await api.sendVoice(message, audioToSend.url, 0, { msg: caption, quote: message });
+        mediaSent = true;
+      }
+      
+      if (audioToSend) {
+        if (!mediaSent) {
+          const caption = captionPrefix + `🎵 Chất Lượng: ${audioToSend.quality || 'Âm thanh'}`;
+          await api.sendMessage({ msg: caption, quote: message }, threadId, message.type);
+        }
+        await api.sendVoice(message, audioToSend.url, 86400000);
+        mediaSent = true;
+      }
+
+      if (mediaSent) {
+        await api.addReaction("OK", message);
+        return true;
       } else {
         await api.addReaction("UNDO", message);
         continue;
       }
-      
-      if (audioToSend && (images.length > 0 || videos.length > 0)) {
-        await api.sendVoice(message, audioToSend.url);
-      }
-
-      await api.addReaction("OK", message);
-      return true;
     } catch (error) {
       console.error("Lỗi khi xử lý link:", link);
       console.error("Chi tiết lỗi:", error.message);
