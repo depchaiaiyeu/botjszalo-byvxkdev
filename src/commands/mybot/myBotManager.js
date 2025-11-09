@@ -250,6 +250,32 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
     console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
+function streamLogsFor30s(processName, botId) {
+    console.log(`[MyBot] 📡 Bắt đầu stream log 30s cho: ${processName}`);
+    const logStream = spawn('pm2', ['logs', processName, '--raw']);
+
+    logStream.stdout.on('data', (data) => {
+        process.stdout.write(`[LOG|${botId}] ${data.toString()}`);
+    });
+
+    logStream.stderr.on('data', (data) => {
+        process.stderr.write(`[ERR|${botId}] ${data.toString()}`);
+    });
+
+    logStream.on('close', (code) => {
+        console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`);
+    });
+
+    logStream.on('error', (err) => {
+        console.error(`[MyBot] 🚫 Lỗi khi stream log cho ${processName}:`, err);
+    });
+
+    setTimeout(() => {
+        logStream.kill();
+        console.log(`[MyBot] 🛑 Dừng stream log 30s cho ${processName}`);
+    }, 30000);
+}
+
 async function handleMyBotCreate(api, message) {
     console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
     console.log(`[MyBot] 📨 Nội dung: ${message.data.content}`);
@@ -317,25 +343,7 @@ async function handleMyBotCreate(api, message) {
 
         await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy.\nĐang theo dõi log...`);
 
-        console.log(`[MyBot] 📡 Bắt đầu stream log trực tiếp cho: ${processName}`);
-        
-        const logStream = spawn('pm2', ['logs', processName, '--raw']);
-
-        logStream.stdout.on('data', (data) => {
-            process.stdout.write(`[LOG|${botId}] ${data.toString()}`);
-        });
-
-        logStream.stderr.on('data', (data) => {
-            process.stderr.write(`[ERR|${botId}] ${data.toString()}`);
-        });
-
-        logStream.on('close', (code) => {
-            console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`);
-        });
-
-        logStream.on('error', (err) => {
-            console.error(`[MyBot] 🚫 Lỗi khi stream log cho ${processName}:`, err);
-        });
+        streamLogsFor30s(processName, botId);
 
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi tạo bot:`, error.message);
@@ -439,8 +447,9 @@ async function handleMyBotInfo(api, message) {
         const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
         const expireInfo = formatRemainingTime(botConfig.expiresAt);
         const status = botConfig.isRunning ? "✅ Đang chạy" : "🚫 Dừng";
+        const processName = `mybot-${botId}`;
 
-        const info = `📜 Thông tin BOT Từ dữ liệu VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
+        const info = `📜 Thông tin BOT Từ dữ liệu VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n💾 pm2: ${processName}\n${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
 
         await sendMessageComplete(api, message, info);
     } catch (error) {
@@ -470,8 +479,8 @@ async function handleMyBotList(api, message) {
             const expireInfo = formatRemainingTime(bot.config.expiresAt);
 
             listInfo += `${i + 1}. ${bot.name}\n`
-                     + `📊 Trạng thái: ${status}\n`
-                     + `🎯 Thời gian còn lại: ${expireInfo}\n\n`;
+                      + `📊 Trạng thái: ${status}\n`
+                      + `🎯 Thời gian còn lại: ${expireInfo}\n\n`;
         }
         
         listInfo += "-> Inbox cho admin để gia hạn thời gian cho bot của bạn!";
@@ -707,16 +716,61 @@ async function handleMyBotActive(api, message) {
         
         await sendMessageComplete(api, message, `✅ Đã bật bot của ${botName} (ID: ${botId}).\nĐang theo dõi log...`);
 
-        console.log(`[MyBot] 📡 Bắt đầu stream log trực tiếp cho: ${processName}`);
-        const logStream = spawn('pm2', ['logs', processName, '--raw']);
-        logStream.stdout.on('data', (data) => process.stdout.write(`[LOG|${botId}] ${data.toString()}`));
-        logStream.stderr.on('data', (data) => process.stderr.write(`[ERR|${botId}] ${data.toString()}`));
-        logStream.on('close', (code) => console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`));
-        logStream.on('error', (err) => console.error(`[MyBot] 🚫 Lỗi khi stream log cho ${processName}:`, err));
+        streamLogsFor30s(processName, botId);
 
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi bật bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi bật bot: ${error.message}`);
+    }
+}
+
+async function handleMyBotRestart(api, message) {
+    console.log(`[MyBot] 📨 Nhận lệnh: mybot restart`);
+
+    const content = removeMention(message);
+    const parts = content.split(/\s+/).filter(p => p.trim());
+    const botList = await listAllBots(api);
+
+    const target = getBotTarget(message, parts, botList);
+    const botId = target.botId;
+    const botName = target.botName;
+
+    if (!botId) {
+        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để restart bot.");
+        return;
+    }
+
+    try {
+        const processName = `mybot-${botId}`;
+        const botConfig = await getBotConfig(botId);
+        
+        if (!botConfig) {
+            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+            return;
+        }
+
+        if (botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now()) {
+            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Không thể restart.`);
+            if (botConfig.isRunning) {
+                botConfig.isRunning = false;
+                await saveBotConfig(botId, botConfig);
+            }
+            return;
+        }
+        
+        await execAsync(`pm2 restart ${processName}`);
+        console.log(`[MyBot] ✅ Đã khởi động lại process PM2: ${processName}`);
+        
+        botConfig.isRunning = true;
+        await saveBotConfig(botId, botConfig);
+        
+        await sendMessageComplete(api, message, `✅ Đã khởi động lại bot của ${botName} (ID: ${botId}).\nĐang theo dõi log...`);
+
+        streamLogsFor30s(processName, botId);
+
+    } catch (error) {
+        console.error(`[MyBot] 🚫 Lỗi khi restart bot:`, error);
+        await sendMessageWarning(api, message, `🚫 Lỗi khi restart bot: ${error.message}`);
     }
 }
 
@@ -753,6 +807,12 @@ function getHelpMessage() {
 『${prefix}mybot shutdown』
 • 📝 Cú pháp: ${prefix}mybot shutdown @mention/index
 • ⚙️ Chức năng: Dừng bot (không xóa data)
+
+---
+➤ 🔄 Khởi động lại Bot:
+『${prefix}mybot restart』
+• 📝 Cú pháp: ${prefix}mybot restart @mention/index
+• ⚙️ Chức năng: Khởi động lại bot
 
 ---
 ➤ 📋 Thông tin Bot:
@@ -812,6 +872,9 @@ export async function handleMyBotCommands(api, message) {
         case "shutdown":
             await handleMyBotShutdown(api, message);
             return true;
+        case "restart":
+            await handleMyBotRestart(api, message);
+            return true;
         case "help":
             const helpMsg = getHelpMessage();
             await sendMessageComplete(api, message, helpMsg);
@@ -822,39 +885,3 @@ export async function handleMyBotCommands(api, message) {
             return true;
     }
 }
-
-async function checkBotExpirations() {
-    console.log(`[MyBot Scheduler] ⏰ Bắt đầu quét hạn sử dụng bot...`);
-    
-    try {
-        const bots = await listAllBots(null);
-        
-        for (const bot of bots) {
-            const { uid: botId, config } = bot;
-            
-            if (config.isRunning && config.expiresAt !== -1 && config.expiresAt < Date.now()) {
-                console.log(`[MyBot Scheduler] 🚫 Bot ${botId} đã hết hạn. Đang dừng...`);
-                const processName = `mybot-${botId}`;
-                try {
-                    await execAsync(`pm2 stop ${processName}`);
-                    config.isRunning = false;
-                    await saveBotConfig(botId, config);
-                    console.log(`[MyBot Scheduler] ✅ Đã dừng bot hết hạn: ${botId}`);
-                } catch (err) {
-                    console.error(`[MyBot Scheduler] 🚫 Lỗi khi dừng bot ${botId}:`, err.message);
-                }
-            }
-        }
-    } catch (error) {
-        console.error(`[MyBot Scheduler] 🚫 Lỗi khi quét hạn sử dụng:`, error);
-    }
-    console.log(`[MyBot Scheduler] 🟢 Quét hạn sử dụng hoàn tất.`);
-}
-
-function startBotExpiryScheduler(intervalMinutes = 5) {
-    console.log(`[MyBot Scheduler] 🚀 Khởi chạy quét hạn sử dụng, lặp lại mỗi ${intervalMinutes} phút.`);
-    checkBotExpirations();
-    setInterval(checkBotExpirations, intervalMinutes * 60 * 1000);
-}
-
-startBotExpiryScheduler();
