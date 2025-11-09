@@ -8,6 +8,9 @@ import si from "systeminformation";
 import disk from "diskusage";
 import { createHelpBackground } from "./help.js";
 
+const LINE_HEIGHT_TEXT = 50;
+const LINE_HEIGHT_BAR = 30;
+
 function drawBox(ctx, x, y, w, h, title) {
   const boxGradient = ctx.createLinearGradient(x, y, x, y + h);
   boxGradient.addColorStop(0, "rgba(0, 0, 0, 0.55)");
@@ -68,15 +71,6 @@ async function getWindowsVersion() {
     return `${osInfo.distro} ${osInfo.release}`;
   } catch {
     return os.release();
-  }
-}
-
-async function getCpuTemp() {
-  try {
-    const temps = await si.cpuTemperature();
-    return temps.main ? `${temps.main.toFixed(1)}°C` : "N/A";
-  } catch {
-    return "N/A";
   }
 }
 
@@ -152,7 +146,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   const diskTotal = await getDiskTotal();
   const networkUsage = await getNetworkUsage();
-
+  
+  const cpuUsageValue = botStats.cpu || (await si.currentLoad()).currentLoad.toFixed(1) + "%";
+  
   const systemFields = [
     { label: "🔢 Phiên bản:", value: botStats.version || "Unknown" },
     { label: "💾 Bộ nhớ bot:", value: botStats.memoryUsage || "Unknown" },
@@ -160,13 +156,12 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     { label: "📀 OS Version:", value: osVersion },
     { label: "🖥️ CPU Model:", value: botStats.cpuModel || os.cpus()[0]?.model || "Unknown" },
     { label: "🔢 CPU Count:", value: os.cpus().length.toString() },
-    { label: "⚡ CPU Usage:", value: botStats.cpu || (await si.currentLoad()).currentLoad.toFixed(1) + "%" },
     { label: "🔢 Up Time OS:", value: botStats.uptimeOS || formatUptime(os.uptime()) },
     { label: "💿 Total Memory:", value: totalMemory },
   ];
 
   const resourceFields = [
-    { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || "24°C" || (await getCpuTemp()) },
+    { label: "⚡ CPU Usage:", value: cpuUsageValue },
     { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB` },
     { label: "💿 Free Memory:", value: freeMemory },
     { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()) },
@@ -189,28 +184,31 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const leftColumnWidth = Math.max(500, maxLeftWidth + 120);
 
   let maxConfigWidth = 0;
-  let configItemsForMeasure = onConfigs.length > 0 && offConfigs.length > 0 ? [...onConfigs, ...offConfigs] : onConfigs.length > 0 ? onConfigs : offConfigs;
+  const configItemsForMeasure = [...onConfigs, ...offConfigs];
   configItemsForMeasure.forEach(line => {
     const textWidth = measureTextWidth(tempCtx, `${line}: ✅`, "bold 22px BeVietnamPro");
     maxConfigWidth = Math.max(maxConfigWidth, textWidth);
   });
 
-  const rightColumnWidth = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(650, maxConfigWidth * 2 + 180) : Math.max(450, maxConfigWidth + 120);
+  const hasTwoConfigCols = onConfigs.length > 0 && offConfigs.length > 0;
+  const rightColumnWidth = hasTwoConfigCols ? Math.max(650, maxConfigWidth * 2 + 180) : Math.max(450, maxConfigWidth + 120);
   width = leftColumnWidth + rightColumnWidth + 120;
 
   const headerH = 220;
   const headerY = 30;
-
-  const itemHeight = 70;
-  const sysBoxHeight = systemFields.length * itemHeight + 100;
+  const sysBoxHeight = systemFields.length * LINE_HEIGHT_TEXT + 100;
 
   let calculatedResBoxHeight = 100;
   resourceFields.forEach(f => {
-    calculatedResBoxHeight += itemHeight;
+    calculatedResBoxHeight += LINE_HEIGHT_TEXT;
+    const isBarField = f.label.includes("CPU Usage") || f.label.includes("RAM Usage") || f.label.includes("Disk Usage");
+    if (isBarField) {
+      calculatedResBoxHeight += LINE_HEIGHT_BAR;
+    }
   });
   const resBoxHeight = calculatedResBoxHeight;
 
-  const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(onConfigs.length, offConfigs.length) : onConfigs.length > 0 ? onConfigs.length : offConfigs.length;
+  const maxConfigItems = hasTwoConfigCols ? Math.max(onConfigs.length, offConfigs.length) : (onConfigs.length || offConfigs.length);
   const configLineHeight = 40;
   const configPadding = 140;
   const cfgBoxHeight = maxConfigItems * configLineHeight + configPadding;
@@ -257,19 +255,19 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     } catch { }
   }
 
+  const headerGradient = (w) => {
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, "#8BE8FC");
+    g.addColorStop(1, "#0B60B0");
+    return g;
+  };
+
   ctx.textAlign = "left";
-  const botNameGradient = ctx.createLinearGradient(300, headerY + 100 - 48, 300 + measureTextWidth(ctx, botInfo.name, "bold 48px BeVietnamPro"), headerY + 100);
-  botNameGradient.addColorStop(0, "#4ECB71");
-  botNameGradient.addColorStop(1, "#1E90FF");
-  ctx.fillStyle = botNameGradient;
+  ctx.fillStyle = headerGradient(leftColumnWidth);
   ctx.font = "bold 48px BeVietnamPro";
   ctx.fillText(botInfo.name, 300, headerY + 100);
-
-  const uptimeGradient = ctx.createLinearGradient(300, headerY + 140 - 28, 300 + measureTextWidth(ctx, "Thời gian hoạt động: " + uptime, "bold 28px BeVietnamPro"), headerY + 140);
-  uptimeGradient.addColorStop(0, "#4ECB71");
-  uptimeGradient.addColorStop(1, "#1E90FF");
-  ctx.fillStyle = uptimeGradient;
   ctx.font = "bold 28px BeVietnamPro";
+  ctx.fillStyle = headerGradient(leftColumnWidth);
   ctx.fillText("Thời gian hoạt động: " + uptime, 300, headerY + 140);
 
   const leftColumnX = 60;
@@ -277,36 +275,41 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const sysBoxY = headerY + headerH + 30;
   drawBox(ctx, leftColumnX, sysBoxY, leftColumnWidth, sysBoxHeight, "System Info");
   let ySys = sysBoxY + 100;
+  
   systemFields.forEach(f => {
-    const textGradient = ctx.createLinearGradient(leftColumnX, ySys - 20, leftColumnX + leftColumnWidth, ySys - 20);
-    textGradient.addColorStop(0, "#4ECB71");
-    textGradient.addColorStop(1, "#1E90FF");
-    ctx.fillStyle = textGradient;
-
+    const gradient = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
+    
     ctx.textAlign = "left";
+    ctx.fillStyle = gradient;
     ctx.font = "bold 28px BeVietnamPro";
     ctx.fillText(f.label, leftColumnX + 40, ySys);
+    
     ctx.textAlign = "right";
+    ctx.fillStyle = gradient;
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, ySys);
-    ySys += itemHeight;
+    
+    ySys += LINE_HEIGHT_TEXT;
   });
 
   const resBoxY = sysBoxY + sysBoxHeight + 30;
   drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage");
   let yRes = resBoxY + 100;
+  
   resourceFields.forEach(f => {
-    const textGradient = ctx.createLinearGradient(leftColumnX, yRes - 20, leftColumnX + leftColumnWidth, yRes - 20);
-    textGradient.addColorStop(0, "#4ECB71");
-    textGradient.addColorStop(1, "#1E90FF");
-    ctx.fillStyle = textGradient;
-
+    const gradient = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
+    
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
+    ctx.fillStyle = gradient;
     ctx.fillText(f.label, leftColumnX + 40, yRes);
+    
     ctx.textAlign = "right";
+    ctx.fillStyle = gradient;
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
 
     let percent = null;
+    const isBarField = f.label.includes("CPU Usage") || f.label.includes("RAM Usage") || f.label.includes("Disk Usage");
+
     if (f.label.includes("CPU") && f.value.includes("%")) {
       percent = parseFloat(f.value.replace("%", "").trim());
     } else if (f.label.includes("RAM") && f.value.match(/(\d+(\.\d+)?)/g)) {
@@ -317,15 +320,18 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
     }
 
-    const hasBar = (percent !== null && !isNaN(percent));
-
+    const hasBar = (percent !== null && !isNaN(percent)) && isBarField;
+    yRes += LINE_HEIGHT_TEXT;
+    
     if (hasBar) {
       const barX = leftColumnX + 40;
-      const barY = yRes + 15;
+      const barY = yRes - 40;
       const barW = leftColumnWidth - 80;
       const barH = 16;
+      
       ctx.fillStyle = "rgba(255,255,255,0.2)";
       ctx.fillRect(barX, barY, barW, barH);
+      
       const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
       grad.addColorStop(0, "#4ECB71");
       grad.addColorStop(1, "#1E90FF");
@@ -335,9 +341,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       ctx.strokeStyle = "rgba(255,255,255,0.6)";
       ctx.lineWidth = 2;
       ctx.strokeRect(barX, barY, barW, barH);
-    }
 
-    yRes += itemHeight;
+      yRes += LINE_HEIGHT_BAR;
+    }
   });
 
   const rightColumnX = leftColumnX + leftColumnWidth + 30;
@@ -363,10 +369,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       ctx.fillText("Đang tắt:", leftColX, configTitleY);
       ctx.font = onConfigs.length === 0 ? "bold 26px BeVietnamPro" : "bold 22px BeVietnamPro";
       offConfigs.forEach(line => {
-        const textGradient = ctx.createLinearGradient(leftColX, yOff - 20, leftColX + (rightColumnWidth / 2 - 80), yOff - 20);
-        textGradient.addColorStop(0, "#4ECB71");
-        textGradient.addColorStop(1, "#1E90FF");
-        ctx.fillStyle = textGradient;
+        ctx.fillStyle = "#ffffff";
         ctx.fillText(`${line}`, leftColX, yOff);
         yOff += configLineHeight;
       });
@@ -383,10 +386,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       yOn += 40;
       ctx.font = "bold 22px BeVietnamPro";
       onConfigs.forEach(line => {
-        const textGradient = ctx.createLinearGradient(itemX, yOn - 20, itemX + (rightColumnWidth / 2 - 80), yOn - 20);
-        textGradient.addColorStop(0, "#4ECB71");
-        textGradient.addColorStop(1, "#1E90FF");
-        ctx.fillStyle = textGradient;
+        ctx.fillStyle = "#ffffff";
         ctx.fillText(`${line}`, itemX, yOn);
         yOn += configLineHeight;
       });
