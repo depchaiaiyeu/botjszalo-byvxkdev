@@ -9,6 +9,7 @@ import { createAdminListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
+import { loginQR, LoginQRCallbackEventType, createContext } from "zca-js";
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -204,7 +205,7 @@ async function createLogFiles(botId) {
   }
 }
 
-async function initializeBotFiles(botId, imei, cookie, adminId = null) {
+async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent = null) {
   console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
 
   await ensureDirectories();
@@ -212,7 +213,7 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   const botConfig = {
     cookie: cookie,
     imei: imei,
-    userAgent: getRandomUserAgent(),
+    userAgent: userAgent || getRandomUserAgent(),
     createdAt: new Date().toISOString(),
     expiresAt: Date.now() + 3600000,
     isRunning: true,
@@ -235,12 +236,115 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null) {
   console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
+async function handleMyBotCreateQR(api, message, botId, botName) {
+  const ctx = createContext({
+    options: { logging: false },
+  });
+  const qrPath = path.resolve(paths.tempDir, `loginqr-${botId}.png`);
+  const userAgent = getRandomUserAgent();
+
+  try {
+    const { imei, cookie } = await new Promise(async (resolve, reject) => {
+      try {
+        await loginQR(
+          ctx,
+          {
+            userAgent: userAgent,
+            qrPath: qrPath,
+          },
+          async (event) => {
+            switch (event.type) {
+              case LoginQRCallbackEventType.QRCodeGenerated:
+                await api.sendMessage(
+                  {
+                    attachments: [qrPath],
+                    msg: `Vui lòng quét mã QR này để đăng nhập bot cho ${botName}.\nMã có hiệu lực trong 2 phút.`
+                  },
+                  message.threadId,
+                  message.type
+                );
+                console.log("📸 QR code đã tạo, gửi cho người dùng.");
+                break;
+
+              case LoginQRCallbackEventType.QRCodeScanned:
+                console.log("✅ Đã quét QR:", event.data.display_name);
+                await sendMessageComplete(api, message, `✅ ${event.data.display_name} đã quét QR. Vui lòng xác nhận trên điện thoại.`);
+                break;
+
+              case LoginQRCallbackEventType.GotLoginInfo:
+                console.log("📱 IMEI:", event.data.imei);
+                console.log("🍪 Cookies:", event.data.cookie);
+                resolve({
+                  imei: event.data.imei,
+                  cookie: event.data.cookie,
+                });
+                break;
+
+              case LoginQRCallbackEventType.QRCodeDeclined:
+                reject(new Error("❌ Người dùng đã từ chối đăng nhập."));
+                break;
+            }
+          }
+        );
+      } catch (err) {
+        reject(err);
+      }
+    });
+    
+    console.log(`[MyBot] 👤 Bot ID: ${botId}`);
+    console.log(`[MyBot] 👤 Bot Name: ${botName}`);
+    console.log(`[MyBot] 🔑 IMEI (QR): ${imei}`);
+
+    const processName = `mybot-${botId}`;
+    const indexPath = path.resolve("src/index.js");
+
+    console.log(`[MyBot] 🚀 Index path: ${indexPath}`);
+
+    try {
+      console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
+      await execAsync(`pm2 delete ${processName}`);
+      console.log(`[MyBot] ✅ Xóa process thành công`);
+    } catch (err) {
+      console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
+    }
+
+    await initializeBotFiles(botId, imei, cookie, null, userAgent);
+
+    console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+    const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+    console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
+    if (stderr) console.log(`[MyBot] ⚠️ PM2 stderr: ${stderr}`);
+
+    await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy.\nĐang theo dõi log...`);
+
+    console.log(`[MyBot] 📡 Bắt đầu stream log trực tiếp cho: ${processName}`);
+    const logStream = spawn('pm2', ['logs', processName, '--raw']);
+    logStream.stdout.on('data', (data) => process.stdout.write(`[LOG|${botId}] ${data.toString()}`));
+    logStream.stderr.on('data', (data) => process.stderr.write(`[ERR|${botId}] ${data.toString()}`));
+    logStream.on('close', (code) => console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`));
+    logStream.on('error', (err) => console.error(`[MyBot] ❌ Lỗi khi stream log cho ${processName}:`, err));
+
+  } catch (error) {
+    console.error(`[MyBot] ❌ Lỗi khi tạo bot QR:`, error);
+    await sendMessageWarning(api, message, `❌ Lỗi khi tạo bot QR: ${error.message}`);
+  } finally {
+    try {
+      await fs.unlink(qrPath);
+      console.log(`[MyBot] ✅ Đã xóa file QR: ${qrPath}`);
+    } catch (err) {
+      console.error(`[MyBot] ⚠️ Không thể xóa file QR: ${qrPath}`, err.message);
+    }
+  }
+}
+
 async function handleMyBotCreate(api, message) {
   console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
   console.log(`[MyBot] 📨 Nội dung: ${message.data.content}`);
 
   const mentions = message.data.mentions;
   const content = removeMention(message);
+  const parts = content.split(/\s+/).filter(p => p.trim());
+  const isLoginQR = parts.some(p => p.toLowerCase() === 'loginqr');
 
   if (!mentions || mentions.length === 0) {
     await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot cho họ");
@@ -250,6 +354,11 @@ async function handleMyBotCreate(api, message) {
   const mention = mentions[0];
   const botId = mention.uid;
   const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
+
+  if (isLoginQR) {
+    await handleMyBotCreateQR(api, message, botId, botName);
+    return;
+  }
 
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -293,7 +402,7 @@ async function handleMyBotCreate(api, message) {
       console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
     }
 
-    await initializeBotFiles(botId, imei, cookie, null);
+    await initializeBotFiles(botId, imei, cookie, null, null);
 
     console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
     const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
@@ -524,7 +633,7 @@ async function handleMyBotAddTime(api, message) {
 
   const timeMs = parseTimeToMs(timeStr);
   
-  if (timeMs === null && timeStr !== "-1") {
+  if (timeMs === null) {
     await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
     return;
   }
@@ -541,7 +650,7 @@ async function handleMyBotAddTime(api, message) {
     if (timeMs === -1) {
       newExpiresAt = -1;
     } else {
-      const currentExpiresAt = botConfig.expiresAt > 0 ? botConfig.expiresAt : Date.now();
+      const currentExpiresAt = (botConfig.expiresAt && botConfig.expiresAt > 0) ? botConfig.expiresAt : Date.now();
       newExpiresAt = currentExpiresAt + timeMs;
     }
 
@@ -721,17 +830,22 @@ function getHelpMessage() {
   const prefix = getGlobalPrefix();
   return `《 🤖 HỆ THỐNG QUẢN LÝ BOT VXK 🤖 》
 
-➤ 🆕 Tạo/Sửa Bot:
+➤ 🆕 Tạo Bot (Thủ công):
 『${prefix}mybot create』
-• 📝 Cú pháp: ${prefix}mybot create @mentions <cookie> <imei>
+• 📝 Cú pháp: ${prefix}mybot create @mention <cookie> <imei>
 • ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
+
+---
+➤ 🆕 Tạo Bot (QR):
+『${prefix}mybot create @mention loginqr』
+• ⚙️ Chức năng: Tạo bot qua quét mã QR.
 
 ---
 ➤ ➕ Gia hạn/Đặt thời gian:
 『${prefix}mybot addtime』
 • 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
 • ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
-• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index 1d
+• ⚙️ Ví dụ: ${prefix}mybot addtime @user 1d
 
 ---
 ➤ 🗑️ Xóa Bot:
