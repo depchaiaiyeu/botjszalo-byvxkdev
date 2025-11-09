@@ -9,7 +9,7 @@ import { createAdminListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
-import { loginQR, LoginQRCallbackEventType, createContext } from "zca-js";
+import { Zalo, LoginQRCallbackEventType } from "zca-js";
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -237,7 +237,7 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
 }
 
 async function handleMyBotCreateQR(api, message, botId, botName) {
-  const ctx = createContext({
+  const ctx = new Zalo({
     options: { logging: false },
   });
   const qrPath = path.resolve(paths.tempDir, `loginqr-${botId}.png`);
@@ -246,8 +246,7 @@ async function handleMyBotCreateQR(api, message, botId, botName) {
   try {
     const { imei, cookie } = await new Promise(async (resolve, reject) => {
       try {
-        await loginQR(
-          ctx,
+        await ctx.loginQR(
           {
             userAgent: userAgent,
             qrPath: qrPath,
@@ -332,7 +331,9 @@ async function handleMyBotCreateQR(api, message, botId, botName) {
       await fs.unlink(qrPath);
       console.log(`[MyBot] ✅ Đã xóa file QR: ${qrPath}`);
     } catch (err) {
-      console.error(`[MyBot] ⚠️ Không thể xóa file QR: ${qrPath}`, err.message);
+      if (err.code !== 'ENOENT') {
+        console.error(`[MyBot] ⚠️ Không thể xóa file QR: ${qrPath}`, err.message);
+      }
     }
   }
 }
