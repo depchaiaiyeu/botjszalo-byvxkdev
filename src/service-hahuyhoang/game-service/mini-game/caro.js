@@ -273,7 +273,7 @@ function analyzePosition(board, pos, mark, size = 16) {
     return { score };
 }
 
-function evaluateMove(board, pos, mark, oppMark, size = 16) {
+function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
     board[pos] = mark;
     const myAnalysis = analyzePosition(board, pos, mark, size);
     board[pos] = ".";
@@ -393,7 +393,7 @@ function findCandidateMoves(board, size = 16, radius = 2) {
     return Array.from(candidateMoves);
 }
 
-function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
+function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
     const winResult = checkWin(board, size);
     if (winResult) {
         if (winResult.winner === botMark) return 1000000000 + depth;
@@ -405,11 +405,11 @@ function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerM
     const candidates = findCandidateMoves(board, size, searchRadius);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = 5;
+    const MAX_CANDIDATES_BREADTH = 7;
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: evaluateMove(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size)
+            score: getHeuristicScore(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size)
         };
     });
     
@@ -420,7 +420,7 @@ function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerM
         let bestValue = -Infinity;
         for (const { move } of topCandidates) {
             board[move] = botMark;
-            const value = minimax(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
             board[move] = ".";
             bestValue = Math.max(bestValue, value);
             alpha = Math.max(alpha, bestValue);
@@ -431,7 +431,7 @@ function minimax(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerM
         let bestValue = Infinity;
         for (const { move } of topCandidates) {
             board[move] = playerMark;
-            const value = minimax(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
             board[move] = ".";
             bestValue = Math.min(bestValue, value);
             beta = Math.min(beta, bestValue);
@@ -484,8 +484,12 @@ function getTicTacToeMove(board, playerMark) {
     }
 
     if (availableMoves.length === 9) {
-          const corners = [0, 2, 6, 8];
-          return corners[Math.floor(Math.random() * corners.length)];
+        const corners = [0, 2, 6, 8];
+        return corners[Math.floor(Math.random() * corners.length)];
+    }
+    
+    if (availableMoves.length === 8 && board[4] === '.') {
+        return 4;
     }
 
     for (const move of availableMoves) {
@@ -528,7 +532,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    const DEPTHS = { easy: 2, hard: 3, super: 3 };
+    const DEPTHS = { easy: 2, hard: 4, super: 6 };
     const depth = DEPTHS[mode] || 2;
     const MAX_CANDIDATES_SEARCH = 10; 
 
@@ -537,7 +541,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: evaluateMove(board, move, botMark, playerMark, size)
+            score: getHeuristicScore(board, move, botMark, playerMark, size)
         };
     });
 
@@ -545,25 +549,12 @@ function getAIMove(board, playerMark, mode, size = 16) {
 
     const topCandidates = scoredCandidates.slice(0, MAX_CANDIDATES_SEARCH);
 
-    if (mode === 'easy' && depth === 2) {
-        let bestMoveForEasy = -1;
-        let bestScoreForEasy = -Infinity;
-        for(const { move, score } of topCandidates.slice(0, 3)) {
-            if (score > bestScoreForEasy) {
-                bestScoreForEasy = score;
-                bestMoveForEasy = move;
-            }
-        }
-        return bestMoveForEasy;
-    }
-
     let bestScore = -Infinity;
     let bestMove = -1;
 
     for (const { move } of topCandidates) {
         board[move] = botMark;
-        const moveScore = evaluateMove(board, move, botMark, playerMark, size);
-        const score = moveScore + minimax(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
+        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
         board[move] = ".";
         
         if (score > bestScore) {
@@ -692,9 +683,6 @@ async function handleBotTurn(api, message) {
     
     if (!activeCaroGames.has(threadId)) return;
     
-    await api.addReaction("UNDO", message);
-    await api.addReaction("OK", message);
-
     if (pos < 0 || game.moveCount >= game.size * game.size) {
         const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.currentTurn, [], game.mode);
         const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
@@ -705,6 +693,9 @@ async function handleBotTurn(api, message) {
             caption,
             imagePath
         }, 86400000);
+        
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
         
         try {
             await fs.unlink(imagePath);
@@ -734,6 +725,8 @@ async function handleBotTurn(api, message) {
             caption,
             imagePath
         }, 86400000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
@@ -742,6 +735,8 @@ async function handleBotTurn(api, message) {
             caption,
             imagePath
         }, 86400000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else {
@@ -750,6 +745,8 @@ async function handleBotTurn(api, message) {
             caption,
             imagePath
         }, 60000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
         game.isProcessing = false;
         startTurnTimer(api, message, threadId, true);
     }
