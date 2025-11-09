@@ -32,6 +32,19 @@ const paths = {
   tempDir: path.resolve("./temp")
 };
 
+async function waitForFile(filePath, timeout = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  throw new Error(`File not found after ${timeout}ms: ${filePath}`);
+}
+
 function getRandomUserAgent() {
   return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
@@ -254,15 +267,24 @@ async function handleMyBotCreateQR(api, message, botId, botName) {
           async (event) => {
             switch (event.type) {
               case LoginQRCallbackEventType.QRCodeGenerated:
-                await api.sendMessage(
-                  {
-                    attachments: [qrPath],
-                    msg: `Vui lòng quét mã QR này để đăng nhập bot cho ${botName}.\nMã có hiệu lực trong 2 phút.`
-                  },
-                  message.threadId,
-                  message.type
-                );
-                console.log("📸 QR code đã tạo, gửi cho người dùng.");
+                try {
+                  console.log(`[MyBot] 📸 QR code event. Chờ file: ${qrPath}`);
+                  await waitForFile(qrPath);
+                  console.log(`[MyBot] ✅ File QR tồn tại. Đang gửi...`);
+                  
+                  await api.sendMessage(
+                    {
+                      attachments: [qrPath],
+                      msg: `Vui lòng quét mã QR này để đăng nhập bot cho ${botName}.\nMã có hiệu lực trong 2 phút.`
+                    },
+                    message.threadId,
+                    message.type
+                  );
+                  console.log("📸 QR code đã gửi cho người dùng.");
+                } catch (sendErr) {
+                   console.error(`[MyBot] ❌ Lỗi khi chờ hoặc gửi file QR:`, sendErr);
+                   reject(new Error(`Không thể gửi file QR: ${sendErr.message}`));
+                }
                 break;
 
               case LoginQRCallbackEventType.QRCodeScanned:
