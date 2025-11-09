@@ -8,6 +8,7 @@ import { downloadFile } from "../../../utils/util.js";
 import { clearImagePath } from "../../../utils/canvas/index.js";
 import { tempDir } from "../../../utils/io-json.js";
 import { admins } from "../../../index.js";
+import { MessageType } from "zlbotdqt";
 
 export const SUPPORTED_PLATFORMS = [
   { name: 'tiktok', patterns: ['tiktok.com', 'vt.tiktok.com', 'vm.tiktok.com'] },
@@ -40,13 +41,37 @@ function detectPlatform(url) {
   return null;
 }
 
+function isValidContentUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const hostname = urlObj.hostname.toLowerCase();
+    
+    if (pathname === '/' || pathname === '') {
+      return false;
+    }
+    
+    const pathSegments = pathname.split('/').filter(seg => seg.length > 0);
+    if (pathSegments.length === 0) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function extractLinks(content) {
   if (typeof content !== 'string') return [];
   
   const urlRegex = /https?:\/\/[^\s]+/gi;
   const matches = content.match(urlRegex) || [];
   
-  return matches.filter(url => detectPlatform(url) !== null);
+  return matches.filter(url => {
+    const platform = detectPlatform(url);
+    return platform !== null && isValidContentUrl(url);
+  });
 }
 
 export async function handleAutoDownloadCommand(api, message, groupSettings) {
@@ -219,7 +244,13 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
 
             try {
               await downloadFile(selectedAudio.url, audioFilePath);
-              await api.sendVoice(message, audioFilePath, 86400000);
+              
+              const uploadResult = await api.uploadAttachment([audioFilePath], threadId, message.type);
+              const voiceUrl = uploadResult?.[0]?.fileUrl;
+              
+              if (voiceUrl) {
+                await api.sendVoice(message, voiceUrl, 86400000);
+              }
               
               try {
                 await clearImagePath(audioFilePath);
@@ -287,7 +318,13 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
 
             try {
               await downloadFile(selectedAudio.url, audioFilePath);
-              await api.sendVoice(message, audioFilePath, 86400000);
+              
+              const uploadResult = await api.uploadAttachment([audioFilePath], threadId, message.type);
+              const voiceUrl = uploadResult?.[0]?.fileUrl;
+              
+              if (voiceUrl) {
+                await api.sendVoice(message, voiceUrl, 86400000);
+              }
               
               try {
                 await clearImagePath(audioFilePath);
