@@ -22,31 +22,6 @@ export async function helpCommand(api, message, groupAdmins) {
   const senderName = message.data.dName;
   const isAdminBox = isAdmin(senderId, threadId, groupAdmins);
 
-  let helpMessage = "🌟DANH SÁCH LỆNH🌟\n\n";
-  helpMessage += "📌 Lệnh cho tất cả thành viên:\n";
-  helpMessage += "╔═════════════\n";
-  helpMessage += `║ 🤖 ${prefix}gpt [câu hỏi] - Hỏi AI\n`;
-  helpMessage += `║ 💬 ${prefix}chat [nội dung] - Trò chuyện với Bot\n`;
-  helpMessage += `║ ��� ${prefix}help - Xem danh sách lệnh\n`;
-  helpMessage += `║ 📰 ${prefix}info - Xem thông tin tài khoản\n`;
-  helpMessage += `║ 📰 ${prefix}game - Xem danh sách lệnh game\n`;
-  helpMessage += `║ 🌤️ ${prefix}thoitiet [thành phố] - Xem thời tiết\n`;
-  helpMessage += `║ 🌐 ${prefix}dich_[nguồn]_[đích]_[nội dung] - Dịch văn bản\n`;
-  helpMessage += `║ 📋 ${prefix}group - Xem thông tin nhóm\n`;
-  helpMessage += `║ 🎲 ${prefix}doanso - Chơi trò đoán số\n`;
-  helpMessage += `║ 🏆 ${prefix}topchat - Xem BXH tương tác\n`;
-  helpMessage += `║ 🗣️ ${prefix}chat - Chat với bot\n`;
-  helpMessage += `║ 👧 ${prefix}girl - Gửi ảnh girl\n`;
-  helpMessage += `║ 👦 ${prefix}boy - Gửi ảnh boy\n`;
-  helpMessage += "╚═════════════\n\n";
-
-  if (isAdminBox) {
-    helpMessage += "👮 Lệnh dành cho Admin:\n";
-    helpMessage += "╔═══════════\n";
-    helpMessage += `║ ${prefix}manager - Xem danh sách lệnh quản lý\n`;
-    helpMessage += "╚═══════════\n";
-  }
-
   let helpCommand = {
     title: "🌟 DANH SÁCH LỆNH 🌟",
     allMembers: {
@@ -116,7 +91,7 @@ export async function helpCommand(api, message, groupAdmins) {
         icon: "🔖",
       },
     },
-    titleAdmin: "👮 LỆNH CHO ADMIN 👮",
+    titleAdmin: "🏆 LỆNH CHO ADMIN 🏆",
     admin: {
       manager: {
         command: `${prefix}manager`,
@@ -132,7 +107,6 @@ export async function helpCommand(api, message, groupAdmins) {
   };
 
   try {
-    // await api.sendMessage({ msg: helpMessage, quote: message }, threadId, message.type);
     const imagePath = await cv.createInstructionsImage(
       helpCommand,
       isAdminBox,
@@ -159,50 +133,14 @@ export async function adminCommand(api, message) {
   const threadId = message.threadId;
   const senderName = message.data.dName;
   const prefix = getGlobalPrefix();
-
-  let commandMessage = "👮Danh sách lệnh Admin:\n";
-  commandMessage += "╔���════════\n";
-  commandMessage += `║ 🤖 ${prefix}bot on/off - bật tương tác với bot\n`;
-  commandMessage += `║ 📋 ${prefix}listmute - Xem danh sách mute\n`;
-  commandMessage += `║ 🔖 ${prefix}listadmin - xem danh sách admin bot nhóm\n`;
-  commandMessage += `║ 📥 ${prefix}add/remove - thêm/xóa admin bot nhóm\n`;
-  commandMessage += `║ 🚫 ${prefix}antibadword on/off - Lọc từ thô tục\n`;
-  commandMessage += `║ 🔗 ${prefix}antilink on/off - Chặn liên kết\n`;
-  commandMessage += `║ ⛔ ${prefix}antispam on/off - Chống spam\n`;
-  commandMessage += `║ ⛔ ${prefix}antistag on/off - Chặn tag thành viên\n`;
-  commandMessage += `║ ⛔ ${prefix}antisetup on/off - Chặn hành vi bất thường\n`;  
-  commandMessage += `║ ⛔ ${prefix}antisticker on/off - Chống sticker gây lag\n`;
-  commandMessage += `║ 🅰 ${prefix}onlytext on/off - Chỉ nhắn tin văn bản\n`;
-  commandMessage += `║ 👢 ${prefix}kick @mention - Kick thành viên\n`;
-  commandMessage += `║ 🔇 ${prefix}mute @mention - Mute thành viên\n`;
-  commandMessage += `║ 🔊 ${prefix}unmute @mention - Unmute thành viên\n`;
-  commandMessage += `║ 👋 ${prefix}welcome on/off - Chào mừng thành viên mới\n`;
-  commandMessage += `║ 👋 ${prefix}bye on/off - Tạm biệt thành viên rời nhóm\n`;
-  commandMessage += `║ 📢 ${prefix}all [Cụm từ cần tag all] - Chat với tất cả thành viên\n`;
-  commandMessage += "╚═════════\n";
-
+  
   let commandAdmin = {
-    title: "👮 DANH SÁCH LỆNH ADMIN / QTV GROUP 👮",
+    title: "🌟 DANH SÁCH LỆNH 🌟",
     allMembers: {
-      bot: {
-        command: `${prefix}bot on/off`,
-        description: "bật tương tác với bot",
-        icon: "🤖",
-      },
-      addremove: {
-        command: `${prefix}add/remove [@người dùng]`,
-        description: "Thêm/xóa admin bot nhóm",
-        icon: "🔖",
-      },
       mute: {
         command: `${prefix}mute/unmute [@người dùng]`,
         description: "Mute/Unmute thành viên",
         icon: "🔇",
-      },
-      antibadword: {
-        command: `${prefix}antibadword on/off`,
-        description: "Lọc từ thô tục",
-        icon: "🅰",
       },
       antilink: {
         command: `${prefix}antilink on/off`,
@@ -228,16 +166,6 @@ export async function adminCommand(api, message) {
         command: `${prefix}antispam on/off`,
         description: "Chống spam tin nhắn",
         icon: "⛔",
-      },
-      antisticker: {
-        command: `${prefix}antibot on/off`,
-        description: "Chống bot trong group",
-        icon: "⛔",
-      },      
-      onlytext: {
-        command: `${prefix}onlytext on/off`,
-        description: "Chỉ nhắn tin văn bản",
-        icon: "🅰",
       },
       antinude: {
         command: `${prefix}antinude on/off`,
@@ -274,11 +202,6 @@ export async function adminCommand(api, message) {
         description: "Tự động phê duyệt thành viên vào nhóm",
         icon: "🔖",
       },
-      all: {
-        command: `${prefix}all [Cụm từ cần tag all]`,
-        description: "Chat với tất cả thành viên",
-        icon: "📢",
-      },
       keygold: {
         command: `${prefix}keygold on/off`,
         description: "Nhường cộng đổng cho người đề cập",
@@ -298,7 +221,6 @@ export async function adminCommand(api, message) {
   };
 
   try {
-    // await api.sendMessage({ msg: commandMessage, quote: message }, threadId, message.type);
     const imagePath = await cv.createInstructionsImage(
       commandAdmin,
       false,
@@ -329,25 +251,8 @@ export async function gameInfoCommand(api, message, groupSettings) {
   const isAdminBox = isAdmin(senderId, threadId);
   const prefix = getGlobalPrefix();
 
-  // let gameInfo = "📜 Danh sách các lệnh trong trò chơi 📜\n\n";
-
-  // gameInfo += "1. !dangky - Đăng ký tài khoản người chơi\n";
-  // gameInfo += "2. !daily - Nhận phần thưởng hàng ngày\n";
-  // gameInfo += "3. !rank - Xem top 10 người chơi giàu nhất\n";
-  // gameInfo += "4. !mycard - Xem thông tin cá nhân\n";
-  // gameInfo += "5. !baucua - Chơi trò chơi Bầu Cua\n";
-  // gameInfo += "6. !bank [số tiền] [@người nhận] - Chuyển tiền cho người khác\n";
-  // if (isAdmin(senderId, threadId)) {
-  //   gameInfo += "\n👑 Lệnh dành cho Admin 👑\n";
-  //   gameInfo += "7. !buff [số tiền] [@người nhận] - Tặng tiền cho người chơi\n";
-  //   gameInfo += "8. !ban [@người chơi] - Khóa tài khoản người chơi\n";
-  //   gameInfo += "9. !unban [@người chơi] - Mở khóa tài khoản người chơi\n";
-  // }
-
-  // gameInfo += "\nChúc các bạn trải nghiệm vui vẻ.";
-
   const gameCommand = {
-    title: "📜 DANH SÁCH LỆNH TRÒ CHƠI 📜",
+    title: "🌟 DANH SÁCH LỆNH🌟",
     allMembers: {
       login: {
         command: `${prefix}login [tài khoản] [mật khẩu]`,
@@ -410,7 +315,7 @@ export async function gameInfoCommand(api, message, groupSettings) {
         icon: "💰",
       },
     },
-    titleAdmin: "👑 Lệnh dành cho Admin 👑",
+    titleAdmin: "🏆 LỆNH CHO ADMIN 🏆",
     admin: {
       buff: {
         command: `${prefix}buff [số tiền] [@người nhận]`,
@@ -430,7 +335,6 @@ export async function gameInfoCommand(api, message, groupSettings) {
     },
   };
   try {
-    // await api.sendMessage({ msg: helpMessage, quote: message }, threadId, message.type);
     const imagePath = await cv.createInstructionsImage(
       gameCommand,
       isAdminBox,
@@ -499,7 +403,7 @@ export async function listCommands(api, message, args) {
       const searchTerm = args.slice(1).join(" ").toLowerCase();
       if (!searchTerm) {
         return {
-          msg: "⚠️ Vui lòng nhập từ khóa để tìm kiếm!\nVí dụ: !cmd find thời tiết",
+          msg: "⚠️ Vui lòng nhập từ khóa để tìm kiếm?\nVí dụ: ${prefix}cmd find thời tiết",
           ttl: 30000,
         };
       }
