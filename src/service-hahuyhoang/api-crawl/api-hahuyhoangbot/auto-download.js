@@ -82,7 +82,9 @@ export async function handleAutoDownloadCommand(api, message, groupSettings) {
 }
 
 export async function autoDownload(api, message, isSelf, groupSettings) {
-  if (isSelf) return false;
+  if (isSelf) {
+    return false;
+  }
 
   let content = message.data.content;
   const threadId = message.threadId;
@@ -120,6 +122,8 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
   }
 
   for (const link of links) {
+    let hasProcessedMedia = false;
+    
     try {
       const platform = detectPlatform(link);
       
@@ -136,67 +140,131 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
         continue;
       }
 
-      const audios = dataDownload.medias.filter(m => m.type.toLowerCase() === "audio");
-      const videos = dataDownload.medias.filter(m => m.type.toLowerCase() === "video");
-      const images = dataDownload.medias.filter(m => m.type.toLowerCase() === "image");
-      
+      const dataLink = [];
+      const audioLinks = [];
       let uniqueId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+      dataDownload.medias.forEach((item) => {
+        if (item.type.toLowerCase() === "audio") {
+          audioLinks.push({
+            url: item.url,
+            quality: item.quality || "unknown",
+            extension: item.extension,
+          });
+        } else {
+          dataLink.push({
+            url: item.url,
+            quality: item.quality || "unknown",
+            type: item.type.toLowerCase(),
+            title: dataDownload.title,
+            thumbnail: dataDownload.thumbnail,
+            extension: item.extension,
+          });
+        }
+      });
+
+      if (dataLink.length === 0) {
+        await api.addReaction("UNDO", message);
+        continue;
+      }
+
+      const onlyImages = dataLink.every(item => item.type.toLowerCase() === "image");
       const mediaType = dataDownload.source;
       const title = dataDownload.title;
       const author = dataDownload.author || "Unknown Author";
       const duration = dataDownload.duration || 0;
-      const captionPrefix = 
-        `[ ${senderName} ]\n` +
-        `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
-        `🎬 Tiêu Đề: ${title}\n` +
-        `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}`;
-      
-      let mediaSent = false;
-      const audioToSend = audios.length > 0 ? audios[0] : null;
 
-      if (images.length > 0) {
-        if (images.length === 1) {
-          const media = images[0];
+      if (onlyImages) {
+        if (dataLink.length === 1) {
+          const media = dataLink[0];
           const uniqueFileName = `${uniqueId}_${Math.random().toString(36).substring(7)}.${media.extension}`;
           const filePath = path.resolve(tempDir, uniqueFileName);
           
           await downloadFile(media.url, filePath);
-          const caption = captionPrefix + `📊 Chất Lượng: Ảnh`;
+
+          const caption =
+            `[ ${senderName} ]\n` +
+            `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
+            `🎬 Tiêu Đề: ${title}\n` +
+            `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}` +
+            `📊 Chất Lượng: Ảnh`;
 
           await api.sendMessage(
-            { msg: caption, attachments: [filePath] },
+            {
+              msg: caption,
+              attachments: [filePath],
+            },
             threadId,
             message.type
           );
-          
+
+          hasProcessedMedia = true;
+
           try {
             await clearImagePath(filePath);
           } catch (error) {
             console.error("Không thể xóa file ảnh tạm:", error);
           }
+
+          if (audioLinks.length > 0) {
+            const audioQuality = audioLinks.sort((a, b) => {
+              const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
+              const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
+              return qb - qa;
+            });
+
+            const selectedAudio = audioQuality[0];
+            const audioFileName = `${uniqueId}_audio.${selectedAudio.extension}`;
+            const audioFilePath = path.resolve(tempDir, audioFileName);
+
+            try {
+              await downloadFile(selectedAudio.url, audioFilePath);
+              await api.sendVoice(message, audioFilePath, 86400000);
+              
+              try {
+                await clearImagePath(audioFilePath);
+              } catch (error) {
+                console.error("Không thể xóa file audio tạm:", error);
+              }
+            } catch (error) {
+              console.error("Lỗi khi xử lý audio:", error);
+            }
+          }
         } else {
           const attachmentPaths = [];
 
-          for (const media of images) {
+          for (const media of dataLink) {
             const uniqueFileName = `${uniqueId}_${Math.random().toString(36).substring(7)}.${media.extension}`;
             const filePath = path.resolve(tempDir, uniqueFileName);
             await downloadFile(media.url, filePath);
             attachmentPaths.push(filePath);
           }
 
-          const caption = captionPrefix + `📊 Số ảnh: ${attachmentPaths.length}`;
+          const caption =
+            `[ ${senderName} ]\n` +
+            `🎥 Nền Tảng: ${capitalizeEachWord(mediaType)}\n` +
+            `🎬 Tiêu Đề: ${title}\n` +
+            `${author !== "Unknown Author" ? `👤 Người Đăng: ${author}\n` : ""}` +
+            `📊 Số ảnh: ${attachmentPaths.length}`;
 
           await api.sendMessage(
-            { msg: caption },
+            {
+              msg: caption,
+            },
             threadId,
             message.type
           );
 
           await api.sendMessage(
-            { attachments: attachmentPaths },
+            {
+              msg: "",
+              attachments: attachmentPaths,
+            },
             threadId,
             message.type
           );
+
+          hasProcessedMedia = true;
 
           for (const filePath of attachmentPaths) {
             try {
@@ -205,9 +273,40 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
               console.error("Không thể xóa file ảnh tạm:", error);
             }
           }
+
+          if (audioLinks.length > 0) {
+            const audioQuality = audioLinks.sort((a, b) => {
+              const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
+              const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
+              return qb - qa;
+            });
+
+            const selectedAudio = audioQuality[0];
+            const audioFileName = `${uniqueId}_audio.${selectedAudio.extension}`;
+            const audioFilePath = path.resolve(tempDir, audioFileName);
+
+            try {
+              await downloadFile(selectedAudio.url, audioFilePath);
+              await api.sendVoice(message, audioFilePath, 86400000);
+              
+              try {
+                await clearImagePath(audioFilePath);
+              } catch (error) {
+                console.error("Không thể xóa file audio tạm:", error);
+              }
+            } catch (error) {
+              console.error("Lỗi khi xử lý audio:", error);
+            }
+          }
         }
-        mediaSent = true;
-      } else if (videos.length > 0) {
+      } else {
+        const videos = dataLink.filter(item => item.type.toLowerCase() === "video");
+        
+        if (videos.length === 0) {
+          await api.addReaction("UNDO", message);
+          continue;
+        }
+
         const sortedVideos = videos.sort((a, b) => {
           const qa = parseInt((a.quality || "0").replace(/[^0-9]/g, ""));
           const qb = parseInt((b.quality || "0").replace(/[^0-9]/g, ""));
@@ -225,27 +324,19 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
           author,
           senderId,
           senderName,
-          captionPrefix,
         });
-        mediaSent = true;
-      }
-      
-      if (audioToSend) {
-        if (!mediaSent) {
-          const caption = captionPrefix + `🎵 Chất Lượng: ${audioToSend.quality || 'Âm thanh'}`;
-          await api.sendMessage({ msg: caption, quote: message }, threadId, message.type);
-        }
-        await api.sendVoice(message, audioToSend.url, 86400000);
-        mediaSent = true;
+
+        hasProcessedMedia = true;
       }
 
-      if (mediaSent) {
+      if (hasProcessedMedia) {
+        await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
-        return true;
       } else {
         await api.addReaction("UNDO", message);
-        continue;
       }
+
+      return true;
     } catch (error) {
       console.error("Lỗi khi xử lý link:", link);
       console.error("Chi tiết lỗi:", error.message);
