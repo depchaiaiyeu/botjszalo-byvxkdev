@@ -104,14 +104,12 @@ export function readConfig() {
   try {
     const data = fs.readFileSync(configFilePath, "utf-8")
     const config = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${configFilePath}:\n${JSON.stringify(config, null, 2)}`));
 
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
       console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
       try {
         const mainData = fs.readFileSync(botInfo.mainBotConfigPath, "utf-8");
         const mainConfig = JSON.parse(mainData);
-        console.log(chalk.blue(`[JSON Loader] Đọc ${botInfo.mainBotConfigPath}:\n${JSON.stringify(mainConfig, null, 2)}`));
         return mainConfig
       } catch (err) {
         console.error("Lỗi đọc config bot chính:", err)
@@ -130,7 +128,6 @@ export function readAdmins() {
   try {
     const data = fs.readFileSync(adminFilePath, "utf-8")
     const admins = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${adminFilePath}:\n${JSON.stringify(admins, null, 2)}`));
     return admins
   } catch (error) {
     console.error("Lỗi đọc tệp admin:", error)
@@ -156,7 +153,6 @@ export function readGroupSettings() {
   try {
     const data = fs.readFileSync(groupSettingsPath, "utf-8")
     const settings = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${groupSettingsPath}:\n${JSON.stringify(settings, null, 2)}`));
     return settings
   } catch (error) {
     console.error("Lỗi khi đọc file group_settings.json:", error)
@@ -176,7 +172,6 @@ export function readCommandConfig() {
   try {
     const data = fs.readFileSync(commandFilePath, "utf-8")
     const config = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${commandFilePath}:\n${JSON.stringify(config, null, 2)}`));
     return config
   } catch (error) {
     console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
@@ -197,7 +192,6 @@ export function readWebConfig() {
   try {
     const data = fs.readFileSync(WEB_CONFIG_PATH, "utf-8")
     const config = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${WEB_CONFIG_PATH}:\n${JSON.stringify(config, null, 2)}`));
     return config
   } catch (error) {
     console.error("Lỗi khi đọc file web-config.json:", error)
@@ -215,7 +209,6 @@ export function readManagerFile() {
     const data = fs.readFileSync(MANAGER_FILE_PATH, "utf8")
     let parsedData = JSON.parse(data)
     if (!parsedData) parsedData = {}
-    console.log(chalk.blue(`[JSON Loader] Đọc ${MANAGER_FILE_PATH}:\n${JSON.stringify(parsedData, null, 2)}`));
     return parsedData
   } catch (error) {
     if (error.code === "ENOENT") return {}
@@ -240,7 +233,6 @@ export function readProphylacticConfig() {
   try {
     const data = fs.readFileSync(PROPHYLACTIC_CONFIG_PATH, "utf8")
     const parsedData = JSON.parse(data)
-    console.log(chalk.blue(`[JSON Loader] Đọc ${PROPHYLACTIC_CONFIG_PATH}:\n${JSON.stringify(parsedData, null, 2)}`));
     return parsedData
   } catch (error) {
     console.error("Lỗi khi đọc file prophylactic.json:", error)
