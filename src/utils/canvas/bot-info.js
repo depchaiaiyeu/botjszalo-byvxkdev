@@ -163,7 +163,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   ];
 
   const resourceFields = [
-    { label: "🌡️ CPU Temp:", value: botStats.cpuTemp || "36°C" || (await getCpuTemp()) },
     { label: "📈 RAM Usage:", value: botStats.ram || `${((os.totalmem() - os.freemem()) / (1024 * 1024 * 1024)).toFixed(2)} GB / ${(os.totalmem() / (1024 * 1024 * 1024)).toFixed(2)} GB` },
     { label: "💿 Free Memory:", value: freeMemory },
     { label: "💽 Disk Usage:", value: botStats.disk || (await getDiskUsage()) },
@@ -221,7 +220,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
   const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(onConfigs.length, offConfigs.length) : onConfigs.length > 0 ? onConfigs.length : offConfigs.length;
   const configLineHeight = 40;
-  const configPadding = 140;
+  const configPadding = 180;
   const cfgBoxHeight = maxConfigItems * configLineHeight + configPadding;
 
   const leftColumnHeight = sysBoxHeight + resBoxHeight + 60;
@@ -372,7 +371,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       const titleX = offConfigs.length === 0 ? rightColumnX + (rightColumnWidth / 2) - (measureTextWidth(ctx, "Đang bật:", "bold 26px BeVietnamPro") / 2) : rightColX;
       const itemX = offConfigs.length === 0 ? rightColumnX + 40 : rightColX;
       ctx.fillText("Đang bật:", titleX, configTitleY);
-      yOn += 40;
       ctx.font = "bold 22px BeVietnamPro";
       onConfigs.forEach(line => {
         ctx.fillStyle = "#ffffff";
