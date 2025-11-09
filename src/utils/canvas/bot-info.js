@@ -1,4 +1,5 @@
 import { createCanvas, loadImage } from "canvas";
+import fs from "fs";
 import path from "path";
 import * as cv from "./index.js";
 import os from "os";
@@ -203,7 +204,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
   const normalLineHeight = 50;
   const barLineHeight = 80;
-  let calculatedResBoxHeight = 100; 
+  let calculatedResBoxHeight = 100;
   resourceFields.forEach(f => {
     let percent = null;
     if (f.label.includes("CPU") && f.value.includes("%")) {
