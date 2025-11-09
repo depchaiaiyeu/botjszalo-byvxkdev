@@ -265,10 +265,10 @@ function analyzePosition(board, pos, mark, size = 16) {
     if (openThrees > 1) return { score: 5000000 };
     if (closedFours > 0 && openThrees > 0) return { score: 3000000 }; 
     
-    score += closedFours * 100000;
-    score += openThrees * 50000;
-    score += closedThrees * 1000;
-    score += openTwos * 200;
+    score += closedFours * 150000;
+    score += openThrees * 75000;
+    score += closedThrees * 1500;
+    score += openTwos * 300;
 
     return { score };
 }
@@ -285,7 +285,7 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
     if (myAnalysis.score >= 1000000000) return myAnalysis.score;
     if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.9;
     
-    let score = myAnalysis.score * 1.0 + oppAnalysis.score * 1.5;
+    let score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
 
     const row = Math.floor(pos / size);
     const col = pos % size;
@@ -405,7 +405,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     const candidates = findCandidateMoves(board, size, searchRadius);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = 7;
+    const MAX_CANDIDATES_BREADTH = 8;
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
@@ -532,9 +532,9 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    const DEPTHS = { easy: 2, hard: 4, super: 6 };
-    const depth = DEPTHS[mode] || 2;
-    const MAX_CANDIDATES_SEARCH = 10; 
+    const DEPTHS = { easy: 4, hard: 6, super: 8 };
+    const depth = DEPTHS[mode] || 4;
+    const MAX_CANDIDATES_SEARCH = 12; 
 
     let candidates = findCandidateMoves(board, size, 2);
     
