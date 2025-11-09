@@ -444,7 +444,7 @@ async function handleMyBotInfo(api, message) {
         const status = botConfig.isRunning ? "✅ Đang chạy" : "🚫 Dừng";
         const processName = `mybot-${botId}`;
 
-        const info = `📜 Thông tin BOT Từ dữ liệu VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n💾 pm2: ${processName}\n${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
+        const info = `📜 Thông tin Bot >> VXK Bot Team:\n\n1. ${botName}\n📊 Trạng thái: ${status}\n💾 pm2 Name: ${processName}\n🎯 Thời gian còn lại: ${expireInfo}\n🌟 Tạo lúc: ${createdTime}`;
 
         await sendMessageComplete(api, message, info);
     } catch (error) {
