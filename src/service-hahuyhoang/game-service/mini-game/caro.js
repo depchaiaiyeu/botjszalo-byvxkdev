@@ -261,14 +261,14 @@ function analyzePosition(board, pos, mark, size = 16) {
     }
 
     if (openFours > 0) return { score: 500000000 };
-    if (closedFours > 1) return { score: 8000000 }; 
-    if (openThrees > 1) return { score: 5000000 };
-    if (closedFours > 0 && openThrees > 0) return { score: 3000000 }; 
+    if (openThrees > 1) return { score: 100000000 };
+    if (closedFours > 0 && openThrees > 0) return { score: 50000000 };
+    if (closedFours > 1) return { score: 10000000 };
     
-    score += closedFours * 150000;
-    score += openThrees * 75000;
-    score += closedThrees * 1500;
-    score += openTwos * 300;
+    score += closedFours * 1000000;
+    score += openThrees * 100000;
+    score += closedThrees * 10000;
+    score += openTwos * 1000;
 
     return { score };
 }
@@ -289,11 +289,11 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
 
     if (mode === "easy") {
         score = myAnalysis.score * 0.8 + oppAnalysis.score * 2.5;
-        if (myAnalysis.score > 75000) {
-            score += myAnalysis.score * 2.0;
+        if (myAnalysis.score > 100000) {
+            score += myAnalysis.score * 1.5;
         }
     } else if (mode === "master") {
-        score = myAnalysis.score * 2.0 + oppAnalysis.score * 1.8;
+        score = myAnalysis.score * 2.5 + oppAnalysis.score * 1.5;
     } else {
         score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
     }
@@ -412,11 +412,10 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     }
     if (depth === 0) return 0;
 
-    const searchRadius = 2;
-    const candidates = findCandidateMoves(board, size, searchRadius);
+    const candidates = findCandidateMoves(board, size, 2);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = 8;
+    const MAX_CANDIDATES_BREADTH = 10;
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
@@ -475,11 +474,45 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
+    let candidates = findCandidateMoves(board, size, 3);
+    let bestBotMove = -1;
+    let bestPlayerBlock = -1;
+    let maxBotScore = -Infinity;
+    let maxPlayerScore = -Infinity;
+
+    for (const move of candidates) {
+        board[move] = botMark;
+        const myAnalysis = analyzePosition(board, move, botMark, size);
+        board[move] = ".";
+
+        board[move] = playerMark;
+        const oppAnalysis = analyzePosition(board, move, playerMark, size);
+        board[move] = ".";
+
+        if (myAnalysis.score > maxBotScore) {
+            maxBotScore = myAnalysis.score;
+            bestBotMove = move;
+        }
+        
+        if (oppAnalysis.score > maxPlayerScore) {
+            maxPlayerScore = oppAnalysis.score;
+            bestPlayerBlock = move;
+        }
+    }
+
+    const THREAT_THRESHOLD = 100000000;
+
+    if (maxBotScore >= THREAT_THRESHOLD) {
+        return bestBotMove;
+    }
+
+    if (maxPlayerScore >= THREAT_THRESHOLD) {
+        return bestPlayerBlock;
+    }
+
     const DEPTHS = { easy: 4, hard: 6, master: 8 };
     const depth = DEPTHS[mode] || 4;
     const MAX_CANDIDATES_SEARCH = 12; 
-
-    let candidates = findCandidateMoves(board, size, 3);
     
     const scoredCandidates = candidates.map(move => {
         return {
@@ -493,7 +526,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
     const topCandidates = scoredCandidates.slice(0, MAX_CANDIDATES_SEARCH);
 
     let bestScore = -Infinity;
-    let bestMove = -1;
+    let finalBestMove = topCandidates.length > 0 ? topCandidates[0].move : -1;
 
     for (const { move } of topCandidates) {
         board[move] = botMark;
@@ -502,11 +535,11 @@ function getAIMove(board, playerMark, mode, size = 16) {
         
         if (score > bestScore) {
             bestScore = score;
-            bestMove = move;
+            finalBestMove = move;
         }
     }
 
-    return bestMove;
+    return finalBestMove;
 }
 
 export async function handleCaroCommand(api, message) {
@@ -733,7 +766,7 @@ export async function handleCaroMessage(api, message) {
     }
     
     if (game.board[pos] !== ".") {
-        await sendMessageWarning(api, message, "Ô này đã được sử dụng, vui lòng chọn một ô trống", 60000);
+        await sendMessageWarning(api, message, "Ô này đã được sửdụng, vui lòng chọn một ô trống", 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
