@@ -617,7 +617,7 @@ export async function handleCaroCommand(api, message) {
     } catch (error) {}
 }
 
-async function handleBotTurn(api, message) {
+export async function handleCaroMessage(api, message) {
     const threadId = message.threadId;
     const game = activeCaroGames.get(threadId);
     
