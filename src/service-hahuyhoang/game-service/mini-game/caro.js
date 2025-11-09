@@ -704,3 +704,4 @@ async function handleBotTurn(api, message) {
     try {
         await fs.unlink(imagePath);
     } catch (error) {}
+}
