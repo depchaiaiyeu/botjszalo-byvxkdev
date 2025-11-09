@@ -1,12 +1,11 @@
 import { createCanvas, loadImage } from "canvas";
-import fs from "fs";
 import path from "path";
 import * as cv from "./index.js";
 import os from "os";
 import fsPromises from "fs/promises";
-import { networkInterfaces } from "os";
 import si from "systeminformation";
 import disk from "diskusage";
+import { createHelpBackgroup } from "./help.js";
 
 function drawBox(ctx, x, y, w, h, title) {
   const boxGradient = ctx.createLinearGradient(x, y, x, y + h);
@@ -20,13 +19,15 @@ function drawBox(ctx, x, y, w, h, title) {
   ctx.fill();
   ctx.stroke();
 
-  const titleGradient = ctx.createLinearGradient(x, y, x + w, y);
-  titleGradient.addColorStop(0, "#4ECB71");
-  titleGradient.addColorStop(1, "#1E90FF");
-  ctx.fillStyle = titleGradient;
-  ctx.font = "bold 36px BeVietnamPro";
-  ctx.textAlign = "center";
-  ctx.fillText(title, x + w / 2, y + 45);
+  if (title) {
+    const titleGradient = ctx.createLinearGradient(x, y, x + w, y);
+    titleGradient.addColorStop(0, "#4ECB71");
+    titleGradient.addColorStop(1, "#1E90FF");
+    ctx.fillStyle = titleGradient;
+    ctx.font = "bold 36px BeVietnamPro";
+    ctx.textAlign = "center";
+    ctx.fillText(title, x + w / 2, y + 45);
+  }
 }
 
 function drawVerticalDivider(ctx, x, y, h) {
@@ -50,13 +51,13 @@ function formatUptime(seconds) {
   seconds %= 60 * 60;
   const minutes = Math.floor(seconds / 60);
   seconds = Math.floor(seconds % 60);
-  
+
   const parts = [];
   if (days > 0) parts.push(`${days} ngày`);
   if (hours > 0) parts.push(`${hours} giờ`);
   if (minutes > 0) parts.push(`${minutes} phút`);
   if (seconds > 0 || parts.length === 0) parts.push(`${seconds} giây`);
-  
+
   return parts.join(", ");
 }
 
@@ -131,37 +132,9 @@ async function getLoadAverage() {
   try {
     if (os.platform() === "win32") {
       const load = await si.currentLoad();
-      return load.currentLoad.toFixed(2); 
+      return load.currentLoad.toFixed(2);
     } else {
       return os.loadavg().map(l => l.toFixed(2)).join(", ");
-    }
-  } catch {
-    return "N/A";
-  }
-}
-
-async function getRunningProcesses() {
-  try {
-    const processes = await si.processes();
-    return processes.all.toString();
-  } catch {
-    if (os.platform() !== "win32") {
-      try {
-        return (await fsPromises.readdir("/proc")).filter(dir => /^\d+$/.test(dir)).length.toString();
-      } catch {
-        return "N/A";
-      }
-    }
-    return "N/A";
-  }
-}
-
-async function getTerminal() {
-  try {
-    if (os.platform() === "win32") {
-      return process.env.ComSpec || "cmd.exe"; 
-    } else {
-      return process.env.SHELL || "Unknown";
     }
   } catch {
     return "N/A";
@@ -173,22 +146,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   let height = 0;
 
   const loadAverage = await getLoadAverage();
-  const runningProcesses = await getRunningProcesses();
-  const kernelVersion = os.release();
-  const hostname = os.hostname();
-  const terminal = await getTerminal();
-
-  const interfaces = networkInterfaces();
-  let ipv4 = "Unknown";
-  for (const iface of Object.values(interfaces)) {
-    if (!iface) continue;
-    const addr = iface.find(a => a.family === "IPv4" && !a.internal);
-    if (addr) {
-      ipv4 = addr.address;
-      break;
-    }
-  }
-
   const osVersion = await getWindowsVersion();
   const totalMemory = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) + " GB";
@@ -217,18 +174,11 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     { label: "📊 Load Average:", value: loadAverage },
   ];
 
-  const networkFields = [
-    { label: "🔄 Processes:", value: runningProcesses },
-    { label: "🏠 Hostname:", value: hostname },
-    { label: "🛠️ Kernel:", value: kernelVersion },
-    { label: "💻 Terminal:", value: terminal }
-  ];
-
   const tempCanvas = createCanvas(1, 1);
   const tempCtx = tempCanvas.getContext("2d");
 
   let maxLeftWidth = 0;
-  [systemFields, resourceFields, networkFields].forEach(fields => {
+  [systemFields, resourceFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
       maxLeftWidth = Math.max(maxLeftWidth, textWidth);
@@ -250,43 +200,39 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const headerH = 220;
   const headerY = 30;
   const sysBoxHeight = systemFields.length * 50 + 100;
-  const resBoxHeight = resourceFields.length * 50 + 100;
-  const netBoxHeight = networkFields.length * 50 + 100;
+
+  const normalLineHeight = 50;
+  const barLineHeight = 80;
+  let calculatedResBoxHeight = 100; 
+  resourceFields.forEach(f => {
+    let percent = null;
+    if (f.label.includes("CPU") && f.value.includes("%")) {
+      percent = parseFloat(f.value.replace("%", "").trim());
+    } else if (f.label.includes("RAM") && f.value.match(/(\d+(\.\d+)?)/g)) {
+      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+    } else if (f.label.includes("Disk") && f.value.match(/(\d+(\.\d+)?)/g)) {
+      const nums = f.value.match(/(\d+(\.\d+)?)/g).map(Number);
+      if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
+    }
+    const hasBar = (percent !== null && !isNaN(percent));
+    calculatedResBoxHeight += hasBar ? barLineHeight : normalLineHeight;
+  });
+  const resBoxHeight = calculatedResBoxHeight;
 
   const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(onConfigs.length, offConfigs.length) : onConfigs.length > 0 ? onConfigs.length : offConfigs.length;
-  const cfgBoxHeight = onConfigs.length > 0 && offConfigs.length > 0 ? maxConfigItems * 40 + 130 : maxConfigItems * 55 + 140;
+  const configLineHeight = 40;
+  const configPadding = 140;
+  const cfgBoxHeight = maxConfigItems * configLineHeight + configPadding;
 
-  const leftColumnHeight = sysBoxHeight + resBoxHeight + netBoxHeight + 90;
+  const leftColumnHeight = sysBoxHeight + resBoxHeight + 60;
   const rightColumnHeight = cfgBoxHeight + 60;
-  height = Math.max(headerY + headerH + 30 + leftColumnHeight, headerY + headerH + 30 + rightColumnHeight) + 90;
+  height = Math.max(headerY + headerH + 30 + leftColumnHeight, headerY + headerH + 30 + rightColumnHeight) + 60;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  if (botInfo && cv.isValidUrl(botInfo.avatar)) {
-    try {
-      const avatar = await loadImage(botInfo.avatar);
-      ctx.globalAlpha = 0.7;
-      ctx.drawImage(avatar, 0, 0, width, height);
-      ctx.globalAlpha = 1.0;
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillRect(0, 0, width, height);
-    } catch {
-      const bg = ctx.createLinearGradient(0, 0, 0, height);
-      bg.addColorStop(0, "#0F2027");
-      bg.addColorStop(0.5, "#203A43");
-      bg.addColorStop(1, "#2C5364");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, width, height);
-    }
-  } else {
-    const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, "#0F2027");
-    bg.addColorStop(0.5, "#203A43");
-    bg.addColorStop(1, "#2C5364");
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-  }
+  await createHelpBackgroup(ctx, width, height);
 
   const metallicGradient = ctx.createLinearGradient(0, 0, width, height);
   metallicGradient.addColorStop(0, "rgba(255,255,255,0.05)");
@@ -295,7 +241,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   ctx.fillStyle = metallicGradient;
   ctx.fillRect(0, 0, width, height);
 
-  drawBox(ctx, 60, headerY, width - 120, headerH, "Bot Overview");
+  drawBox(ctx, 60, headerY, width - 120, headerH, "");
 
   if (botInfo && cv.isValidUrl(botInfo.avatar)) {
     try {
@@ -303,22 +249,22 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       const size = 140;
       const cx = 150;
       const cy = headerY + headerH / 2;
-      const grad = ctx.createLinearGradient(cx - size/2, cy - size/2, cx + size/2, cy + size/2);
+      const grad = ctx.createLinearGradient(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2);
       grad.addColorStop(0, "#4ECB71");
       grad.addColorStop(1, "#1E90FF");
       ctx.beginPath();
-      ctx.arc(cx, cy, size/2 + 8, 0, Math.PI*2);
+      ctx.arc(cx, cy, size / 2 + 8, 0, Math.PI * 2);
       ctx.closePath();
       ctx.fillStyle = grad;
       ctx.fill();
       ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, size/2, 0, Math.PI*2, true);
+      ctx.arc(cx, cy, size / 2, 0, Math.PI * 2, true);
       ctx.closePath();
       ctx.clip();
-      ctx.drawImage(avatar, cx - size/2, cy - size/2, size, size);
+      ctx.drawImage(avatar, cx - size / 2, cy - size / 2, size, size);
       ctx.restore();
-    } catch {}
+    } catch { }
   }
 
   ctx.textAlign = "left";
@@ -334,7 +280,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const sysBoxY = headerY + headerH + 30;
   drawBox(ctx, leftColumnX, sysBoxY, leftColumnWidth, sysBoxHeight, "System Info");
   let ySys = sysBoxY + 100;
-  const lineHeight = 50;
+  const lineHeightSys = 50;
   systemFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
@@ -342,12 +288,12 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     ctx.fillText(f.label, leftColumnX + 40, ySys);
     ctx.textAlign = "right";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, ySys);
-    ySys += lineHeight;
+    ySys += lineHeightSys;
   });
 
   const resBoxY = sysBoxY + sysBoxHeight + 30;
   drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage");
-  let yRes = resBoxY + 60;
+  let yRes = resBoxY + 100;
   resourceFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
@@ -355,6 +301,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
     ctx.fillText(f.label, leftColumnX + 40, yRes);
     ctx.textAlign = "right";
     ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
+
     let percent = null;
     if (f.label.includes("CPU") && f.value.includes("%")) {
       percent = parseFloat(f.value.replace("%", "").trim());
@@ -366,7 +313,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       if (nums.length >= 2) percent = (nums[0] / nums[1]) * 100;
     }
 
-    if (percent !== null && !isNaN(percent)) {
+    const hasBar = (percent !== null && !isNaN(percent));
+
+    if (hasBar) {
       const barX = leftColumnX + 40;
       const barY = yRes + 10;
       const barW = leftColumnWidth - 80;
@@ -382,24 +331,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       ctx.strokeStyle = "rgba(255,255,255,0.6)";
       ctx.lineWidth = 2;
       ctx.strokeRect(barX, barY, barW, barH);
-
-      yRes += 30;
     }
 
-    yRes += lineHeight;
-  });
-
-  const netBoxY = resBoxY + resBoxHeight + 30;
-  drawBox(ctx, leftColumnX, netBoxY, leftColumnWidth, netBoxHeight, "Network Info");
-  let yNet = netBoxY + 100;
-  networkFields.forEach(f => {
-    ctx.textAlign = "left";
-    ctx.fillStyle = cv.getRandomGradient ? cv.getRandomGradient(ctx, leftColumnWidth) : "#ffffff";
-    ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillText(f.label, leftColumnX + 40, yNet);
-    ctx.textAlign = "right";
-    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yNet);
-    yNet += lineHeight;
+    yRes += hasBar ? barLineHeight : normalLineHeight;
   });
 
   const rightColumnX = leftColumnX + leftColumnWidth + 30;
@@ -414,34 +348,37 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
       drawVerticalDivider(ctx, dividerX, configY, cfgBoxHeight);
     }
 
-    let yOff = configY + 80;
+    const configTitleY = configY + 90;
+    const configItemStartY = configTitleY + 50;
+
     if (offConfigs.length > 0) {
+      let yOff = configItemStartY;
       ctx.fillStyle = "#FF6B6B";
       ctx.font = onConfigs.length === 0 ? "bold 30px BeVietnamPro" : "bold 26px BeVietnamPro";
       ctx.textAlign = "left";
-      ctx.fillText("Đang tắt:", leftColX, yOff);
-      yOff += 40;
+      ctx.fillText("Đang tắt:", leftColX, configTitleY);
       ctx.font = onConfigs.length === 0 ? "bold 26px BeVietnamPro" : "bold 22px BeVietnamPro";
       offConfigs.forEach(line => {
         ctx.fillStyle = "#ffffff";
         ctx.fillText(`${line}`, leftColX, yOff);
-        yOff += 40;
+        yOff += configLineHeight;
       });
     }
 
-    let yOn = configY + 80;
     if (onConfigs.length > 0) {
+      let yOn = configItemStartY;
       ctx.fillStyle = "#4ECB71";
       ctx.font = "bold 26px BeVietnamPro";
       ctx.textAlign = "left";
-      const titleX = offConfigs.length === 0 ? rightColumnX + rightColumnWidth / 2 : rightColX;
-      ctx.fillText("Đang bật:", titleX, yOn);
+      const titleX = offConfigs.length === 0 ? rightColumnX + (rightColumnWidth / 2) - (measureTextWidth(ctx, "Đang bật:", "bold 26px BeVietnamPro") / 2) : rightColX;
+      const itemX = offConfigs.length === 0 ? rightColumnX + 40 : rightColX;
+      ctx.fillText("Đang bật:", titleX, configTitleY);
       yOn += 40;
       ctx.font = "bold 22px BeVietnamPro";
       onConfigs.forEach(line => {
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${line}`, titleX, yOn);
-        yOn += 40;
+        ctx.fillText(`${line}`, itemX, yOn);
+        yOn += configLineHeight;
       });
     }
   }
