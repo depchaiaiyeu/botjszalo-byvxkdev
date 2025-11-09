@@ -5,7 +5,7 @@ import os from "os";
 import fsPromises from "fs/promises";
 import si from "systeminformation";
 import disk from "diskusage";
-import { createHelpBackgroup } from "./help.js";
+import { createHelpBackground } from "./help.js";
 
 function drawBox(ctx, x, y, w, h, title) {
   const boxGradient = ctx.createLinearGradient(x, y, x, y + h);
@@ -232,7 +232,7 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  await createHelpBackgroup(ctx, width, height);
+  await createHelpBackground(ctx, width, height);
 
   const metallicGradient = ctx.createLinearGradient(0, 0, width, height);
   metallicGradient.addColorStop(0, "rgba(255,255,255,0.05)");
