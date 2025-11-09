@@ -868,7 +868,7 @@ function getHelpMessage() {
 『${prefix}mybot addtime』
 • 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
 • ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
-• ⚙️ Ví dụ: ${prefix}mybot addtime @user 1d
+• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index 1d
 
 ---
 ➤ 🗑️ Xóa Bot:
