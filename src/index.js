@@ -1,8 +1,8 @@
-import { Zalo } from "./api-zalo/index.js"
+import { Zalo } from "./api-zalo/index.js";
 
-import { groupEvents } from "./automations/events-group.js"
-import { messagesUser } from "./automations/event-send-msg.js"
-import { undoMessageEvents } from "./automations/event-delete-msg.js"
+import { groupEvents } from "./automations/events-group.js";
+import { messagesUser } from "./automations/event-send-msg.js";
+import { undoMessageEvents } from "./automations/event-delete-msg.js";
 
 import {
   readAdmins,
@@ -14,31 +14,31 @@ import {
   logManagerBot,
   getSubBotConfig,
   isSubBotInstance,
-  ensureLogFiles 
-} from "./utils/io-json.js"
+  ensureLogFiles,
+} from "./utils/io-json.js";
 
-import { initService } from "./service-hahuyhoang/service.js"
-import { reactionEvents } from "./automations/events-reaction.js"
-import { updateMessageCache } from "./utils/message-cache.js"
+import { initService } from "./service-hahuyhoang/service.js";
+import { reactionEvents } from "./automations/events-reaction.js";
+import { updateMessageCache } from "./utils/message-cache.js";
 
-let idBot = -1
-const prophylacticConfig = readProphylacticConfig()
-export let admins = readAdmins()
-let config = readConfig()
+let idBot = -1;
+const prophylacticConfig = readProphylacticConfig();
+export let admins = readAdmins();
+let config = readConfig();
 
 if (isSubBotInstance()) {
-  const subBotConfig = getSubBotConfig()
+  const subBotConfig = getSubBotConfig();
   if (subBotConfig) {
-    config.cookie = subBotConfig.cookie
-    config.imei = subBotConfig.imei
-    config.userAgent = subBotConfig.userAgent
-    console.log(`[Index] 🤖 Load config từ bot con`)
+    config.cookie = subBotConfig.cookie;
+    config.imei = subBotConfig.imei;
+    config.userAgent = subBotConfig.userAgent;
+    console.log(`[Index] 🤖 Load config từ bot con`);
   }
 }
 
-let commandConfig = readCommandConfig()
+let commandConfig = readCommandConfig();
 
-await ensureLogFiles(); 
+await ensureLogFiles();
 
 const zalo = new Zalo(
   {
@@ -49,147 +49,164 @@ const zalo = new Zalo(
   {
     selfListen: true,
     checkUpdate: false,
-    reloadAdminsCallback: reloadAdmins
+    reloadAdminsCallback: reloadAdmins,
   }
-)
+);
 
 export function getApi() {
-  return api
+  return api;
 }
 
 export function getBotId() {
-  return idBot
+  return idBot;
 }
 
 export function setBotId(id) {
-  idBot = id
+  idBot = id;
 }
 
 export function reloadAdmins() {
-  admins = readAdmins()
+  admins = readAdmins();
   console.log(`[Index] ✅ Đã tải lại danh sách Bot Admin: ${admins.join(", ")}`);
 }
 
 export function getCommandConfig() {
-  return commandConfig
+  return commandConfig;
 }
 
 export function reloadCommandConfig() {
-  commandConfig = readCommandCofig()
-  return commandConfig
+  commandConfig = readCommandConfig();
+  return commandConfig;
 }
 
 export function getProphylacticConfig() {
-  return prophylacticConfig
+  return prophylacticConfig;
 }
 
 export function getProphylacticUploadAttachment() {
-  return prophylacticConfig.prophylacticUploadAttachment.enable
+  return prophylacticConfig.prophylacticUploadAttachment.enable;
 }
 
 export function setProphylacticUploadAttachment(enable, resetNum = false) {
-  prophylacticConfig.prophylacticUploadAttachment.enable = enable
-  prophylacticConfig.prophylacticUploadAttachment.lastBlocked = Date.now()
-  if (resetNum) prophylacticConfig.prophylacticUploadAttachment.numRequestZalo = 0
-  writeProphylacticConfig(prophylacticConfig)
+  prophylacticConfig.prophylacticUploadAttachment.enable = enable;
+  prophylacticConfig.prophylacticUploadAttachment.lastBlocked = Date.now();
+  if (resetNum) prophylacticConfig.prophylacticUploadAttachment.numRequestZalo = 0;
+  writeProphylacticConfig(prophylacticConfig);
 }
 
-const timeResetNumberRequestUpload = 120 * 60 * 1000
-const timeDisableProphylacticConfig = 120 * 60 * 1000
-const maxRequestUploadIntoNotProphylactic = 300
+const timeResetNumberRequestUpload = 120 * 60 * 1000;
+const timeDisableProphylacticConfig = 120 * 60 * 1000;
+const maxRequestUploadIntoNotProphylactic = 300;
 
 export function checkDisableProphylacticConfig() {
   if (prophylacticConfig.prophylacticUploadAttachment.enable) {
-    const currentTime = Date.now()
-    const lastBlockedTime = prophylacticConfig.prophylacticUploadAttachment.lastBlocked
-    const timeDifference = currentTime - lastBlockedTime
+    const currentTime = Date.now();
+    const lastBlockedTime =
+      prophylacticConfig.prophylacticUploadAttachment.lastBlocked;
+    const timeDifference = currentTime - lastBlockedTime;
 
     if (timeDifference > timeDisableProphylacticConfig) {
-      setProphylacticUploadAttachment(false, true)
+      setProphylacticUploadAttachment(false, true);
     }
   }
 }
 
 export function checkConfigUploadAttachment(extFile) {
   if (["jpg", "jpeg", "png", "webp"].includes(extFile)) {
-    const currentTime = Date.now()
-    if (currentTime - prophylacticConfig.prophylacticUploadAttachment.lastRequestTime > timeResetNumberRequestUpload) {
-      prophylacticConfig.prophylacticUploadAttachment.numRequestZalo = 0
-      prophylacticConfig.prophylacticUploadAttachment.lastRequestTime = currentTime
+    const currentTime = Date.now();
+    if (
+      currentTime - prophylacticConfig.prophylacticUploadAttachment.lastRequestTime >
+      timeResetNumberRequestUpload
+    ) {
+      prophylacticConfig.prophylacticUploadAttachment.numRequestZalo = 0;
+      prophylacticConfig.prophylacticUploadAttachment.lastRequestTime = currentTime;
     }
 
-    prophylacticConfig.prophylacticUploadAttachment.numRequestZalo++
-    writeProphylacticConfig(prophylacticConfig)
+    prophylacticConfig.prophylacticUploadAttachment.numRequestZalo++;
+    writeProphylacticConfig(prophylacticConfig);
 
-    if (prophylacticConfig.prophylacticUploadAttachment.numRequestZalo > maxRequestUploadIntoNotProphylactic) {
-      setProphylacticUploadAttachment(true)
-      prophylacticConfig.prophylacticUploadAttachment.lastBlocked = currentTime
+    if (
+      prophylacticConfig.prophylacticUploadAttachment.numRequestZalo >
+      maxRequestUploadIntoNotProphylactic
+    ) {
+      setProphylacticUploadAttachment(true);
+      prophylacticConfig.prophylacticUploadAttachment.lastBlocked = currentTime;
     }
   }
 }
 
 export function isAdmin(userId, threadId, groupAdmins) {
   if (admins.includes(userId.toString())) {
-    return true
+    return true;
   }
 
-  const groupSettings = readGroupSettings()
-  if (threadId && groupSettings[threadId] && typeof groupSettings[threadId]["adminList"] === "object") {
-    if (Object.keys(groupSettings[threadId]["adminList"]).includes(userId.toString())) {
-      return true
+  const groupSettings = readGroupSettings();
+  if (
+    threadId &&
+    groupSettings[threadId] &&
+    typeof groupSettings[threadId]["adminList"] === "object"
+  ) {
+    if (
+      Object.keys(groupSettings[threadId]["adminList"]).includes(userId.toString())
+    ) {
+      return true;
     }
   }
 
-  if (groupAdmins && Array.isArray(groupAdmins) && groupAdmins.includes(userId.toString())) {
-    return true
+  if (
+    groupAdmins &&
+    Array.isArray(groupAdmins) &&
+    groupAdmins.includes(userId.toString())
+  ) {
+    return true;
   }
 
-  return false
+  return false;
 }
 
-const api = await zalo.login()
+const api = await zalo.login();
 
-initService(api)
+initService(api);
 
 api.listener.on("message", async (message) => {
   try {
-    await messagesUser(api, message)
+    await messagesUser(api, message);
   } catch (error) {
-    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Tin Nhắn: ${error.message}\nNội Dung Lỗi: ${error.stack}`
-    console.error(detailError)
-    logManagerBot(detailError)
+    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Tin Nhắn: ${error.message}\nNội Dung Lỗi: ${error.stack}`;
+    console.error(detailError);
+    logManagerBot(detailError);
   }
-  updateMessageCache(message)
-})
+  updateMessageCache(message);
+});
 
 api.listener.on("group_event", async (event) => {
   try {
-    await groupEvents(api, event)
+    await groupEvents(api, event);
   } catch (error) {
-    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Nhóm: ${error.message}\nNội Dung Lỗi: ${error.stack}`
-    console.error(detailError)
-    logManagerBot(detailError)
+    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Nhóm: ${error.message}\nNội Dung Lỗi: ${error.stack}`;
+    console.error(detailError);
+    logManagerBot(detailError);
   }
-})
+});
 
 api.listener.on("undo", async (undo) => {
   try {
-    await undoMessageEvents(api, undo)
+    await undoMessageEvents(api, undo);
   } catch (error) {
-    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Delete Message: ${error.message}\nNội Dung Lỗi: ${error.stack}`
-    console.error(detailError)
-    logManagerBot(detailError)
+    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Delete Message: ${error.message}\nNội Dung Lỗi: ${error.stack}`;
+    console.error(detailError);
+    logManagerBot(detailError);
   }
-})
+});
 
 api.listener.on("reaction", async (reaction) => {
   try {
-    await reactionEvents(api, reaction)
+    await reactionEvents(api, reaction);
   } catch (error) {
-    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Reaction: ${error.message}\nNội Dung Lỗi: ${error.stack}`
-    console.error(detailError)
-    logManagerBot(detailError)
+    const detailError = `Mã Lỗi: ${error.code} - > Chú Thích Lỗi Sự Kiện Reaction: ${error.message}\nNội Dung Lỗi: ${error.stack}`;
+    console.error(detailError);
+    logManagerBot(detailError);
   }
-})
+});
 
-api.listener.start()
+api.listener.start();
