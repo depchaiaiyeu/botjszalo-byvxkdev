@@ -393,7 +393,7 @@ function findCandidateMoves(board, size = 16, radius = 2) {
     return Array.from(candidateMoves);
 }
 
-function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
+function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16, treeBreadth = 6) {
     const winResult = checkWin(board, size);
     if (winResult) {
         if (winResult.winner === botMark) return 1000000000 + depth;
@@ -405,7 +405,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     const candidates = findCandidateMoves(board, size, searchRadius);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = 12;
+    const MAX_CANDIDATES_BREADTH = treeBreadth;
     
     const scoredCandidates = candidates.map(move => {
         return {
@@ -421,7 +421,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = -Infinity;
         for (const { move } of topCandidates) {
             board[move] = botMark;
-            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size, treeBreadth);
             board[move] = ".";
             bestValue = Math.max(bestValue, value);
             alpha = Math.max(alpha, bestValue);
@@ -432,7 +432,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = Infinity;
         for (const { move } of topCandidates) {
             board[move] = playerMark;
-            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size, treeBreadth);
             board[move] = ".";
             bestValue = Math.min(bestValue, value);
             beta = Math.min(beta, bestValue);
@@ -466,10 +466,23 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    const DEPTHS = { hard: 6, super: 8, master: 10 };
-    const depth = DEPTHS[mode] || 6;
+    const DEPTHS = { hard: 7, super: 9, master: 12 };
+    const ROOT_BREADTHS = { hard: 14, super: 16, master: 18 };
+    const TREE_BREADTHS = { hard: 6, super: 7, master: 8 };
 
-    const MAX_CANDIDATES_SEARCH = 24;
+    let depth = DEPTHS[mode] || 7;
+    let rootBreadth = ROOT_BREADTHS[mode] || 14;
+    let treeBreadth = TREE_BREADTHS[mode] || 6;
+    
+    const moveCount = size * size - board.filter(c => c === '.').length;
+
+    if (moveCount < 8) {
+        depth = 6;
+        rootBreadth = 16;
+        treeBreadth = 6;
+    }
+
+    const MAX_CANDIDATES_SEARCH = rootBreadth;
 
     let candidates = findCandidateMoves(board, size, 2);
     
@@ -489,7 +502,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
 
     for (const { move } of topCandidates) {
         board[move] = botMark;
-        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
+        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size, treeBreadth);
         board[move] = ".";
         
         if (score > bestScore) {
