@@ -97,13 +97,12 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
                 if (fs.existsSync(filePath)) {
                     const ext = path.extname(filePath).toLowerCase().slice(1);
                     const imageExts = ['jpg', 'jpeg', 'png', 'gif'];
-                    const voiceExts = ['mp3', 'm4a', 'ogg', 'wav'];
-                    const videoExts = ['mp4', 'mov', 'avi', 'mkv'];
+                    const voiceExts = ['mp3', 'm4a', 'aac'];
+                    const videoExts = ['mp4', 'mov'];
                     
                     const uploadedCache = loadUploadedFiles();
                     const cachedInfo = uploadedCache[attachmentContent];
 
-                    // Handle cached file
                     if (cachedInfo?.fileUrl) {
                         if (imageExts.includes(ext)) {
                             // api.sendImage sử dụng format MessageType.GroupMessage hoặc MessageType.PrivateMessage
@@ -122,9 +121,7 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
                             await sendUploadedFile(api, message, cachedInfo); // Các loại file khác (zip, pdf,...)
                         }
                         return;
-                    }
-
-                    // Upload and send new file
+                    }
                     try {
                         const uploaded = await api.uploadAttachment([filePath], threadId, message.type);
                         if (uploaded && uploaded.length > 0 && uploaded[0].fileUrl) {
@@ -322,7 +319,7 @@ export async function handleLearnCommand(api, message, groupSettings) {
             return true;
         }
 
-        let listMsg = "📋 Danh sách data training đã học:\n\n";
+        let listMsg = "📜 Danh sách data training đã học:\n\n";
         let qIndex = 1;
         for (const [question, responses] of Object.entries(data[threadId].listTrain)) {
             listMsg += `${qIndex}. Hỏi: "${question}"\n`;
