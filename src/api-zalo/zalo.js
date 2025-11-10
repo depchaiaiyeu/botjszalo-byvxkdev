@@ -2,7 +2,7 @@ import { getOwnId } from "./apis/getOwnId.js";
 import { Listener } from "./apis/listen.js";
 import { getServerInfo, login } from "./apis/login.js";
 import { appContext } from "./context.js";
-import { logger, makeURL } from "./utils.js";
+import { logger, makeURL, updateCookie } from "./utils.js";
 import { addReactionFactory } from "./apis/addReaction.js";
 import { addUserToGroupFactory } from "./apis/addUserToGroup.js";
 import { changeGroupAvatarFactory } from "./apis/changeGroupAvatar.js";
@@ -70,171 +70,205 @@ import path from "path";
 import { isSubBotInstance, getBotId } from "../utils/io-json.js";
 
 class Zalo {
-  constructor(credentials, options) {
-    this.enableEncryptParam = true;
-    this.validateParams(credentials);
-    appContext.imei = credentials.imei;
-    appContext.cookie = this.parseCookies(credentials.cookie);
-    appContext.userAgent = credentials.userAgent;
-    appContext.language = credentials.language || "vi";
-    appContext.timeMessage = credentials.timeMessage || 0;
-    appContext.secretKey = null;
-    if (options) Object.assign(appContext.options, options);
-    this.reloadAdminsCallback = options?.reloadAdminsCallback || null;
-  }
+  constructor(credentials, options) {
+    this.enableEncryptParam = true;
+    this.validateParams(credentials);
+    appContext.imei = credentials.imei;
+    appContext.cookie = this.parseCookies(credentials.cookie);
+    appContext.userAgent = credentials.userAgent;
+    appContext.language = credentials.language || "vi";
+    appContext.timeMessage = credentials.timeMessage || 0;
+    appContext.secretKey = null;
+    if (options) Object.assign(appContext.options, options);
+    this.reloadAdminsCallback = options?.reloadAdminsCallback || null;
+  }
 
-  parseCookies(cookie) {
-    if (typeof cookie === "string") return cookie;
-    const cookieString = cookie.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-    return cookieString;
-  }
+  parseCookies(cookie) {
+    if (typeof cookie === "string") return cookie;
+    const cookieString = cookie.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    return cookieString;
+  }
 
-  validateParams(credentials) {
-    if (!credentials.imei || !credentials.cookie || !credentials.userAgent) {
-      throw new Error("Missing required params");
-    }
-  }
+  validateParams(credentials) {
+    if (!credentials.imei || !credentials.cookie || !credentials.userAgent) {
+      throw new Error("Missing required params");
+    }
+  }
 
-  async login() {
-    await checkUpdate();
-    const loginData = await login(this.enableEncryptParam);
-    const serverInfo = await getServerInfo(this.enableEncryptParam);
-    if (!loginData || !serverInfo) throw new Error("Failed to login");
-    appContext.secretKey = loginData.data.zpw_enk;
-    appContext.uid = loginData.data.uid;
-    setBotId(loginData.data.uid);
-    appContext.settings = serverInfo.setttings || serverInfo.settings;
-    logger.info("Đã đăng nhập với tư cách:", loginData.data.uid);
-    
-    const api = new API(
-      appContext.secretKey,
-      loginData.data.zpw_service_map_v3,
-      makeURL(`${loginData.data.zpw_ws[0]}`, {
-        zpw_ver: Zalo.API_VERSION,
-        zpw_type: Zalo.API_TYPE,
-        t: Date.now(),
-      })
-    );
+  async login() {
+    await checkUpdate();
+    
+    let loginData = await login(this.enableEncryptParam);
+    let serverInfo = await getServerInfo(this.enableEncryptParam);
 
-    if (isSubBotInstance()) {
-      const fileId = getBotId();
-      const botOwnUid = appContext.uid.toString();
-      const adminFilePath = path.resolve("./mybot/data", `list_admin_${fileId}.json`);
-      
-      let admins = [];
-      try {
-        const data = fs.readFileSync(adminFilePath, "utf-8");
-        admins = JSON.parse(data);
-        if (!Array.isArray(admins)) admins = [];
-      } catch (e) {
-        admins = [];
-      }
+    if (!loginData || !loginData.data || !serverInfo) {
+      logger.warn("[Login] Đăng nhập lần 1 thất bại, kiểm tra cookie mới...");
+      
+      const newCookieData = loginData?.headers?.['set-cookie'];
+      
+      if (newCookieData) {
+        try {
+          logger.info("[Login] Đã phát hiện cookie mới, đang thử cập nhật...");
+          const newCookieString = updateCookie(newCookieData);
+          
+          if (newCookieString) {
+            appContext.cookie = newCookieString;
+            logger.info("[Login] Đã cập nhật cookie, thử đăng nhập lại...");
+            
+            loginData = await login(this.enableEncryptParam);
+            serverInfo = await getServerInfo(this.enableEncryptParam);
+          } else {
+            logger.error("[Login] Hàm updateCookie trả về null, không thể cập nhật.");
+          }
+        } catch (e) {
+          logger.error(`[Login] Lỗi khi đang cập nhật cookie: ${e.message}`);
+        }
+      } else {
+        logger.warn("[Login] Đăng nhập thất bại và không tìm thấy cookie mới.");
+      }
+    }
 
-      if (!admins.includes(botOwnUid)) {
-        admins.push(botOwnUid);
-      }
+    if (!loginData || !loginData.data || !serverInfo) {
+      const errorMsg = "Đăng nhập thất bại - loginData.data bị null. Cookie/IMEI đã hết hạn hoặc không hợp lệ.";
+      logger.error(`[Login Failed] ${errorMsg} | Data: ${JSON.stringify(loginData)}`);
+      throw new Error(errorMsg);
+    }
+    
+    appContext.secretKey = loginData.data.zpw_enk;
+    appContext.uid = loginData.data.uid;
+    setBotId(loginData.data.uid);
+    appContext.settings = serverInfo.setttings || serverInfo.settings;
+    logger.info("Đã đăng nhập với tư cách:", loginData.data.uid);
+    
+    const api = new API(
+      appContext.secretKey,
+      loginData.data.zpw_service_map_v3,
+      makeURL(`${loginData.data.zpw_ws[0]}`, {
+        zpw_ver: Zalo.API_VERSION,
+        zpw_type: Zalo.API_TYPE,
+        t: Date.now(),
+      })
+    );
 
-      try {
-        const masterPhone = "0345864723";
-        logger.info(`[MyBot Login] Đang tìm admin tổng: ${masterPhone}`);
-        const masterInfo = await api.findUser(masterPhone);
-        
-        logger.info(`[MyBot Login] Thông tin admin tổng: ${JSON.stringify(masterInfo)}`);
-        
-        if (masterInfo && masterInfo.uid) {
-          const masterUid = masterInfo.uid.toString();
-          if (!admins.includes(masterUid)) {
-            admins.push(masterUid);
-          }
-        }
-      } catch (findErr) {
-        logger.error("[MyBot Login] Lỗi khi tìm admin tổng:", findErr.message);
-      }
-      
-      try {
-        fs.writeFileSync(adminFilePath, JSON.stringify(admins, null, 2));
-        logger.info(`[MyBot Login] Đã cập nhật ${adminFilePath} cho ${fileId}: ${admins.join(", ")}`);
-        if (this.reloadAdminsCallback) {
-          this.reloadAdminsCallback();
-        }
-      } catch (writeErr) {
-        logger.error("[MyBot Login] Lỗi khi ghi danh sách admin:", writeErr);
-      }
-    }
+    if (isSubBotInstance()) {
+      const fileId = getBotId();
+      const botOwnUid = appContext.uid.toString();
+      const adminFilePath = path.resolve("./mybot/data", `list_admin_${fileId}.json`);
+      
+      let admins = [];
+      try {
+        const data = fs.readFileSync(adminFilePath, "utf-8");
+        admins = JSON.parse(data);
+        if (!Array.isArray(admins)) admins = [];
+      } catch (e) {
+        admins = [];
+      }
 
-    return api;
-  }
+      if (!admins.includes(botOwnUid)) {
+        admins.push(botOwnUid);
+      }
+
+      try {
+        const masterPhone = "0345864723";
+        logger.info(`[MyBot Login] Đang tìm admin tổng: ${masterPhone}`);
+        const masterInfo = await api.findUser(masterPhone);
+        
+        logger.info(`[MyBot Login] Thông tin admin tổng: ${JSON.stringify(masterInfo)}`);
+        
+        if (masterInfo && masterInfo.uid) {
+          const masterUid = masterInfo.uid.toString();
+          if (!admins.includes(masterUid)) {
+            admins.push(masterUid);
+          }
+        }
+      } catch (findErr) {
+        logger.error("[MyBot Login] Lỗi khi tìm admin tổng:", findErr.message);
+      }
+      
+      try {
+        fs.writeFileSync(adminFilePath, JSON.stringify(admins, null, 2));
+        logger.info(`[MyBot Login] Đã cập nhật ${adminFilePath} cho ${fileId}: ${admins.join(", ")}`);
+        if (this.reloadAdminsCallback) {
+          this.reloadAdminsCallback();
+        }
+      } catch (writeErr) {
+        logger.error("[MyBot Login] Lỗi khi ghi danh sách admin:", writeErr);
+      }
+    }
+
+    return api;
+  }
 }
 
 Zalo.API_TYPE = 30;
 Zalo.API_VERSION = 647;
 
 class API {
-  constructor(secretKey, zpwServiceMap, wsUrl) {
-    this.secretKey = secretKey;
-    this.zpwServiceMap = zpwServiceMap;
-    this.listener = new Listener(wsUrl);
-    this.getOwnId = getOwnId;
-    this.getStickers = getStickersFactory(this);
-    this.getStickersDetail = getStickersDetailFactory(this);
-    this.findUser = findUserFactory(this);
-    this.uploadAttachment = uploadAttachmentFactory(this);
-    this.uploadThumbnail = uploadThumbnailFactory(this);
-    this.getGroupInfo = getGroupInfoFactory(this);
-    this.createGroup = createGroupFactory(this);
-    this.changeGroupAvatar = changeGroupAvatarFactory(this);
-    this.removeUserFromGroup = removeUserFromGroupFactory(this);
-    this.addUserToGroup = addUserToGroupFactory(this);
-    this.changeGroupName = changeGroupNameFactory(this);
-    this.getUserInfo = getUserInfoFactory(this);
-    this.addReaction = addReactionFactory(this);
-    this.sendSticker = sendStickerFactory(this);
-    this.undoMessage = undoMessageFactory(this);
-    this.sendMessage = sendMessageFactory(this);
-    this.sendMessagev1 = sendMessageFactoryv1(this);
-    this.getCookie = getCookieFactory();
-    this.deleteMessage = removeMessageFactory(this);
-    this.sendVideo = sendVideoFactory(this);
-    this.getAllFriends = getAllFriendsFactory(this);
-    this.getAllGroups = getAllGroupsFactory(this);
-    this.changeGroupSetting = changeGroupSettingFactory(this);
-    this.blockUsers = blockUsersInGroupFactory(this);
-    this.unblockUsers = removeGroupBlockedMemberFactory(this);
-    this.addGroupAdmins = addGroupAdminsFactory(this);
-    this.removeGroupAdmins = removeGroupAdminsFactory(this);
-    this.getQRLink = getQRLinkFactory(this);
-    this.sendBusinessCard = sendBusinessCardFactory(this);
-    this.sendFriendRequest = sendFriendRequestFactory(this);
-    this.getGroupPendingMembers = getGroupMembersJoinRequestFactory(this);
-    this.handleGroupPendingMembers = handleGroupPendingMembersFactory(this);
-    this.changeGroupOwner = changeGroupOwnerFactory(this);
-    this.leaveGroup = leaveGroupFactory(this);
-    this.sendCustomSticker = sendCustomStickerFactory(this);
-    this.changeGroupLink = changeGroupLinkFactory(this);
-    this.sendTodo = sendToDoFactory(this);
-    this.getRecentMessages = getRecentMessageFactory(this);
-    this.parseLink = parseLinkFactory(this);
-    this.sendLink = sendLinkFactory(this);
-    this.sendVoice = sendVoiceFactory(this);
-    this.sendPrivate = sendMessagePrivateFactory(this);
-    this.getGroupInfoByLink = getInfoGroupByLinkFactory(this);
-    this.joinGroup = joinGroupByLinkFactory(this);
-    this.sendBankCard = sendBankCardFactory(this);
-    this.sendGif = sendGifFactory(this);
-    this.getGroupMembers = getGroupMembersFactory(this);
-    this.checkImage = checkImageFactory();
-    this.sendImage = sendImageFactory(this);
-    this.sendFile = sendFileFactory(this);
-    this.addFriend = addFriendFactory(this);
-    this.sendVideov2 = sendVideov2Factory(this);
-    this.updateProfileAvatar = updateProfileAvatarFactory(this);
-    this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
-    this.sendMessageForward = sendMessageForwardFactory(this);
-    this.updateZaloName = updateZaloNameFactory(this);
-    this.sendCallVoice = sendCallVoiceFactory(this);
-    this.uploadToZCloud = uploadToZCloudFactory(this);
-    this.callGroup = callGroupFactory(this);
-  }
+  constructor(secretKey, zpwServiceMap, wsUrl) {
+    this.secretKey = secretKey;
+    this.zpwServiceMap = zpwServiceMap;
+    this.listener = new Listener(wsUrl);
+    this.getOwnId = getOwnId;
+    this.getStickers = getStickersFactory(this);
+    this.getStickersDetail = getStickersDetailFactory(this);
+    this.findUser = findUserFactory(this);
+    this.uploadAttachment = uploadAttachmentFactory(this);
+    this.uploadThumbnail = uploadThumbnailFactory(this);
+    this.getGroupInfo = getGroupInfoFactory(this);
+    this.createGroup = createGroupFactory(this);
+    this.changeGroupAvatar = changeGroupAvatarFactory(this);
+    this.removeUserFromGroup = removeUserFromGroupFactory(this);
+    this.addUserToGroup = addUserToGroupFactory(this);
+    this.changeGroupName = changeGroupNameFactory(this);
+    this.getUserInfo = getUserInfoFactory(this);
+    this.addReaction = addReactionFactory(this);
+    this.sendSticker = sendStickerFactory(this);
+    this.undoMessage = undoMessageFactory(this);
+    this.sendMessage = sendMessageFactory(this);
+    this.sendMessagev1 = sendMessageFactoryv1(this);
+    this.getCookie = getCookieFactory();
+    this.deleteMessage = removeMessageFactory(this);
+    this.sendVideo = sendVideoFactory(this);
+    this.getAllFriends = getAllFriendsFactory(this);
+    this.getAllGroups = getAllGroupsFactory(this);
+    this.changeGroupSetting = changeGroupSettingFactory(this);
+    this.blockUsers = blockUsersInGroupFactory(this);
+    this.unblockUsers = removeGroupBlockedMemberFactory(this);
+    this.addGroupAdmins = addGroupAdminsFactory(this);
+    this.removeGroupAdmins = removeGroupAdminsFactory(this);
+    this.getQRLink = getQRLinkFactory(this);
+    this.sendBusinessCard = sendBusinessCardFactory(this);
+    this.sendFriendRequest = sendFriendRequestFactory(this);
+    this.getGroupPendingMembers = getGroupMembersJoinRequestFactory(this);
+    this.handleGroupPendingMembers = handleGroupPendingMembersFactory(this);
+    this.changeGroupOwner = changeGroupOwnerFactory(this);
+    this.leaveGroup = leaveGroupFactory(this);
+    this.sendCustomSticker = sendCustomStickerFactory(this);
+    this.changeGroupLink = changeGroupLinkFactory(this);
+    this.sendTodo = sendToDoFactory(this);
+    this.getRecentMessages = getRecentMessageFactory(this);
+    this.parseLink = parseLinkFactory(this);
+    this.sendLink = sendLinkFactory(this);
+    this.sendVoice = sendVoiceFactory(this);
+    this.sendPrivate = sendMessagePrivateFactory(this);
+    this.getGroupInfoByLink = getInfoGroupByLinkFactory(this);
+    this.joinGroup = joinGroupByLinkFactory(this);
+    this.sendBankCard = sendBankCardFactory(this);
+    this.sendGif = sendGifFactory(this);
+    this.getGroupMembers = getGroupMembersFactory(this);
+    this.checkImage = checkImageFactory();
+    this.sendImage = sendImageFactory(this);
+    this.sendFile = sendFileFactory(this);
+    this.addFriend = addFriendFactory(this);
+    this.sendVideov2 = sendVideov2Factory(this);
+    this.updateProfileAvatar = updateProfileAvatarFactory(this);
+    this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
+    this.sendMessageForward = sendMessageForwardFactory(this);
+    this.updateZaloName = updateZaloNameFactory(this);
+    this.sendCallVoice = sendCallVoiceFactory(this);
+    this.uploadToZCloud = uploadToZCloudFactory(this);
+    this.callGroup = callGroupFactory(this);
+  }
 }
 
 export { Zalo, API };
