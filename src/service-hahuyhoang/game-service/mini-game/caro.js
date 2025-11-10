@@ -11,7 +11,6 @@ const __dirname = path.dirname(__filename);
 
 const activeCaroGames = new Map();
 const turnTimers = new Map();
-const botLearning = new Map();
 
 function clearTurnTimer(threadId) {
     const timer = turnTimers.get(threadId);
@@ -48,7 +47,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
 }
 
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = [], mode = "Easy") {
-    const cellSize = 50;
+    const cellSize = size === 3 ? 100 : 50;
     const padding = 40;
     const headerHeight = 50;
     const footerHeight = 50;
@@ -101,11 +100,11 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.stroke();
     }
     
-    const numberFont = "15px 'BeVietnamPro'";
-    const markFont = "bold 30px 'BeVietnamPro'";
-    const circleWidth = 4;
-    const circleRadius = cellSize / 2.8;
-    const winLineWidth = 6;
+    const numberFont = size === 3 ? "30px 'BeVietnamPro'" : "15px 'BeVietnamPro'";
+    const markFont = size === 3 ? "bold 60px 'BeVietnamPro'" : "bold 30px 'BeVietnamPro'";
+    const circleWidth = size === 3 ? 6 : 4;
+    const circleRadius = size === 3 ? cellSize / 2.5 : cellSize / 2.8;
+    const winLineWidth = size === 3 ? 10 : 6;
     
     for (let i = 0; i < board.length; i++) {
         const row = Math.floor(i / size);
@@ -142,7 +141,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         }
     }
     
-    const winLength = 5;
+    const winLength = size === 3 ? 3 : 5;
     if (winningLine && winningLine.length >= winLength) {
         ctx.strokeStyle = "#00FF00";
         ctx.lineWidth = winLineWidth;
@@ -232,7 +231,7 @@ function getLineStats(board, pos, dr, dc, mark, size = 16) {
     if (backwardOpen) openEnds++;
     if (forwardOpen) openEnds++;
 
-    return { count, openEnds, line };
+    return { count, openEnds };
 }
 
 function analyzePosition(board, pos, mark, size = 16) {
@@ -242,165 +241,39 @@ function analyzePosition(board, pos, mark, size = 16) {
     let openThrees = 0;
     let closedThrees = 0;
     let openTwos = 0;
-    let threats = [];
     
     const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
     for (const [dr, dc] of directions) {
-        const { count, openEnds, line } = getLineStats(board, pos, dr, dc, mark, size);
+        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
 
         if (count >= 5) {
-            return { score: 1000000000, threats };
+            return { score: 1000000000 };
         } else if (count === 4) {
-            if (openEnds === 2) {
-                openFours++;
-                threats.push({ type: 'open4', line, direction: [dr, dc] });
-            } else if (openEnds === 1) {
-                closedFours++;
-                threats.push({ type: 'closed4', line, direction: [dr, dc] });
-            }
+            if (openEnds === 2) openFours++;
+            else if (openEnds === 1) closedFours++;
         } else if (count === 3) {
-            if (openEnds === 2) {
-                openThrees++;
-                threats.push({ type: 'open3', line, direction: [dr, dc] });
-            } else if (openEnds === 1) {
-                closedThrees++;
-            }
+            if (openEnds === 2) openThrees++;
+            else if (openEnds === 1) closedThrees++;
         } else if (count === 2) {
             if (openEnds === 2) openTwos++;
         }
     }
 
-    if (openFours > 0) return { score: 500000000, threats };
-    if (openThrees > 1) return { score: 100000000, threats };
-    if (closedFours > 0 && openThrees > 0) return { score: 50000000, threats };
-    if (closedFours > 1) return { score: 10000000, threats };
+    if (openFours > 0) return { score: 500000000 };
+    if (closedFours > 1) return { score: 8000000 }; 
+    if (openThrees > 1) return { score: 5000000 };
+    if (closedFours > 0 && openThrees > 0) return { score: 3000000 }; 
     
-    score += closedFours * 1000000;
-    score += openThrees * 100000;
-    score += closedThrees * 10000;
-    score += openTwos * 1000;
+    score += closedFours * 150000;
+    score += openThrees * 75000;
+    score += closedThrees * 1500;
+    score += openTwos * 300;
 
-    return { score, threats };
+    return { score };
 }
 
-function getBoardHash(board) {
-    return board.join('');
-}
-
-function getPatternHash(board, pos, radius = 2, size = 16) {
-    const row = Math.floor(pos / size);
-    const col = pos % size;
-    let pattern = [];
-    
-    for (let r = Math.max(0, row - radius); r <= Math.min(size - 1, row + radius); r++) {
-        for (let c = Math.max(0, col - radius); c <= Math.min(size - 1, col + radius); c++) {
-            pattern.push(board[r * size + c]);
-        }
-    }
-    
-    return pattern.join('');
-}
-
-function recordLoss(board, botMark, playerMark, lastMoves, size = 16) {
-    if (!botLearning.has('losses')) {
-        botLearning.set('losses', []);
-    }
-    
-    const losses = botLearning.get('losses');
-    const lossRecord = {
-        boardHash: getBoardHash(board),
-        botMoves: lastMoves.filter(m => m.mark === botMark).map(m => m.pos),
-        playerMoves: lastMoves.filter(m => m.mark === playerMark).map(m => m.pos),
-        patterns: []
-    };
-    
-    for (const move of lossRecord.botMoves) {
-        lossRecord.patterns.push({
-            pos: move,
-            pattern: getPatternHash(board, move, 2, size)
-        });
-    }
-    
-    losses.push(lossRecord);
-    
-    if (losses.length > 50) {
-        losses.shift();
-    }
-}
-
-function isPoorMove(board, pos, botMark, size = 16) {
-    if (!botLearning.has('losses')) return false;
-    
-    const losses = botLearning.get('losses');
-    const currentPattern = getPatternHash(board, pos, 2, size);
-    
-    for (const loss of losses) {
-        for (const pattern of loss.patterns) {
-            if (pattern.pattern === currentPattern) {
-                return true;
-            }
-        }
-    }
-    
-    return false;
-}
-
-function detectDoubleThree(board, pos, mark, size = 16) {
-    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-    let open3Count = 0;
-    
-    for (const [dr, dc] of directions) {
-        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
-        if (count === 3 && openEnds === 2) {
-            open3Count++;
-        }
-    }
-    
-    return open3Count >= 2;
-}
-
-function detectDoubleFour(board, pos, mark, size = 16) {
-    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-    let four4Count = 0;
-    
-    for (const [dr, dc] of directions) {
-        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
-        if (count === 4 && openEnds >= 1) {
-            four4Count++;
-        }
-    }
-    
-    return four4Count >= 2;
-}
-
-function isForkThreat(board, pos, mark, size = 16) {
-    board[pos] = mark;
-    
-    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-    let openThreeCount = 0;
-    let closedFourCount = 0;
-    
-    for (const [dr, dc] of directions) {
-        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
-        if (count === 3 && openEnds === 2) {
-            openThreeCount++;
-        }
-        if (count === 4 && openEnds === 1) {
-            closedFourCount++;
-        }
-    }
-    
-    board[pos] = ".";
-    
-    return openThreeCount >= 2 || (openThreeCount >= 1 && closedFourCount >= 1);
-}
-
-function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") {
-    if (isPoorMove(board, pos, mark, size)) {
-        return -100000000;
-    }
-    
+function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
     board[pos] = mark;
     const myAnalysis = analyzePosition(board, pos, mark, size);
     board[pos] = ".";
@@ -410,40 +283,9 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
     board[pos] = ".";
 
     if (myAnalysis.score >= 1000000000) return myAnalysis.score;
-    if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.95;
+    if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.9;
     
-    if (detectDoubleFour(board, pos, mark, size)) {
-        return 900000000;
-    }
-    
-    if (detectDoubleFour(board, pos, oppMark, size)) {
-        return 850000000;
-    }
-    
-    if (isForkThreat(board, pos, mark, size)) {
-        return 800000000;
-    }
-    
-    if (isForkThreat(board, pos, oppMark, size)) {
-        return 750000000;
-    }
-    
-    let score = 0;
-
-    if (mode === "easy") {
-        score = myAnalysis.score * 0.8 + oppAnalysis.score * 2.5;
-        if (myAnalysis.score > 100000) {
-            score += myAnalysis.score * 1.5;
-        }
-    } else if (mode === "master") {
-        score = myAnalysis.score * 3.0 + oppAnalysis.score * 1.8;
-        
-        if (myAnalysis.threats.length > 0) {
-            score += myAnalysis.threats.length * 50000;
-        }
-    } else {
-        score = myAnalysis.score * 1.2 + oppAnalysis.score * 2.2;
-    }
+    let score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
 
     const row = Math.floor(pos / size);
     const col = pos % size;
@@ -463,14 +305,14 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
             }
         }
     }
-    score += adjacentCount * 100;
+    score += adjacentCount * 50;
 
     return score;
 }
 
 function checkWinAt(board, pos, mark, size = 16) {
     const directions = [[0,1], [1,0], [1,1], [1,-1]];
-    const winLength = 5;
+    const winLength = size === 3 ? 3 : 5;
     
     for (const [dr, dc] of directions) {
         const forward = countInDirection(board, pos, dr, dc, mark, size);
@@ -486,7 +328,7 @@ function checkWinAt(board, pos, mark, size = 16) {
 
 function checkWin(board, size = 16) {
     const directions = [[0,1], [1,0], [1,1], [1,-1]];
-    const winLength = 5;
+    const winLength = size === 3 ? 3 : 5;
     
     for (let row = 0; row < size; row++) {
         for (let col = 0; col < size; col++) {
@@ -514,7 +356,7 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function findCandidateMoves(board, size = 16, radius = 3) {
+function findCandidateMoves(board, size = 16, radius = 2) {
     const candidateMoves = new Set();
     const isEmptyBoard = board.every(cell => cell === ".");
     const centerMin = 6;
@@ -551,7 +393,7 @@ function findCandidateMoves(board, size = 16, radius = 3) {
     return Array.from(candidateMoves);
 }
 
-function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16, mode = "hard") {
+function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
     const winResult = checkWin(board, size);
     if (winResult) {
         if (winResult.winner === botMark) return 1000000000 + depth;
@@ -559,14 +401,15 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     }
     if (depth === 0) return 0;
 
-    const candidates = findCandidateMoves(board, size, 2);
+    const searchRadius = depth > 2 ? 1 : 2;
+    const candidates = findCandidateMoves(board, size, searchRadius);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = mode === "master" ? 15 : 10;
+    const MAX_CANDIDATES_BREADTH = 8;
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: getHeuristicScore(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size, mode)
+            score: getHeuristicScore(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size)
         };
     });
     
@@ -577,7 +420,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = -Infinity;
         for (const { move } of topCandidates) {
             board[move] = botMark;
-            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size, mode);
+            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
             board[move] = ".";
             bestValue = Math.max(bestValue, value);
             alpha = Math.max(alpha, bestValue);
@@ -588,7 +431,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = Infinity;
         for (const { move } of topCandidates) {
             board[move] = playerMark;
-            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size, mode);
+            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
             board[move] = ".";
             bestValue = Math.min(bestValue, value);
             beta = Math.min(beta, bestValue);
@@ -598,7 +441,75 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     }
 }
 
+function minimax3x3(board, depth, isMaximizing, botMark, playerMark) {
+    const winResult = checkWin(board, 3);
+    if (winResult) {
+        if (winResult.winner === botMark) return 10 - depth;
+        if (winResult.winner === playerMark) return depth - 10;
+    }
+
+    if (board.every(cell => cell !== ".")) return 0;
+
+    if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === ".") {
+                board[i] = botMark;
+                bestScore = Math.max(bestScore, minimax3x3(board, depth + 1, false, botMark, playerMark));
+                board[i] = ".";
+            }
+        }
+        return bestScore;
+    } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === ".") {
+                board[i] = playerMark;
+                bestScore = Math.min(bestScore, minimax3x3(board, depth + 1, true, botMark, playerMark));
+                board[i] = ".";
+            }
+        }
+        return bestScore;
+    }
+}
+
+function getTicTacToeMove(board, playerMark) {
+    const botMark = playerMark === "X" ? "O" : "X";
+    let bestScore = -Infinity;
+    let bestMove = -1;
+
+    const availableMoves = [];
+    for (let i = 0; i < 9; i++) {
+        if (board[i] === '.') availableMoves.push(i);
+    }
+
+    if (availableMoves.length === 9) {
+        const corners = [0, 2, 6, 8];
+        return corners[Math.floor(Math.random() * corners.length)];
+    }
+    
+    if (availableMoves.length === 8 && board[4] === '.') {
+        return 4;
+    }
+
+    for (const move of availableMoves) {
+        board[move] = botMark;
+        let score = minimax3x3(board, 0, false, botMark, playerMark);
+        board[move] = ".";
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = move;
+        }
+    }
+    return bestMove;
+}
+
+
 function getAIMove(board, playerMark, mode, size = 16) {
+    if (size === 3) {
+        return getTicTacToeMove(board, playerMark);
+    }
+    
     const botMark = playerMark === "X" ? "O" : "X";
     
     for (let i = 0; i < size * size; i++) {
@@ -621,50 +532,16 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    let candidates = findCandidateMoves(board, size, 3);
-    let bestBotMove = -1;
-    let bestPlayerBlock = -1;
-    let maxBotScore = -Infinity;
-    let maxPlayerScore = -Infinity;
-
-    for (const move of candidates) {
-        board[move] = botMark;
-        const myAnalysis = analyzePosition(board, move, botMark, size);
-        board[move] = ".";
-
-        board[move] = playerMark;
-        const oppAnalysis = analyzePosition(board, move, playerMark, size);
-        board[move] = ".";
-
-        if (myAnalysis.score > maxBotScore) {
-            maxBotScore = myAnalysis.score;
-            bestBotMove = move;
-        }
-        
-        if (oppAnalysis.score > maxPlayerScore) {
-            maxPlayerScore = oppAnalysis.score;
-            bestPlayerBlock = move;
-        }
-    }
-
-    const THREAT_THRESHOLD = 100000000;
-
-    if (maxBotScore >= THREAT_THRESHOLD) {
-        return bestBotMove;
-    }
-
-    if (maxPlayerScore >= THREAT_THRESHOLD) {
-        return bestPlayerBlock;
-    }
-
-    const DEPTHS = { easy: 4, hard: 7, master: 9 };
+    const DEPTHS = { easy: 4, hard: 6, super: 8 };
     const depth = DEPTHS[mode] || 4;
-    const MAX_CANDIDATES_SEARCH = mode === "master" ? 15 : 12;
+    const MAX_CANDIDATES_SEARCH = 12; 
+
+    let candidates = findCandidateMoves(board, size, 2);
     
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: getHeuristicScore(board, move, botMark, playerMark, size, mode)
+            score: getHeuristicScore(board, move, botMark, playerMark, size)
         };
     });
 
@@ -673,20 +550,20 @@ function getAIMove(board, playerMark, mode, size = 16) {
     const topCandidates = scoredCandidates.slice(0, MAX_CANDIDATES_SEARCH);
 
     let bestScore = -Infinity;
-    let finalBestMove = topCandidates.length > 0 ? topCandidates[0].move : -1;
+    let bestMove = -1;
 
     for (const { move } of topCandidates) {
         board[move] = botMark;
-        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size, mode);
+        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
         board[move] = ".";
         
         if (score > bestScore) {
             bestScore = score;
-            finalBestMove = move;
+            bestMove = move;
         }
     }
 
-    return finalBestMove;
+    return bestMove;
 }
 
 export async function handleCaroCommand(api, message) {
@@ -701,16 +578,17 @@ export async function handleCaroCommand(api, message) {
         await sendMessageComplete(api, message, 
             `🎮 HƯỚNG DẪN CHƠI CỜ CARO\n\n` +
             `📌 Cú pháp:\n` +
-            `${prefix}caro [easy/hard/master] [x/o]\n\n` +
+            `${prefix}caro [easy/hard/super/3x3] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
             `${prefix}caro easy\n` +
             `${prefix}caro hard x\n` +
-            `${prefix}caro master o\n\n` +
+            `${prefix}caro super o\n` +
+            `${prefix}caro 3x3 x\n\n` +
             `📋 Luật chơi:\n` +
-            `Cờ 16x16 (thắng 5)\n` +
+            `Chế độ 3x3 là cờ Tic-Tac-Toe (thắng 3)\n` +
+            `Chế độ easy/hard/super là cờ 16x16 (thắng 5)\n` +
             `Quân X đi trước\n` +
-            `Nhập số ô (1-256) để đánh quân\n` +
-            `Chế độ Master: Bot mặc định đi trước (X) trừ khi bạn chọn X.\n` +
+            `Nhập số ô (1-9 hoặc 1-256) để đánh quân\n` +
             `🧭 Thời gian: 60 giây`
         );
         return;
@@ -723,18 +601,19 @@ export async function handleCaroCommand(api, message) {
     
     const inputMode = args[1].toLowerCase();
     let mode = "";
-    const size = 16;
+    let size = 16;
     let playerMark = "";
 
-    if (["easy", "hard", "master"].includes(inputMode)) {
+    if (inputMode === "3x3") {
+        mode = "3x3";
+        size = 3;
+        playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
+    } else if (["easy", "hard", "super"].includes(inputMode)) {
         mode = inputMode;
-        if (mode === "master") {
-            playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
-        } else {
-            playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
-        }
+        size = 16;
+        playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
     } else {
-        await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng chế độ:\n- easy: Dễ\n- hard: Khó\n- master: Thách đấu", 60000);
+        await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng chế độ:\n- easy: Dễ (16x16)\n- hard: Khó (16x16)\n- super: Thách đấu (16x16)\n- 3x3: Cờ Tic-Tac-Toe (3x3)", 60000);
         return;
     }
     
@@ -758,11 +637,10 @@ export async function handleCaroCommand(api, message) {
         size,
         moveCount: 0,
         lastBotMove: -1,
-        isProcessing: false,
-        moveHistory: []
+        isProcessing: false
     });
     
-    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === " X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
+    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
@@ -831,7 +709,6 @@ async function handleBotTurn(api, message) {
     game.currentTurn = game.playerMark;
     game.moveCount++;
     game.lastBotMove = pos;
-    game.moveHistory.push({ pos, mark: game.botMark });
     
     const winResult = checkWin(game.board, game.size);
     
@@ -842,7 +719,7 @@ async function handleBotTurn(api, message) {
     await fs.writeFile(imagePath, imageBuffer);
     
     if (winResult) {
-        const winLength = 5;
+        const winLength = game.size === 3 ? 3 : 5;
         const caption = `\n🎮 Bot đánh ô: ${pos + 1}\n\n🏆 Bot đã dành chiến thắng với ${winLength} quân liên tiếp`;
         await sendMessageTag(api, message, {
             caption,
@@ -924,7 +801,6 @@ export async function handleCaroMessage(api, message) {
     game.board[pos] = game.playerMark;
     game.currentTurn = game.botMark;
     game.moveCount++;
-    game.moveHistory.push({ pos, mark: game.playerMark });
     
     const winResult = checkWin(game.board, game.size);
     
@@ -940,9 +816,6 @@ export async function handleCaroMessage(api, message) {
             caption,
             imagePath
         }, 300000);
-        
-        recordLoss(game.board, game.botMark, game.playerMark, game.moveHistory, game.size);
-        
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
         try {
