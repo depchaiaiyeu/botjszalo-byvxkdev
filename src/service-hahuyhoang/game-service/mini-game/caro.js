@@ -12,10 +12,6 @@ const __dirname = path.dirname(__filename);
 const activeCaroGames = new Map();
 const turnTimers = new Map();
 
-// ===================================================================================
-// PHẦN LOGIC TRÒ CHƠI VÀ GIAO DIỆN (GIỮ NGUYÊN)
-// ===================================================================================
-
 function clearTurnTimer(threadId) {
     const timer = turnTimers.get(threadId);
     if (timer) {
@@ -245,20 +241,15 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-// ===================================================================================
-// PHẦN AI ĐÃ ĐƯỢC VIẾT LẠI HOÀN TOÀN (YÊU CẦU 1-7)
-// ===================================================================================
-
 const BOARD_SIZE = 16;
 const EMPTY = ".";
 const DIRECTIONS = [
-    [0, 1],  // Ngang
-    [1, 0],  // Dọc
-    [1, 1],  // Chéo phải
-    [1, -1]  // Chéo trái
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1]
 ];
 
-// (Yêu cầu 1, 2) Bảng điểm Heuristic cho các đường
 const PATTERN_SCORES = {
     FIVE: 100000000,
     OPEN_FOUR: 50000000,
@@ -271,22 +262,18 @@ const PATTERN_SCORES = {
     CLOSED_ONE: 1
 };
 
-// (Yêu cầu 2c, 4) Điểm thưởng cho Fork
 const FORK_BONUS = {
     OPEN_FOUR_OPEN_THREE: 40000000,
     OPEN_FOUR_CLOSED_THREE: 30000000,
     DOUBLE_OPEN_THREE: 20000000
 };
 
-// (Yêu cầu 2a) Thưởng cho đường chéo
 const DIAGONAL_BONUS_MULTIPLIER = 1.5;
 
-// (Yêu cầu 2b, 5) Vùng trung tâm chiến lược (10x10)
 const CENTER_MIN = 3;
 const CENTER_MAX = 12;
-const CENTER_BONUS = 50; // Thưởng cho mỗi quân trong vùng trung tâm
+const CENTER_BONUS = 50;
 
-// (Yêu cầu 1b) Zobrist Hashing
 const ZOBRIST = {
     table: [],
     playerKeys: [],
@@ -301,7 +288,6 @@ const ZOBRIST = {
     },
 
     random64() {
-        // Sử dụng BigInt cho 64-bit an toàn
         return BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
     },
 
@@ -318,17 +304,9 @@ const ZOBRIST = {
     }
 };
 
-// (Yêu cầu 1b) Bảng Băm (Transposition Table)
 const transpositionTable = new Map();
 const TT_FLAG = { EXACT: 0, LOWER_BOUND: 1, UPPER_BOUND: 2 };
 
-/**
- * (Hàm mới - Yêu cầu 2) Lượng giá một đường (line) cho 1 người chơi
- * @param {Array<string>} line - Mảng 5 hoặc 6 ô (để kiểm tra 2 đầu)
- * @param {string} mark - Quân cờ của người chơi (X hoặc O)
- * @param {string} oppMark - Quân cờ của đối thủ
- * @returns {number} Điểm heuristic cho đường này
- */
 function evaluateLine(line, mark, oppMark) {
     let myPieces = 0;
     let oppPieces = 0;
@@ -340,10 +318,8 @@ function evaluateLine(line, mark, oppMark) {
         else emptyCells++;
     }
 
-    // Nếu có cả 2 quân cờ, đường này bị chặn, không có giá trị
     if (myPieces > 0 && oppPieces > 0) return 0;
 
-    // Lượng giá cho quân của 'mark'
     if (myPieces > 0) {
         const openEnds = (line[0] === EMPTY ? 1 : 0) + (line[line.length - 1] === EMPTY ? 1 : 0);
         switch (myPieces) {
@@ -358,32 +334,19 @@ function evaluateLine(line, mark, oppMark) {
                 return openEnds === 2 ? PATTERN_SCORES.OPEN_ONE : PATTERN_SCORES.CLOSED_ONE;
         }
     }
-    // Lượng giá phòng thủ (chặn đối thủ)
     else if (oppPieces > 0) {
         const openEnds = (line[0] === EMPTY ? 1 : 0) + (line[line.length - 1] === EMPTY ? 1 : 0);
         switch (oppPieces) {
-            case 5: return PATTERN_SCORES.FIVE; // Điều này không nên xảy ra nếu checkWin() chạy trước
+            case 5: return PATTERN_SCORES.FIVE;
             case 4:
                 return openEnds === 2 ? PATTERN_SCORES.OPEN_FOUR : PATTERN_SCORES.CLOSED_FOUR;
             case 3:
                 return openEnds === 2 ? PATTERN_SCORES.OPEN_THREE : PATTERN_SCORES.CLOSED_THREE;
-            // Không cần quan tâm nhiều đến 2 hoặc 1 của đối thủ khi lượng giá tổng
         }
     }
     return 0;
 }
 
-
-/**
- * (Hàm mới - Yêu cầu 2) Hàm lượng giá heuristic toàn bộ bàn cờ.
- * Thay thế cho analyzePosition và getHeuristicScore.
- * Tính điểm từ góc nhìn của bot (isMaximizingPlayer).
- * @param {Array<string>} board - Bàn cờ
- * @param {string} botMark - Quân của Bot
- * @param {string} playerMark - Quân của người chơi
- * @param {number} size - Kích thước bàn cờ
- * @returns {number} Tổng điểm
- */
 function evaluateBoard(board, botMark, playerMark, size) {
     let myScore = 0;
     let oppScore = 0;
@@ -396,13 +359,11 @@ function evaluateBoard(board, botMark, playerMark, size) {
         for (let c = 0; c < size; c++) {
             const pos = r * size + c;
 
-            // (Yêu cầu 2b) Thưởng điểm trung tâm
             if (r >= CENTER_MIN && r <= CENTER_MAX && c >= CENTER_MIN && c <= CENTER_MAX) {
                 if (board[pos] === botMark) myScore += CENTER_BONUS;
                 else if (board[pos] === playerMark) oppScore += CENTER_BONUS;
             }
 
-            // Chỉ lượng giá nếu ô có quân cờ (tối ưu)
             if (board[pos] === EMPTY) continue;
 
             const isMyMark = board[pos] === botMark;
@@ -415,14 +376,12 @@ function evaluateBoard(board, botMark, playerMark, size) {
                 let openEnds = 0;
                 let count = 1;
 
-                // Kiểm tra 1 đầu (backward)
                 let rB = r - dr;
                 let cB = c - dc;
                 if (rB >= 0 && rB < size && cB >= 0 && cB < size && board[rB * size + cB] === EMPTY) {
                     openEnds++;
                 }
 
-                // Đếm tiến (forward)
                 for (let k = 1; k < 5; k++) {
                     let rF = r + dr * k;
                     let cF = c + dc * k;
@@ -435,16 +394,14 @@ function evaluateBoard(board, botMark, playerMark, size) {
                     } else if (cell === EMPTY) {
                         openEnds++;
                         line.push(cell);
-                        break; // Dừng khi gặp ô trống
+                        break;
                     } else {
-                        break; // Dừng khi gặp quân địch
+                        break;
                     }
                 }
 
-                // Chỉ tính điểm nếu đường này không bị chặn bởi quân địch
                 if (line.includes(oppMark)) continue; 
 
-                // (Yêu cầu 2a) Thưởng đường chéo (i >= 2 là các đường chéo)
                 const diagonalBonus = (i >= 2) ? DIAGONAL_BONUS_MULTIPLIER : 1.0;
                 
                 let lineScore = 0;
@@ -476,7 +433,6 @@ function evaluateBoard(board, botMark, playerMark, size) {
         }
     }
 
-    // (Yêu cầu 2c, 4) Thưởng điểm cho Fork
     if (myOpenFours > 0 && myOpenThrees > 0) myScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
     else if (myOpenThrees > 1) myScore += FORK_BONUS.DOUBLE_OPEN_THREE;
 
@@ -486,22 +442,15 @@ function evaluateBoard(board, botMark, playerMark, size) {
     return myScore - oppScore;
 }
 
-/**
- * (Hàm mới - Yêu cầu 1b) Hàm heuristic nhanh để sắp xếp nước đi.
- * Chỉ lượng giá các đường đi qua 'move'.
- * @returns {number} Điểm heuristic nhanh
- */
 function quickHeuristic(board, move, myMark, oppMark, size) {
     let score = 0;
     const r = Math.floor(move / size);
     const c = move % size;
 
-    // (Yêu cầu 2b) Thưởng trung tâm
     if (r >= CENTER_MIN && r <= CENTER_MAX && c >= CENTER_MIN && c <= CENTER_MAX) {
-        score += CENTER_BONUS * 2; // Ưu tiên đánh vào trung tâm
+        score += CENTER_BONUS * 2;
     }
     
-    // Đặt thử quân
     board[move] = myMark;
     const myAnalysis = analyzeMove(board, move, myMark, size);
     board[move] = EMPTY;
@@ -510,25 +459,19 @@ function quickHeuristic(board, move, myMark, oppMark, size) {
     const oppAnalysis = analyzeMove(board, move, oppMark, size);
     board[move] = EMPTY;
     
-    // Thắng ngay lập tức
     if (myAnalysis.five) return PATTERN_SCORES.FIVE + 1000;
-    // Chặn thắng
     if (oppAnalysis.five) return PATTERN_SCORES.FIVE;
     
-    // (Yêu cầu 4) Tạo Fork
     if (myAnalysis.openFour && myAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
     if (myAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE;
     
-    // (Yêu cầu 4) Chặn Fork
     if (oppAnalysis.openFour && oppAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE * 0.9;
     if (oppAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE * 0.9;
 
-    // Tấn công
     score += myAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR;
     score += myAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR;
     score += myAnalysis.openThree * PATTERN_SCORES.OPEN_THREE;
     
-    // Phòng thủ
     score += oppAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR * 0.8;
     score += oppAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR * 0.8;
     score += oppAnalysis.openThree * PATTERN_SCORES.OPEN_THREE * 0.8;
@@ -536,9 +479,6 @@ function quickHeuristic(board, move, myMark, oppMark, size) {
     return score;
 }
 
-/**
- * (Hàm helper mới) Phân tích các đường được tạo/ảnh hưởng bởi 1 nước đi.
- */
 function analyzeMove(board, pos, mark, size) {
     let five = 0, openFour = 0, closedFour = 0, openThree = 0;
     const r = Math.floor(pos / size);
@@ -548,7 +488,6 @@ function analyzeMove(board, pos, mark, size) {
         let count = 1;
         let openEnds = 0;
 
-        // Đếm xuôi
         for (let i = 1; i < 5; i++) {
             const rF = r + dr * i, cF = c + dc * i;
             if (rF < 0 || rF >= size || cF < 0 || cF >= size || board[rF * size + cF] !== mark) {
@@ -558,7 +497,6 @@ function analyzeMove(board, pos, mark, size) {
             count++;
         }
 
-        // Đếm ngược
         for (let i = 1; i < 5; i++) {
             const rB = r - dr * i, cB = c - dc * i;
             if (rB < 0 || rB >= size || cB < 0 || cB >= size || board[rB * size + cB] !== mark) {
@@ -579,28 +517,15 @@ function analyzeMove(board, pos, mark, size) {
     return { five, openFour, closedFour, openThree };
 }
 
-
-/**
- * (Hàm mới - Yêu cầu 1b, 2d, 5) Sinh các nước đi tiềm năng và sắp xếp.
- * Thay thế cho findCandidateMoves.
- * @param {Array<string>} board
- * @param {number} size
- * @param {number} moveCount
- * @param {string} botMark
- * @param {string} playerMark
- * @returns {Array<number>} Danh sách các nước đi đã sắp xếp
- */
 function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
-    // (Yêu cầu 2b, 5) Nước đi đầu tiên luôn vào trung tâm
     if (moveCount === 0) {
         return [Math.floor(size / 2) * size + Math.floor(size / 2)];
     }
 
     const candidateSet = new Set();
-    const neighborRadius = 2; // Bán kính tìm kiếm thông thường
+    const neighborRadius = 2;
 
     for (let i = 0; i < size * size; i++) {
-        // Chỉ tìm lân cận các ô đã có quân
         if (board[i] !== EMPTY) {
             const r = Math.floor(i / size);
             const c = i % size;
@@ -617,8 +542,6 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
         }
     }
 
-    // (Yêu cầu 2d, 5) Chiến lược "Đánh Lạc Hướng" và "Trung tâm"
-    // Nếu là đầu game, thêm các ô trong trung tâm chiến lược vào danh sách
     if (moveCount < 10) {
         for (let r = CENTER_MIN; r <= CENTER_MAX; r++) {
             for (let c = CENTER_MIN; c <= CENTER_MAX; c++) {
@@ -629,7 +552,6 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
         }
     }
 
-    // (Yêu cầu 1b) Sắp xếp nước đi
     const scoredMoves = [];
     for (const move of candidateSet) {
         const score = quickHeuristic(board, move, botMark, playerMark, size);
@@ -638,18 +560,12 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
 
     scoredMoves.sort((a, b) => b.score - a.score);
 
-    // Giới hạn số lượng nước đi để tăng tốc độ tìm kiếm
-    const MAX_CANDIDATES = 20;
+    const MAX_CANDIDATES = 15;
     return scoredMoves.slice(0, MAX_CANDIDATES).map(m => m.move);
 }
 
-/**
- * (Hàm mới - Yêu cầu 1a, 1b) Tìm kiếm Alpha-Beta Pruning.
- * @param {BigInt} currentHash - Zobrist hash của thế cờ hiện tại
- */
 function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size, moveCount, currentHash) {
     
-    // (Yêu cầu 1b) Kiểm tra Bảng Băm
     const alphaOrig = alpha;
     const ttEntry = transpositionTable.get(currentHash);
     if (ttEntry && ttEntry.depth >= depth) {
@@ -665,16 +581,12 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         }
     }
 
-    // Kiểm tra trạng thái kết thúc (thắng/thua/hòa) hoặc hết độ sâu
-    // Tích hợp checkWin vào evaluateBoard để tối ưu
     const boardScore = evaluateBoard(board, botMark, playerMark, size);
     
-    // Nếu là trạng thái thắng/thua (điểm tuyệt đối lớn)
     if (Math.abs(boardScore) >= PATTERN_SCORES.FIVE) {
         return boardScore;
     }
     
-    // Hết độ sâu
     if (depth === 0) {
         return boardScore;
     }
@@ -684,7 +596,6 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         isMaximizingPlayer ? playerMark : botMark
     );
 
-    // Hòa cờ (không còn nước đi)
     if (moves.length === 0) {
         return 0;
     }
@@ -697,12 +608,12 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
             board[move] = botMark;
             const newHash = currentHash ^ ZOBRIST.botKeys[move];
             const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size, moveCount + 1, newHash);
-            board[move] = EMPTY; // Hoàn tác nước đi
+            board[move] = EMPTY;
 
             bestValue = Math.max(bestValue, value);
             alpha = Math.max(alpha, bestValue);
             if (alpha >= beta) {
-                break; // Cắt tỉa Beta
+                break;
             }
         }
     } else {
@@ -711,17 +622,16 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
             board[move] = playerMark;
             const newHash = currentHash ^ ZOBRIST.playerKeys[move];
             const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size, moveCount + 1, newHash);
-            board[move] = EMPTY; // Hoàn tác nước đi
+            board[move] = EMPTY;
 
             bestValue = Math.min(bestValue, value);
             beta = Math.min(beta, bestValue);
             if (alpha >= beta) {
-                break; // Cắt tỉa Alpha
+                break;
             }
         }
     }
 
-    // (Yêu cầu 1b) Lưu vào Bảng Băm
     let flag;
     if (bestValue <= alphaOrig) {
         flag = TT_FLAG.UPPER_BOUND;
@@ -735,47 +645,36 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     return bestValue;
 }
 
-/**
- * (Hàm mới - Yêu cầu 1, 1c) Hàm chính để tìm nước đi tốt nhất.
- * Sử dụng Iterative Deepening.
- * Thay thế cho getAIMove (cũ).
- */
 function getBestMove(board, playerMark, botMark, mode, size, moveCount) {
-    // (Yêu cầu 1b) Khởi tạo Zobrist
     if (!ZOBRIST.initialized) {
         ZOBRIST.init(size);
     }
-    // Xóa Bảng Băm cho mỗi nước đi mới
     transpositionTable.clear(); 
     
     const currentHash = ZOBRIST.computeHash(board, size, playerMark, botMark);
 
-    const DEPTHS = { easy: 4, hard: 8, master: 12 };
-    const MAX_DEPTH = DEPTHS[mode] || 4;
+    const DEPTHS = { easy: 2, hard: 4, master: 6 };
+    const MAX_DEPTH = DEPTHS[mode] || 2;
 
     let bestMove = -1;
     let orderedMoves = [];
 
-    // (Yêu cầu 1c) Iterative Deepening (Tìm kiếm sâu dần)
     for (let currentDepth = 2; currentDepth <= MAX_DEPTH; currentDepth += 2) {
         let alpha = -Infinity;
         let beta = Infinity;
         let currentBestScore = -Infinity;
         let currentBestMove = -1;
 
-        // (Yêu cầu 1b) Sắp xếp nước đi
         let candidates;
         if (orderedMoves.length > 0) {
-            // Sử dụng kết quả từ vòng lặp trước để sắp xếp
             candidates = orderedMoves;
         } else {
-            // Lần đầu tiên, tạo danh sách
             candidates = generateCandidateMoves(board, size, moveCount, botMark, playerMark);
         }
         
-        if (candidates.length === 0) return -1; // Hết nước đi
+        if (candidates.length === 0) return -1;
         
-        currentBestMove = candidates[0]; // Mặc định chọn nước tốt nhất từ heuristic
+        currentBestMove = candidates[0];
         let newOrderedMoves = [];
 
         for (const move of candidates) {
@@ -793,11 +692,9 @@ function getBestMove(board, playerMark, botMark, mode, size, moveCount) {
             alpha = Math.max(alpha, currentBestScore);
         }
 
-        bestMove = currentBestMove; // Cập nhật nước đi tốt nhất
-        // Sắp xếp lại danh sách cho vòng lặp sâu hơn
+        bestMove = currentBestMove;
         orderedMoves = newOrderedMoves.sort((a, b) => b.score - a.score).map(m => m.move);
 
-        // Nếu tìm thấy nước đi thắng, dừng tìm kiếm
         if (currentBestScore >= PATTERN_SCORES.FIVE) {
             break;
         }
@@ -806,14 +703,9 @@ function getBestMove(board, playerMark, botMark, mode, size, moveCount) {
     return bestMove;
 }
 
-/**
- * (Hàm Wrapper mới) Hàm getAIMove được gọi bởi logic game.
- * Giữ nguyên các bước kiểm tra thắng/thua nhanh và gọi getBestMove.
- */
 function getAIMove(board, playerMark, mode, size = 16) {
     const botMark = playerMark === "X" ? "O" : "X";
     
-    // 1. Kiểm tra nước đi thắng ngay lập tức
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) continue;
         board[i] = botMark;
@@ -824,7 +716,6 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
-    // 2. Kiểm tra nước đi chặn đối thủ thắng
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) continue;
         board[i] = playerMark;
@@ -835,14 +726,9 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
 
-    // 3. Gọi thuật toán tìm kiếm nâng cao
     const moveCount = board.filter(cell => cell !== EMPTY).length;
     return getBestMove(board, playerMark, botMark, mode, size, moveCount);
 }
-
-// ===================================================================================
-// PHẦN XỬ LÝ LỆNH VÀ TIN NHẮN (GIỮ NGUYÊN)
-// ===================================================================================
 
 export async function handleCaroCommand(api, message) {
     const threadId = message.threadId;
@@ -953,10 +839,7 @@ async function handleBotTurn(api, message) {
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
-    // =========================================================
-    // GỌI HÀM AI MỚI TẠI ĐÂY
     const pos = getAIMove(game.board, game.playerMark, game.mode, game.size);
-    // =========================================================
     
     clearTurnTimer(threadId);
     
