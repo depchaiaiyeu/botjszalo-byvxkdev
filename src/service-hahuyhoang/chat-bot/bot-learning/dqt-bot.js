@@ -293,7 +293,7 @@ export async function handleLearnCommand(api, message, groupSettings) {
                 if (res.text) {
                     listMsg += ` [Văn bản] "${res.text}"`;
                 }
-          _       if (res.attachment) {
+                  if (res.attachment) {
                     if(res.text) listMsg += " +";
                     listMsg += ` [${res.attachment.type}] "${res.attachment.content}"`;
                 }
