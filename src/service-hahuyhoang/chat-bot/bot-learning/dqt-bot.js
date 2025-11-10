@@ -4,12 +4,16 @@ import crypto from "crypto";
 import { getGroupName } from "../../info-service/group-info.js";
 import { sendMessageComplete, sendMessageState, sendMessageStateQuote, sendMessageWarning, sendMessageFromSQL } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
+import natural from "natural";
 import { removeMention } from "../../../utils/format-util.js";
 
 const dataTrainingPath = path.resolve(process.cwd(), "assets", "json-data", "data-training.json");
 const uploadedFilePath = path.resolve(process.cwd(), "assets", "json-data", "uploaded-files.json");
 const RESOURCE_BASE_PATH = path.join(process.cwd(), "assets", "resources");
 const IMAGE_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "image");
+const VOICE_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "voice");
+const VIDEO_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "video");
+const GAME_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "game");
 
 const responseCooldown = new Map();
 
@@ -37,6 +41,29 @@ const loadUploadedFiles = () => loadJsonFile(uploadedFilePath);
 const saveUploadedFiles = (data) => saveJsonFile(uploadedFilePath, data);
 export const loadTrainingData = () => loadJsonFile(dataTrainingPath);
 export const saveTrainingData = (data) => saveJsonFile(dataTrainingPath, data);
+
+function getResourcePath(attachmentContent) {
+    const parts = attachmentContent.split("/");
+    if (parts.length < 2) {
+        return { path: path.join(IMAGE_RESOURCE_PATH, attachmentContent), type: "image" };
+    }
+    
+    const resourceType = parts[0].toLowerCase();
+    const fileName = parts.slice(1).join("/");
+    
+    switch (resourceType) {
+        case "image":
+            return { path: path.join(IMAGE_RESOURCE_PATH, fileName), type: "image" };
+        case "voice":
+            return { path: path.join(VOICE_RESOURCE_PATH, fileName), type: "voice" };
+        case "video":
+            return { path: path.join(VIDEO_RESOURCE_PATH, fileName), type: "video" };
+        case "game":
+            return { path: path.join(GAME_RESOURCE_PATH, fileName), type: "game" };
+        default:
+            return { path: path.join(IMAGE_RESOURCE_PATH, attachmentContent), type: "image" };
+    }
+}
 
 async function sendUploadedFile(api, message, fileInfo) {
     const ext = path.extname(fileInfo.fileName).slice(1);
@@ -93,37 +120,54 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
             if (type === "card") {
                 await api.sendBusinessCard(null, senderId, attachmentContent, message.type, threadId, 60000);
             } else if (type === "file") {
-                const filePath = path.join(IMAGE_RESOURCE_PATH, attachmentContent);
+                const { path: filePath, type: resourceType } = getResourcePath(attachmentContent);
+                
                 if (fs.existsSync(filePath)) {
-                    const uploadedCache = loadUploadedFiles();
-                    const cachedInfo = uploadedCache[attachmentContent];
-
-                    if (cachedInfo?.fileUrl) {
-                        await sendUploadedFile(api, message, cachedInfo);
-                        return;
-                    }
-
-                    try {
-                        const uploaded = await api.uploadAttachment([filePath], threadId, message.type);
-                        if (uploaded && uploaded.length > 0 && uploaded[0].fileUrl) {
-                            const fileInfo = uploaded[0];
-                            await sendUploadedFile(api, message, fileInfo);
-                            uploadedCache[attachmentContent] = {
-                                fileUrl: fileInfo.fileUrl,
-                                fileName: fileInfo.fileName,
-                                totalSize: fileInfo.totalSize,
-                                checksum: fileInfo.checksum,
-                            };
-                            saveUploadedFiles(uploadedCache);
-                        } else {
-                            await sendMessageWarning(api, message, `🚫 Upload thất bại cho file "${attachmentContent}".`, 60000);
+                    if (resourceType === "video") {
+                        try {
+                            await api.sendVideo({
+                                videoUrl: filePath,
+                                threadId: threadId,
+                                threadType: message.type,
+                                message: null,
+                                ttl: 0
+                            });
+                        } catch (err) {
+                            console.error("🚫 Lỗi gửi video:", err);
+                            await sendMessageWarning(api, message, "🚫 Có lỗi xảy ra khi gửi video.", 60000);
                         }
-                    } catch (err) {
-                        console.error("🚫 Lỗi upload:", err);
-                        await sendMessageWarning(api, message, "🚫 Có lỗi xảy ra khi upload file.", 60000);
+                    } else {
+                        const uploadedCache = loadUploadedFiles();
+                        const cacheKey = attachmentContent;
+                        const cachedInfo = uploadedCache[cacheKey];
+
+                        if (cachedInfo?.fileUrl) {
+                            await sendUploadedFile(api, message, cachedInfo);
+                            return;
+                        }
+
+                        try {
+                            const uploaded = await api.uploadAttachment([filePath], threadId, message.type);
+                            if (uploaded && uploaded.length > 0 && uploaded[0].fileUrl) {
+                                const fileInfo = uploaded[0];
+                                await sendUploadedFile(api, message, fileInfo);
+                                uploadedCache[cacheKey] = {
+                                    fileUrl: fileInfo.fileUrl,
+                                    fileName: fileInfo.fileName,
+                                    totalSize: fileInfo.totalSize,
+                                    checksum: fileInfo.checksum,
+                                };
+                                saveUploadedFiles(uploadedCache);
+                            } else {
+                                await sendMessageWarning(api, message, `🚫 Upload thất bại cho file "${attachmentContent}".`, 60000);
+                            }
+                        } catch (err) {
+                            console.error("🚫 Lỗi upload:", err);
+                            await sendMessageWarning(api, message, "🚫 Có lỗi xảy ra khi upload file.", 60000);
+                        }
                     }
                 } else {
-                    await sendMessageWarning(api, message, `Không tìm thấy file ${attachmentContent} trong resources/image`, 60000);
+                    await sendMessageWarning(api, message, `Không tìm thấy file ${attachmentContent} trong resources/${resourceType}`, 60000);
                 }
             }
         }
@@ -167,78 +211,85 @@ export async function learnNewResponse(api, threadId, question, answerObj) {
     return await updateTrainingData(threadId, question, permanentAnswer, api);
 }
 
+function calculateSimilarity(str1, str2) {
+    return natural.JaroWinklerDistance(str1.toLowerCase(), str2.toLowerCase());
+}
+
+function checkMultiWordMatch(message, question) {
+    const questionWords = question.toLowerCase().trim().split(/\s+/);
+    const messageLower = message.toLowerCase().trim();
+    
+    if (questionWords.length === 1) {
+        return false;
+    }
+    
+    const messageWords = messageLower.split(/\s+/);
+    const firstWord = questionWords[0];
+    
+    if (messageWords[0] === firstWord) {
+        return true;
+    }
+    
+    return messageLower.includes(question.toLowerCase());
+}
+
 export function findResponse(message, threadId) {
     const data = loadTrainingData();
-    if (!data[threadId] || !data[threadId].listTrain) {
-        return null;
-    }
+    const SIMILARITY_THRESHOLD = 0.85;
 
-    const matches = [];
-    const messageLower = message.toLowerCase();
+    if (data[threadId] && data[threadId].listTrain) {
+        let bestMatch = null;
+        let highestScore = -1;
 
-    for (const [key, responses] of Object.entries(data[threadId].listTrain)) {
-        if (!responses || responses.length === 0) continue;
+        const messageLower = message.toLowerCase();
 
-        const keyLower = key.toLowerCase();
+        for (const [key, value] of Object.entries(data[threadId].listTrain)) {
+            const keyLower = key.toLowerCase();
+            
+            if (checkMultiWordMatch(message, key)) {
+                if (!bestMatch || 1.0 > highestScore) {
+                    highestScore = 1.0;
+                    bestMatch = { question: key, responses: value };
+                }
+                continue;
+            }
+            
+            const similarity = calculateSimilarity(messageLower, keyLower);
 
-        if (messageLower.includes(keyLower)) {
-            matches.push({
-                question: key,
-                responses: responses,
-                matchType: 'full',
-                length: keyLower.length
-            });
-        } else {
-            const firstKeyWord = keyLower.split(' ')[0];
-            if (messageLower.startsWith(firstKeyWord)) {
-                matches.push({
-                    question: key,
-                    responses: responses,
-                    matchType: 'start',
-                    length: keyLower.length
-                });
+            if (similarity > highestScore && similarity >= SIMILARITY_THRESHOLD) {
+                highestScore = similarity;
+                bestMatch = { question: key, responses: value };
+            }
+        }
+
+        if (bestMatch) {
+            const permanentResponses = bestMatch.responses.filter(r => !r.isTemporary);
+            const temporaryResponses = bestMatch.responses.filter(r => r.isTemporary);
+
+            let selectedResponse;
+            if (permanentResponses.length > 0) {
+                selectedResponse = permanentResponses[Math.floor(Math.random() * permanentResponses.length)];
+            } else if (temporaryResponses.length > 0) {
+                selectedResponse = temporaryResponses[Math.floor(Math.random() * temporaryResponses.length)];
+                
+                const remainingResponses = bestMatch.responses.filter(r => r !== selectedResponse);
+                const dataToSave = loadTrainingData();
+                if (remainingResponses.length > 0) {
+                    dataToSave[threadId].listTrain[bestMatch.question] = remainingResponses;
+                } else {
+                    delete dataToSave[threadId].listTrain[bestMatch.question];
+                }
+                saveTrainingData(dataToSave);
+            }
+
+            if (selectedResponse) {
+                return {
+                    response: selectedResponse,
+                    matchedQuestion: bestMatch.question,
+                };
             }
         }
     }
-
-    if (matches.length === 0) {
-        return null;
-    }
-
-    matches.sort((a, b) => {
-        if (a.matchType === 'full' && b.matchType !== 'full') return -1;
-        if (a.matchType !== 'full' && b.matchType === 'full') return 1;
-        return b.length - a.length;
-    });
-
-    const bestMatch = matches[0];
-
-    const permanentResponses = bestMatch.responses.filter(r => !r.isTemporary);
-    const temporaryResponses = bestMatch.responses.filter(r => r.isTemporary);
-
-    let selectedResponse;
-    if (permanentResponses.length > 0) {
-        selectedResponse = permanentResponses[Math.floor(Math.random() * permanentResponses.length)];
-    } else if (temporaryResponses.length > 0) {
-        selectedResponse = temporaryResponses[Math.floor(Math.random() * temporaryResponses.length)];
-        
-        const remainingResponses = bestMatch.responses.filter(r => r !== selectedResponse);
-        const dataToSave = loadTrainingData();
-        if (remainingResponses.length > 0) {
-            dataToSave[threadId].listTrain[bestMatch.question] = remainingResponses;
-        } else {
-            delete dataToSave[threadId].listTrain[bestMatch.question];
-        }
-        saveTrainingData(dataToSave);
-    }
-
-    if (selectedResponse) {
-        return {
-            response: selectedResponse,
-            matchedQuestion: bestMatch.question,
-        };
-    }
-
     return null;
 }
 
