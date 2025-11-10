@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const activeCaroGames = new Map();
 const turnTimers = new Map();
+const botLearning = new Map();
 
 function clearTurnTimer(threadId) {
     const timer = turnTimers.get(threadId);
@@ -231,7 +232,7 @@ function getLineStats(board, pos, dr, dc, mark, size = 16) {
     if (backwardOpen) openEnds++;
     if (forwardOpen) openEnds++;
 
-    return { count, openEnds };
+    return { count, openEnds, line };
 }
 
 function analyzePosition(board, pos, mark, size = 16) {
@@ -241,39 +242,165 @@ function analyzePosition(board, pos, mark, size = 16) {
     let openThrees = 0;
     let closedThrees = 0;
     let openTwos = 0;
+    let threats = [];
     
     const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
     for (const [dr, dc] of directions) {
-        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
+        const { count, openEnds, line } = getLineStats(board, pos, dr, dc, mark, size);
 
         if (count >= 5) {
-            return { score: 1000000000 };
+            return { score: 1000000000, threats };
         } else if (count === 4) {
-            if (openEnds === 2) openFours++;
-            else if (openEnds === 1) closedFours++;
+            if (openEnds === 2) {
+                openFours++;
+                threats.push({ type: 'open4', line, direction: [dr, dc] });
+            } else if (openEnds === 1) {
+                closedFours++;
+                threats.push({ type: 'closed4', line, direction: [dr, dc] });
+            }
         } else if (count === 3) {
-            if (openEnds === 2) openThrees++;
-            else if (openEnds === 1) closedThrees++;
+            if (openEnds === 2) {
+                openThrees++;
+                threats.push({ type: 'open3', line, direction: [dr, dc] });
+            } else if (openEnds === 1) {
+                closedThrees++;
+            }
         } else if (count === 2) {
             if (openEnds === 2) openTwos++;
         }
     }
 
-    if (openFours > 0) return { score: 500000000 };
-    if (openThrees > 1) return { score: 100000000 };
-    if (closedFours > 0 && openThrees > 0) return { score: 50000000 };
-    if (closedFours > 1) return { score: 10000000 };
+    if (openFours > 0) return { score: 500000000, threats };
+    if (openThrees > 1) return { score: 100000000, threats };
+    if (closedFours > 0 && openThrees > 0) return { score: 50000000, threats };
+    if (closedFours > 1) return { score: 10000000, threats };
     
     score += closedFours * 1000000;
     score += openThrees * 100000;
     score += closedThrees * 10000;
     score += openTwos * 1000;
 
-    return { score };
+    return { score, threats };
+}
+
+function getBoardHash(board) {
+    return board.join('');
+}
+
+function getPatternHash(board, pos, radius = 2, size = 16) {
+    const row = Math.floor(pos / size);
+    const col = pos % size;
+    let pattern = [];
+    
+    for (let r = Math.max(0, row - radius); r <= Math.min(size - 1, row + radius); r++) {
+        for (let c = Math.max(0, col - radius); c <= Math.min(size - 1, col + radius); c++) {
+            pattern.push(board[r * size + c]);
+        }
+    }
+    
+    return pattern.join('');
+}
+
+function recordLoss(board, botMark, playerMark, lastMoves, size = 16) {
+    if (!botLearning.has('losses')) {
+        botLearning.set('losses', []);
+    }
+    
+    const losses = botLearning.get('losses');
+    const lossRecord = {
+        boardHash: getBoardHash(board),
+        botMoves: lastMoves.filter(m => m.mark === botMark).map(m => m.pos),
+        playerMoves: lastMoves.filter(m => m.mark === playerMark).map(m => m.pos),
+        patterns: []
+    };
+    
+    for (const move of lossRecord.botMoves) {
+        lossRecord.patterns.push({
+            pos: move,
+            pattern: getPatternHash(board, move, 2, size)
+        });
+    }
+    
+    losses.push(lossRecord);
+    
+    if (losses.length > 50) {
+        losses.shift();
+    }
+}
+
+function isPoorMove(board, pos, botMark, size = 16) {
+    if (!botLearning.has('losses')) return false;
+    
+    const losses = botLearning.get('losses');
+    const currentPattern = getPatternHash(board, pos, 2, size);
+    
+    for (const loss of losses) {
+        for (const pattern of loss.patterns) {
+            if (pattern.pattern === currentPattern) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+function detectDoubleThree(board, pos, mark, size = 16) {
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    let open3Count = 0;
+    
+    for (const [dr, dc] of directions) {
+        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
+        if (count === 3 && openEnds === 2) {
+            open3Count++;
+        }
+    }
+    
+    return open3Count >= 2;
+}
+
+function detectDoubleFour(board, pos, mark, size = 16) {
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    let four4Count = 0;
+    
+    for (const [dr, dc] of directions) {
+        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
+        if (count === 4 && openEnds >= 1) {
+            four4Count++;
+        }
+    }
+    
+    return four4Count >= 2;
+}
+
+function isForkThreat(board, pos, mark, size = 16) {
+    board[pos] = mark;
+    
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    let openThreeCount = 0;
+    let closedFourCount = 0;
+    
+    for (const [dr, dc] of directions) {
+        const { count, openEnds } = getLineStats(board, pos, dr, dc, mark, size);
+        if (count === 3 && openEnds === 2) {
+            openThreeCount++;
+        }
+        if (count === 4 && openEnds === 1) {
+            closedFourCount++;
+        }
+    }
+    
+    board[pos] = ".";
+    
+    return openThreeCount >= 2 || (openThreeCount >= 1 && closedFourCount >= 1);
 }
 
 function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") {
+    if (isPoorMove(board, pos, mark, size)) {
+        return -100000000;
+    }
+    
     board[pos] = mark;
     const myAnalysis = analyzePosition(board, pos, mark, size);
     board[pos] = ".";
@@ -283,7 +410,23 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
     board[pos] = ".";
 
     if (myAnalysis.score >= 1000000000) return myAnalysis.score;
-    if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.9;
+    if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.95;
+    
+    if (detectDoubleFour(board, pos, mark, size)) {
+        return 900000000;
+    }
+    
+    if (detectDoubleFour(board, pos, oppMark, size)) {
+        return 850000000;
+    }
+    
+    if (isForkThreat(board, pos, mark, size)) {
+        return 800000000;
+    }
+    
+    if (isForkThreat(board, pos, oppMark, size)) {
+        return 750000000;
+    }
     
     let score = 0;
 
@@ -293,9 +436,13 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
             score += myAnalysis.score * 1.5;
         }
     } else if (mode === "master") {
-        score = myAnalysis.score * 2.5 + oppAnalysis.score * 1.5;
+        score = myAnalysis.score * 3.0 + oppAnalysis.score * 1.8;
+        
+        if (myAnalysis.threats.length > 0) {
+            score += myAnalysis.threats.length * 50000;
+        }
     } else {
-        score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
+        score = myAnalysis.score * 1.2 + oppAnalysis.score * 2.2;
     }
 
     const row = Math.floor(pos / size);
@@ -316,7 +463,7 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") 
             }
         }
     }
-    score += adjacentCount * 50;
+    score += adjacentCount * 100;
 
     return score;
 }
@@ -415,7 +562,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     const candidates = findCandidateMoves(board, size, 2);
     if (candidates.length === 0) return 0;
 
-    const MAX_CANDIDATES_BREADTH = 10;
+    const MAX_CANDIDATES_BREADTH = mode === "master" ? 15 : 10;
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
@@ -510,9 +657,9 @@ function getAIMove(board, playerMark, mode, size = 16) {
         return bestPlayerBlock;
     }
 
-    const DEPTHS = { easy: 4, hard: 6, master: 8 };
+    const DEPTHS = { easy: 4, hard: 7, master: 9 };
     const depth = DEPTHS[mode] || 4;
-    const MAX_CANDIDATES_SEARCH = 12; 
+    const MAX_CANDIDATES_SEARCH = mode === "master" ? 15 : 12;
     
     const scoredCandidates = candidates.map(move => {
         return {
@@ -611,10 +758,11 @@ export async function handleCaroCommand(api, message) {
         size,
         moveCount: 0,
         lastBotMove: -1,
-        isProcessing: false
+        isProcessing: false,
+        moveHistory: []
     });
     
-    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
+    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === " X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
     const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     
@@ -683,6 +831,7 @@ async function handleBotTurn(api, message) {
     game.currentTurn = game.playerMark;
     game.moveCount++;
     game.lastBotMove = pos;
+    game.moveHistory.push({ pos, mark: game.botMark });
     
     const winResult = checkWin(game.board, game.size);
     
@@ -766,7 +915,7 @@ export async function handleCaroMessage(api, message) {
     }
     
     if (game.board[pos] !== ".") {
-        await sendMessageWarning(api, message, "Ô này đã được sửdụng, vui lòng chọn một ô trống", 60000);
+        await sendMessageWarning(api, message, "Ô này đã được sử dụng, vui lòng chọn một ô trống", 60000);
         startTurnTimer(api, message, threadId, true);
         return;
     }
@@ -775,6 +924,7 @@ export async function handleCaroMessage(api, message) {
     game.board[pos] = game.playerMark;
     game.currentTurn = game.botMark;
     game.moveCount++;
+    game.moveHistory.push({ pos, mark: game.playerMark });
     
     const winResult = checkWin(game.board, game.size);
     
@@ -790,6 +940,9 @@ export async function handleCaroMessage(api, message) {
             caption,
             imagePath
         }, 300000);
+        
+        recordLoss(game.board, game.botMark, game.playerMark, game.moveHistory, game.size);
+        
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
         try {
