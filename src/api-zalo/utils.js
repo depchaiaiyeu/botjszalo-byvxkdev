@@ -198,7 +198,7 @@ export function decodeAES(secretKey, data, t = 0) {
     return t < 3 ? decodeAES(secretKey, data, t + 1) : null;
   }
 }
-function updateCookie(input) {
+export function updateCookie(input) {
   if (!appContext.cookie) throw new Error("Cookie is not available");
   if (typeof input !== "string" || !Array.isArray(input)) return null;
   const cookieMap = new Map();
