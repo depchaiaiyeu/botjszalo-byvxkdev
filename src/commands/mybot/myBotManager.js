@@ -324,7 +324,7 @@ async function handleMyBotCreate(api, message) {
         console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
         if (stderr) console.log(`[MyBot] 🟡 PM2 stderr: ${stderr}`);
 
-        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot sẽ hoạt động sau 1~5 giây kể từ khi tin nhắn này được gửi đi.\n👉 Nếu xảy ra lỗi vui lòng kiểm tra logs để fix..!\n\n📜 Một vài lưu ý nhỏ:\n\n• prefix mặc định của bot con là: "."\n• name server mặc định của bot con là: "VXK Bot Team"\n\n👉 Thay đổi 2 thông tin trên bằng lệnh:\n.prefix [new prefix] -> thay đổi prefix mới\n.bot nameserver [new nameserver] -> thay đổi name server mới`);
+        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot sẽ hoạt động sau 1~5 giây kể từ khi tin nhắn này được gửi đi.\n👉 Nếu xảy ra lỗi vui lòng kiểm tra logs để fix..!`);
 
         streamLogs(processName, botId, botName);
 
@@ -538,7 +538,7 @@ async function handleMyBotAddTime(api, message) {
             ? "vô hạn" 
             : new Date(newExpiresAt).toLocaleString("vi-VN");
 
-        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔: ${botId}\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
+        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔 ID: ${botId}\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi gia hạn bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi gia hạn bot: ${error.message}`);
