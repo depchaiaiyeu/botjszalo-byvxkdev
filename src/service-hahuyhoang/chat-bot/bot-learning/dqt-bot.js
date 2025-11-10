@@ -11,7 +11,7 @@ const dataTrainingPath = path.resolve(process.cwd(), "assets", "json-data", "dat
 const uploadedFilePath = path.resolve(process.cwd(), "assets", "json-data", "uploaded-files.json");
 const cardReceiverPath = path.resolve(process.cwd(), "assets/json-data/card-receivers.json");
 const RESOURCE_BASE_PATH = path.join(process.cwd(), "assets", "resources");
-const IMAGE_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "file");
+const IMAGE_RESOURCE_PATH = path.join(RESOURCE_BASE_PATH, "image");
 
 const responseCooldown = new Map();
 
