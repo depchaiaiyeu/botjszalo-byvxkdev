@@ -75,7 +75,7 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
             const now = Date.now();
             const cooldownData = responseCooldown.get(cooldownKey);
 
-            if (cooldownData && cooldownData.userId === senderId && (now - cooldownData.timestamp < 10000)) {
+            if (cooldownData && cooldownData.userId === senderId && (now - cooldownData.timestamp < 15000)) {
                 return;
             }
             responseCooldown.set(cooldownKey, { userId: senderId, timestamp: now });
@@ -83,14 +83,14 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
 
         if (response.text) {
             const processedText = response.text.replace(/\${senderName}/g, message.data.dName);
-            await sendMessageFromSQL(api, message, { message: processedText }, false, 60000);
+            await sendMessageFromSQL(api, message, { message: processedText }, false, 600000);
         }
 
         if (response.attachment) {
             const { type, content: attachmentContent } = response.attachment;
 
             if (type === "card") {
-                await api.sendBusinessCard(null, senderId, attachmentContent, message.type, threadId, 60000);
+                await api.sendBusinessCard(null, senderId, attachmentContent, message.type, threadId, 600000);
             } else if (type === "file") {
                 const filePath = path.join(ASSETS_BASE_PATH, attachmentContent);
                 
@@ -105,17 +105,16 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
 
                     if (cachedInfo?.fileUrl) {
                         if (imageExts.includes(ext)) {
-                            // api.sendImage sử dụng format MessageType.GroupMessage hoặc MessageType.PrivateMessage
-                            await api.sendImage(cachedInfo.fileUrl, { type: message.type, threadId: threadId }, null, 60000);
+                            await api.sendImage(cachedInfo.fileUrl, { type: message.type, threadId: threadId }, null, 600000);
                         } else if (voiceExts.includes(ext)) {
-                            await api.sendVoice(message, cachedInfo.fileUrl, 60000);
+                            await api.sendVoice(message, cachedInfo.fileUrl, 600000);
                         } else if (videoExts.includes(ext)) {
                             await api.sendVideo({
                                 videoUrl: cachedInfo.fileUrl,
                                 threadId: threadId,
                                 threadType: message.type,
-                                message: null, // Không có nội dung văn bản kèm theo trong ví dụ
-                                ttl: 60000,
+                                message: null,
+                                ttl: 600000,
                             });
                         } else {
                             await sendUploadedFile(api, message, cachedInfo); // Các loại file khác (zip, pdf,...)
@@ -136,19 +135,19 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
                             saveUploadedFiles(uploadedCache);
 
                             if (imageExts.includes(ext)) {
-                                await api.sendImage(fileInfo.fileUrl, { type: message.type, threadId: threadId }, null, 60000);
+                                await api.sendImage(fileInfo.fileUrl, { type: message.type, threadId: threadId }, null, 600000);
                             } else if (voiceExts.includes(ext)) {
-                                await api.sendVoice(message, fileInfo.fileUrl, 60000);
+                                await api.sendVoice(message, fileInfo.fileUrl, 600000);
                             } else if (videoExts.includes(ext)) {
                                 await api.sendVideo({
                                     videoUrl: fileInfo.fileUrl,
                                     threadId: threadId,
                                     threadType: message.type,
                                     message: null,
-                                    ttl: 60000,
+                                    ttl: 600000,
                                 });
                             } else {
-                                await sendUploadedFile(api, message, fileInfo); // Các loại file khác (zip, pdf,...)
+                                await sendUploadedFile(api, message, fileInfo);
                             }
                         } else {
                             await sendMessageWarning(api, message, `🚫 Upload thất bại cho file "${attachmentContent}".`, 60000);
