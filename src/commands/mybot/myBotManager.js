@@ -538,7 +538,7 @@ async function handleMyBotAddTime(api, message) {
             ? "vô hạn" 
             : new Date(newExpiresAt).toLocaleString("vi-VN");
 
-        await sendMessageComplete(api, message, `✅ Gia hạn cho ${botName} (ID: ${botId}) thành công!\nThời gian hết hạn mới: ${expirationInfo}`);
+        await sendMessageComplete(api, message, `✅ Gia hạn cho thời gian Bot cho ${botName} thành công.\n🆔: ${botId}.\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi gia hạn bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi gia hạn bot: ${error.message}`);
@@ -595,7 +595,7 @@ async function handleMyBotDelete(api, message) {
     const botName = target.botName;
 
     if (!botId) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để xóa bot.");
+        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để xóa khỏi hệ thống VXK Bot Team.");
         return;
     }
 
@@ -611,7 +611,7 @@ async function handleMyBotDelete(api, message) {
 
         await deleteBotFiles(botId);
 
-        await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName} (ID: ${botId}) khỏi VXK Bot Team.`);
+        await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName}\n(ID: ${botId}) khỏi dữ liệu VXK Bot Team.`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi xóa bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi xóa bot: ${error.message}`);
