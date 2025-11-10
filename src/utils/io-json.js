@@ -37,7 +37,7 @@ if (!isMainBot) {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
         configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./mybot/json-data/command_" + botId + ".json"),
+        commandFilePath: path.resolve("./mybot/json-data/command.json"),
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
