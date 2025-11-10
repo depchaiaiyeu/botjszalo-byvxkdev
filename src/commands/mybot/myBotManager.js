@@ -454,7 +454,7 @@ async function handleMyBotList(api, message) {
             return;
         }
 
-        let listInfo = "📜 DANH sách Bot >> VXK Bot Team:\n\n";
+        let listInfo = "📜 Danh sách Bot >> VXK Bot Team:\n\n";
 
         for (let i = 0; i < bots.length; i++) {
             const bot = bots[i];
@@ -516,7 +516,7 @@ async function handleMyBotAddTime(api, message) {
     try {
         const botConfig = await getBotConfig(botId);
         if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
             return;
         }
 
@@ -538,7 +538,7 @@ async function handleMyBotAddTime(api, message) {
             ? "vô hạn" 
             : new Date(newExpiresAt).toLocaleString("vi-VN");
 
-        await sendMessageComplete(api, message, `✅ Gia hạn cho thời gian Bot cho ${botName} thành công.\n🆔: ${botId}.\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
+        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔: ${botId}.\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi gia hạn bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi gia hạn bot: ${error.message}`);
@@ -611,7 +611,7 @@ async function handleMyBotDelete(api, message) {
 
         await deleteBotFiles(botId);
 
-        await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName}\n(ID: ${botId}) khỏi dữ liệu VXK Bot Team.`);
+        await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName} khỏi dữ liệu VXK Bot Team.\n🆔 ID: ${botId}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi xóa bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi xóa bot: ${error.message}`);
@@ -639,7 +639,7 @@ async function handleMyBotShutdown(api, message) {
         const botConfig = await getBotConfig(botId);
         
         if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
             return;
         }
         
@@ -649,7 +649,7 @@ async function handleMyBotShutdown(api, message) {
         botConfig.isRunning = false;
         await saveBotConfig(botId, botConfig);
         
-        await sendMessageComplete(api, message, `✅ Đã tắt bot của ${botName} (ID: ${botId}).`);
+        await sendMessageComplete(api, message, `✅ Đã tắt bot của ${botName}\n🆔 ID: ${botId}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi tắt bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi tắt bot: ${error.message}`);
@@ -677,12 +677,12 @@ async function handleMyBotActive(api, message) {
         const botConfig = await getBotConfig(botId);
         
         if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
             return;
         }
 
         if (botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now()) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Vui lòng inbox admin để gia hạn.`);
+            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Vui lòng inbox admin để gia hạn thêm thời gian.`);
             if (botConfig.isRunning) {
                 botConfig.isRunning = false;
                 await saveBotConfig(botId, botConfig);
@@ -696,7 +696,7 @@ async function handleMyBotActive(api, message) {
         botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
         
-        await sendMessageComplete(api, message, `✅ Đã bật bot của ${botName} (ID: ${botId}).\nĐang theo dõi log...`);
+        await sendMessageComplete(api, message, `✅ Đã bật bot của ${botName}\n🆔 ID: ${botId}\n👉 Bot của bạn đang hoạt động trở lại...`);
 
         streamLogs(processName, botId, botName);
 
