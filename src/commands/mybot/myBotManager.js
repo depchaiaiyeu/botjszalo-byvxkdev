@@ -334,7 +334,7 @@ async function handleMyBotCreate(api, message) {
     }
 }
 
-async function listAllBots(api) c
+async function listAllBots(api) {
     console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
     try {
         const files = await fs.readdir(paths.myBotDataDir);
