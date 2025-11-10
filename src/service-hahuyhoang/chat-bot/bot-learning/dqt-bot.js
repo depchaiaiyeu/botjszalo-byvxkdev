@@ -93,20 +93,43 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
                 await api.sendBusinessCard(null, senderId, attachmentContent, message.type, threadId, 60000);
             } else if (type === "file") {
                 const filePath = path.join(ASSETS_BASE_PATH, attachmentContent);
+                
                 if (fs.existsSync(filePath)) {
+                    const ext = path.extname(filePath).toLowerCase().slice(1);
+                    const imageExts = ['jpg', 'jpeg', 'png', 'gif'];
+                    const voiceExts = ['mp3', 'm4a', 'ogg', 'wav'];
+                    const videoExts = ['mp4', 'mov', 'avi', 'mkv'];
+                    
                     const uploadedCache = loadUploadedFiles();
                     const cachedInfo = uploadedCache[attachmentContent];
 
+                    // Handle cached file
                     if (cachedInfo?.fileUrl) {
-                        await sendUploadedFile(api, message, cachedInfo);
+                        if (imageExts.includes(ext)) {
+                            // api.sendImage sử dụng format MessageType.GroupMessage hoặc MessageType.PrivateMessage
+                            await api.sendImage(cachedInfo.fileUrl, { type: message.type, threadId: threadId }, null, 60000);
+                        } else if (voiceExts.includes(ext)) {
+                            await api.sendVoice(message, cachedInfo.fileUrl, 60000);
+                        } else if (videoExts.includes(ext)) {
+                            await api.sendVideo({
+                                videoUrl: cachedInfo.fileUrl,
+                                threadId: threadId,
+                                threadType: message.type,
+                                message: null, // Không có nội dung văn bản kèm theo trong ví dụ
+                                ttl: 60000,
+                            });
+                        } else {
+                            await sendUploadedFile(api, message, cachedInfo); // Các loại file khác (zip, pdf,...)
+                        }
                         return;
                     }
 
+                    // Upload and send new file
                     try {
                         const uploaded = await api.uploadAttachment([filePath], threadId, message.type);
                         if (uploaded && uploaded.length > 0 && uploaded[0].fileUrl) {
                             const fileInfo = uploaded[0];
-                            await sendUploadedFile(api, message, fileInfo);
+                            
                             uploadedCache[attachmentContent] = {
                                 fileUrl: fileInfo.fileUrl,
                                 fileName: fileInfo.fileName,
@@ -114,6 +137,22 @@ export async function handleChatBot(api, message, threadId, groupSettings, nameG
                                 checksum: fileInfo.checksum,
                             };
                             saveUploadedFiles(uploadedCache);
+
+                            if (imageExts.includes(ext)) {
+                                await api.sendImage(fileInfo.fileUrl, { type: message.type, threadId: threadId }, null, 60000);
+                            } else if (voiceExts.includes(ext)) {
+                                await api.sendVoice(message, fileInfo.fileUrl, 60000);
+                            } else if (videoExts.includes(ext)) {
+                                await api.sendVideo({
+                                    videoUrl: fileInfo.fileUrl,
+                                    threadId: threadId,
+                                    threadType: message.type,
+                                    message: null,
+                                    ttl: 60000,
+                                });
+                            } else {
+                                await sendUploadedFile(api, message, fileInfo); // Các loại file khác (zip, pdf,...)
+                            }
                         } else {
                             await sendMessageWarning(api, message, `🚫 Upload thất bại cho file "${attachmentContent}".`, 60000);
                         }
@@ -283,7 +322,7 @@ export async function handleLearnCommand(api, message, groupSettings) {
             return true;
         }
 
-        let listMsg = "📋 Danh sách dữ liệu đã học:\n\n";
+        let listMsg = "📋 Danh sách data training đã học:\n\n";
         let qIndex = 1;
         for (const [question, responses] of Object.entries(data[threadId].listTrain)) {
             listMsg += `${qIndex}. Hỏi: "${question}"\n`;
@@ -293,7 +332,7 @@ export async function handleLearnCommand(api, message, groupSettings) {
                 if (res.text) {
                     listMsg += ` [Văn bản] "${res.text}"`;
                 }
-                  if (res.attachment) {
+                if (res.attachment) {
                     if(res.text) listMsg += " +";
                     listMsg += ` [${res.attachment.type}] "${res.attachment.content}"`;
                 }
