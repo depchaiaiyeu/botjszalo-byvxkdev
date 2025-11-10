@@ -324,7 +324,7 @@ async function handleMyBotCreate(api, message) {
         console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
         if (stderr) console.log(`[MyBot] 🟡 PM2 stderr: ${stderr}`);
 
-        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công!\nBotID: ${botId}\n🚀 Bot đã khởi chạy.\nĐang theo dõi log...`);
+        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot sẽ hoạt động sau 1~5 giây kể khi tin nhắn này được gửi đi.\n👉 Nếu xảy ra lỗi vui lòng kiểm tra logs để fix..!`);
 
         streamLogs(processName, botId, botName);
 
@@ -496,7 +496,7 @@ async function handleMyBotAddTime(api, message) {
     botName = target.botName;
     
     if (!botId) {
-        await sendMessageWarning(api, message, "Không tìm thấy bot. Vui lòng @mention người dùng hoặc cung cấp index hợp lệ.");
+        await sendMessageWarning(api, message, "🚫 Không tìm thấy bot. Vui lòng @mentions người dùng hoặc cung cấp index hợp lệ.");
         return;
     }
     
@@ -509,7 +509,7 @@ async function handleMyBotAddTime(api, message) {
     const timeMs = parseTimeToMs(timeStr);
     
     if (timeMs === null) {
-        await sendMessageWarning(api, message, "Định dạng thời gian không hợp lệ. Sử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
+        await sendMessageWarning(api, message, "🚫 Định dạng thời gian không hợp lệ.\nSử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
         return;
     }
 
@@ -538,7 +538,7 @@ async function handleMyBotAddTime(api, message) {
             ? "vô hạn" 
             : new Date(newExpiresAt).toLocaleString("vi-VN");
 
-        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔: ${botId}.\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
+        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔: ${botId}\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi gia hạn bot:`, error);
         await sendMessageWarning(api, message, `🚫 Lỗi khi gia hạn bot: ${error.message}`);
@@ -639,7 +639,7 @@ async function handleMyBotShutdown(api, message) {
         const botConfig = await getBotConfig(botId);
         
         if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
+            await sendMessageWarning(api, message, `🚫 Bot của ${botName} không tồn tại trong hệ thống.`);
             return;
         }
         
@@ -677,7 +677,7 @@ async function handleMyBotActive(api, message) {
         const botConfig = await getBotConfig(botId);
         
         if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
+            await sendMessageWarning(api, message, `🚫 Bot của ${botName} không tồn tại trong hệ thống.`);
             return;
         }
 
@@ -732,7 +732,7 @@ async function handleMyBotRestart(api, message) {
         }
 
         if (botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now()) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Không thể restart.`);
+            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Nếu là admin, hãy gia hạn cho bot để có thể sử dụng lệnh này.`);
             if (botConfig.isRunning) {
                 botConfig.isRunning = false;
                 await saveBotConfig(botId, botConfig);
