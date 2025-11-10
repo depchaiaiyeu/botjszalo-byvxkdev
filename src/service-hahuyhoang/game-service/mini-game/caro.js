@@ -47,7 +47,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
 }
 
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = [], mode = "Easy") {
-    const cellSize = size === 3 ? 100 : 50;
+    const cellSize = 50;
     const padding = 40;
     const headerHeight = 50;
     const footerHeight = 50;
@@ -100,11 +100,11 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.stroke();
     }
     
-    const numberFont = size === 3 ? "30px 'BeVietnamPro'" : "15px 'BeVietnamPro'";
-    const markFont = size === 3 ? "bold 60px 'BeVietnamPro'" : "bold 30px 'BeVietnamPro'";
-    const circleWidth = size === 3 ? 6 : 4;
-    const circleRadius = size === 3 ? cellSize / 2.5 : cellSize / 2.8;
-    const winLineWidth = size === 3 ? 10 : 6;
+    const numberFont = "15px 'BeVietnamPro'";
+    const markFont = "bold 30px 'BeVietnamPro'";
+    const circleWidth = 4;
+    const circleRadius = cellSize / 2.8;
+    const winLineWidth = 6;
     
     for (let i = 0; i < board.length; i++) {
         const row = Math.floor(i / size);
@@ -141,7 +141,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         }
     }
     
-    const winLength = size === 3 ? 3 : 5;
+    const winLength = 5;
     if (winningLine && winningLine.length >= winLength) {
         ctx.strokeStyle = "#00FF00";
         ctx.lineWidth = winLineWidth;
@@ -273,7 +273,7 @@ function analyzePosition(board, pos, mark, size = 16) {
     return { score };
 }
 
-function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
+function getHeuristicScore(board, pos, mark, oppMark, size = 16, mode = "hard") {
     board[pos] = mark;
     const myAnalysis = analyzePosition(board, pos, mark, size);
     board[pos] = ".";
@@ -285,7 +285,18 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
     if (myAnalysis.score >= 1000000000) return myAnalysis.score;
     if (oppAnalysis.score >= 1000000000) return oppAnalysis.score * 0.9;
     
-    let score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
+    let score = 0;
+
+    if (mode === "easy") {
+        score = myAnalysis.score * 0.8 + oppAnalysis.score * 2.5;
+        if (myAnalysis.score > 75000) {
+            score += myAnalysis.score * 2.0;
+        }
+    } else if (mode === "master") {
+        score = myAnalysis.score * 2.0 + oppAnalysis.score * 1.8;
+    } else {
+        score = myAnalysis.score * 1.0 + oppAnalysis.score * 2.0;
+    }
 
     const row = Math.floor(pos / size);
     const col = pos % size;
@@ -312,7 +323,7 @@ function getHeuristicScore(board, pos, mark, oppMark, size = 16) {
 
 function checkWinAt(board, pos, mark, size = 16) {
     const directions = [[0,1], [1,0], [1,1], [1,-1]];
-    const winLength = size === 3 ? 3 : 5;
+    const winLength = 5;
     
     for (const [dr, dc] of directions) {
         const forward = countInDirection(board, pos, dr, dc, mark, size);
@@ -328,7 +339,7 @@ function checkWinAt(board, pos, mark, size = 16) {
 
 function checkWin(board, size = 16) {
     const directions = [[0,1], [1,0], [1,1], [1,-1]];
-    const winLength = size === 3 ? 3 : 5;
+    const winLength = 5;
     
     for (let row = 0; row < size; row++) {
         for (let col = 0; col < size; col++) {
@@ -356,7 +367,7 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function findCandidateMoves(board, size = 16, radius = 2) {
+function findCandidateMoves(board, size = 16, radius = 3) {
     const candidateMoves = new Set();
     const isEmptyBoard = board.every(cell => cell === ".");
     const centerMin = 6;
@@ -393,7 +404,7 @@ function findCandidateMoves(board, size = 16, radius = 2) {
     return Array.from(candidateMoves);
 }
 
-function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16) {
+function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark, playerMark, size = 16, mode = "hard") {
     const winResult = checkWin(board, size);
     if (winResult) {
         if (winResult.winner === botMark) return 1000000000 + depth;
@@ -401,7 +412,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     }
     if (depth === 0) return 0;
 
-    const searchRadius = depth > 2 ? 1 : 2;
+    const searchRadius = 2;
     const candidates = findCandidateMoves(board, size, searchRadius);
     if (candidates.length === 0) return 0;
 
@@ -409,7 +420,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: getHeuristicScore(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size)
+            score: getHeuristicScore(board, move, isMaximizingPlayer ? botMark : playerMark, isMaximizingPlayer ? playerMark : botMark, size, mode)
         };
     });
     
@@ -420,7 +431,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = -Infinity;
         for (const { move } of topCandidates) {
             board[move] = botMark;
-            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, false, alpha, beta, botMark, playerMark, size, mode);
             board[move] = ".";
             bestValue = Math.max(bestValue, value);
             alpha = Math.max(alpha, bestValue);
@@ -431,7 +442,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
         let bestValue = Infinity;
         for (const { move } of topCandidates) {
             board[move] = playerMark;
-            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size);
+            const value = alphaBetaSearch(board, depth - 1, true, alpha, beta, botMark, playerMark, size, mode);
             board[move] = ".";
             bestValue = Math.min(bestValue, value);
             beta = Math.min(beta, bestValue);
@@ -441,75 +452,7 @@ function alphaBetaSearch(board, depth, isMaximizingPlayer, alpha, beta, botMark,
     }
 }
 
-function minimax3x3(board, depth, isMaximizing, botMark, playerMark) {
-    const winResult = checkWin(board, 3);
-    if (winResult) {
-        if (winResult.winner === botMark) return 10 - depth;
-        if (winResult.winner === playerMark) return depth - 10;
-    }
-
-    if (board.every(cell => cell !== ".")) return 0;
-
-    if (isMaximizing) {
-        let bestScore = -Infinity;
-        for (let i = 0; i < 9; i++) {
-            if (board[i] === ".") {
-                board[i] = botMark;
-                bestScore = Math.max(bestScore, minimax3x3(board, depth + 1, false, botMark, playerMark));
-                board[i] = ".";
-            }
-        }
-        return bestScore;
-    } else {
-        let bestScore = Infinity;
-        for (let i = 0; i < 9; i++) {
-            if (board[i] === ".") {
-                board[i] = playerMark;
-                bestScore = Math.min(bestScore, minimax3x3(board, depth + 1, true, botMark, playerMark));
-                board[i] = ".";
-            }
-        }
-        return bestScore;
-    }
-}
-
-function getTicTacToeMove(board, playerMark) {
-    const botMark = playerMark === "X" ? "O" : "X";
-    let bestScore = -Infinity;
-    let bestMove = -1;
-
-    const availableMoves = [];
-    for (let i = 0; i < 9; i++) {
-        if (board[i] === '.') availableMoves.push(i);
-    }
-
-    if (availableMoves.length === 9) {
-        const corners = [0, 2, 6, 8];
-        return corners[Math.floor(Math.random() * corners.length)];
-    }
-    
-    if (availableMoves.length === 8 && board[4] === '.') {
-        return 4;
-    }
-
-    for (const move of availableMoves) {
-        board[move] = botMark;
-        let score = minimax3x3(board, 0, false, botMark, playerMark);
-        board[move] = ".";
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-        }
-    }
-    return bestMove;
-}
-
-
 function getAIMove(board, playerMark, mode, size = 16) {
-    if (size === 3) {
-        return getTicTacToeMove(board, playerMark);
-    }
-    
     const botMark = playerMark === "X" ? "O" : "X";
     
     for (let i = 0; i < size * size; i++) {
@@ -532,16 +475,16 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = ".";
     }
 
-    const DEPTHS = { easy: 4, hard: 6, super: 8 };
+    const DEPTHS = { easy: 4, hard: 6, master: 8 };
     const depth = DEPTHS[mode] || 4;
     const MAX_CANDIDATES_SEARCH = 12; 
 
-    let candidates = findCandidateMoves(board, size, 2);
+    let candidates = findCandidateMoves(board, size, 3);
     
     const scoredCandidates = candidates.map(move => {
         return {
             move: move,
-            score: getHeuristicScore(board, move, botMark, playerMark, size)
+            score: getHeuristicScore(board, move, botMark, playerMark, size, mode)
         };
     });
 
@@ -554,7 +497,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
 
     for (const { move } of topCandidates) {
         board[move] = botMark;
-        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size);
+        const score = alphaBetaSearch(board, depth - 1, false, -Infinity, Infinity, botMark, playerMark, size, mode);
         board[move] = ".";
         
         if (score > bestScore) {
@@ -578,17 +521,16 @@ export async function handleCaroCommand(api, message) {
         await sendMessageComplete(api, message, 
             `🎮 HƯỚNG DẪN CHƠI CỜ CARO\n\n` +
             `📌 Cú pháp:\n` +
-            `${prefix}caro [easy/hard/super/3x3] [x/o]\n\n` +
+            `${prefix}caro [easy/hard/master] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
             `${prefix}caro easy\n` +
             `${prefix}caro hard x\n` +
-            `${prefix}caro super o\n` +
-            `${prefix}caro 3x3 x\n\n` +
+            `${prefix}caro master o\n\n` +
             `📋 Luật chơi:\n` +
-            `Chế độ 3x3 là cờ Tic-Tac-Toe (thắng 3)\n` +
-            `Chế độ easy/hard/super là cờ 16x16 (thắng 5)\n` +
+            `Cờ 16x16 (thắng 5)\n` +
             `Quân X đi trước\n` +
-            `Nhập số ô (1-9 hoặc 1-256) để đánh quân\n` +
+            `Nhập số ô (1-256) để đánh quân\n` +
+            `Chế độ Master: Bot mặc định đi trước (X) trừ khi bạn chọn X.\n` +
             `🧭 Thời gian: 60 giây`
         );
         return;
@@ -601,19 +543,18 @@ export async function handleCaroCommand(api, message) {
     
     const inputMode = args[1].toLowerCase();
     let mode = "";
-    let size = 16;
+    const size = 16;
     let playerMark = "";
 
-    if (inputMode === "3x3") {
-        mode = "3x3";
-        size = 3;
-        playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
-    } else if (["easy", "hard", "super"].includes(inputMode)) {
+    if (["easy", "hard", "master"].includes(inputMode)) {
         mode = inputMode;
-        size = 16;
-        playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
+        if (mode === "master") {
+            playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
+        } else {
+            playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
+        }
     } else {
-        await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng chế độ:\n- easy: Dễ (16x16)\n- hard: Khó (16x16)\n- super: Thách đấu (16x16)\n- 3x3: Cờ Tic-Tac-Toe (3x3)", 60000);
+        await sendMessageWarning(api, message, "🎯 Vui lòng chọn đúng chế độ:\n- easy: Dễ\n- hard: Khó\n- master: Thách đấu", 60000);
         return;
     }
     
@@ -719,7 +660,7 @@ async function handleBotTurn(api, message) {
     await fs.writeFile(imagePath, imageBuffer);
     
     if (winResult) {
-        const winLength = game.size === 3 ? 3 : 5;
+        const winLength = 5;
         const caption = `\n🎮 Bot đánh ô: ${pos + 1}\n\n🏆 Bot đã dành chiến thắng với ${winLength} quân liên tiếp`;
         await sendMessageTag(api, message, {
             caption,
