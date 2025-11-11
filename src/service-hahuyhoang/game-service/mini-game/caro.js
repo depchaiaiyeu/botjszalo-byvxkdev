@@ -49,8 +49,8 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
 async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = [], mode = "Easy") {
     const cellSize = 50;
     const padding = 40;
-    const headerHeight = 50;
-    const footerHeight = 50;
+    const headerHeight = 60;
+    const footerHeight = 60;
     const width = size * cellSize + padding * 2;
     const height = size * cellSize + padding * 2 + headerHeight + footerHeight;
     
@@ -63,24 +63,24 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, width, height);
     
-    ctx.font = "bold 16px 'BeVietnamPro'";
+    ctx.font = "bold 20px 'BeVietnamPro'";
     
     ctx.textAlign = "left";
     if (playerMark === "X") {
         ctx.fillStyle = "#FF0000";
-        ctx.fillText(`X: ${playerName}`, 20, 30);
+        ctx.fillText(`X: ${playerName}`, 20, 35);
     } else {
         ctx.fillStyle = "#FF0000";
-        ctx.fillText("X: BOT", 20, 30);
+        ctx.fillText("X: BOT", 20, 35);
     }
 
     ctx.textAlign = "right";
     if (playerMark === "O") {
         ctx.fillStyle = "#0000FF";
-        ctx.fillText(`O: ${playerName}`, width - 20, 30);
+        ctx.fillText(`O: ${playerName}`, width - 20, 35);
     } else {
         ctx.fillStyle = "#0000FF";
-        ctx.fillText("O: BOT", width - 20, 30);
+        ctx.fillText("O: BOT", width - 20, 35);
     }
     
     const boardTop = headerHeight;
@@ -100,11 +100,11 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.stroke();
     }
     
-    const numberFont = "15px 'BeVietnamPro'";
-    const markFont = "bold 30px 'BeVietnamPro'";
-    const circleWidth = 4;
+    const numberFont = "18px 'BeVietnamPro'";
+    const markFont = "bold 35px 'BeVietnamPro'";
+    const circleWidth = 5;
     const circleRadius = cellSize / 2.8;
-    const winLineWidth = 6;
+    const winLineWidth = 8;
     
     for (let i = 0; i < board.length; i++) {
         const row = Math.floor(i / size);
@@ -165,10 +165,10 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.stroke();
     }
     
-    ctx.font = "bold 15px 'BeVietnamPro'";
+    ctx.font = "bold 18px 'BeVietnamPro'";
     ctx.textAlign = "center";
     ctx.fillStyle = "#000000";
-    ctx.fillText(`Nước đi: ${moveCount}/${size * size}`, width / 2, height - 25);
+    ctx.fillText(`Nước đi: ${moveCount}/${size * size}`, width / 2, height - 35);
     
     return canvas.toBuffer("image/png");
 }
@@ -268,7 +268,7 @@ const FORK_BONUS = {
     OPEN_FOUR_CLOSED_THREE: 30000000
 };
 
-const DIAGONAL_BONUS_MULTIPLIER = 1.5;
+const DIAGONAL_BONUS_MULTIPLIER = 3.0;
 
 const CENTER_MIN = 3;
 const CENTER_MAX = 12;
@@ -613,13 +613,13 @@ function getBestMove(board, playerMark, botMark, mode, size, moveCount) {
     
     const currentHash = ZOBRIST.computeHash(board, size, playerMark, botMark);
 
-    const DEPTHS = { easy: 2, hard: 4, master: 6 };
+    const DEPTHS = { easy: 2, hard: 3, master: 4 };
     const MAX_DEPTH = DEPTHS[mode] || 2;
 
     let bestMove = -1;
     let orderedMoves = [];
 
-    for (let currentDepth = 2; currentDepth <= MAX_DEPTH; currentDepth += 2) {
+    for (let currentDepth = 2; currentDepth <= MAX_DEPTH; currentDepth += 1) {
         let alpha = -Infinity;
         let beta = Infinity;
         let currentBestScore = -Infinity;
@@ -747,11 +747,12 @@ export async function handleCaroCommand(api, message) {
     clearTurnTimer(threadId);
     
     const board = Array(size * size).fill(".");
+    const botMark = playerMark === "X" ? "O" : "X";
     
     activeCaroGames.set(threadId, {
         board,
         playerMark,
-        botMark: playerMark === "X" ? "O" : "X",
+        botMark,
         currentTurn: "X",
         mode,
         playerId: message.data.uidFrom,
@@ -762,30 +763,51 @@ export async function handleCaroCommand(api, message) {
         isProcessing: false
     });
     
-    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
-    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
-    await fs.writeFile(imagePath, imageBuffer);
-    
     if (playerMark === "X") {
+        const imageBuffer = await createCaroBoard(board, size, 0, playerMark, botMark, message.data.dName, -1, "X", [], mode);
+        const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+        
         const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🎯 Đến lượt ${message.data.dName} (Quân ${playerMark})\n\n👉 Nhập số ô (1-${size * size}) để đánh\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
         }, 60000);
         startTurnTimer(api, message, threadId, true);
+        
+        try {
+            await fs.unlink(imagePath);
+        } catch (error) {}
+
     } else {
-        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🤖 Bot đi trước (Quân X)\n\n🎯 Đến lượt ${message.data.dName}`;
+        activeCaroGames.get(threadId).isProcessing = true;
+        
+        const pos = getAIMove(board, playerMark, mode, size);
+
+        if (pos >= 0) {
+            board[pos] = botMark;
+            activeCaroGames.get(threadId).currentTurn = playerMark;
+            activeCaroGames.get(threadId).moveCount++;
+            activeCaroGames.get(threadId).lastBotMove = pos;
+        }
+
+        const imageBuffer = await createCaroBoard(board, size, activeCaroGames.get(threadId).moveCount, playerMark, botMark, message.data.dName, pos, playerMark, [], mode);
+        const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+
+        const caption = `\n🎮 BẮT ĐẦU TRÒ CHƠI (${mode.toUpperCase()})\n\n🤖 Bot đánh ô: ${pos + 1}\n\n🎯 Đến lượt ${message.data.dName} (Quân ${playerMark})\n\n👉 Nhập số ô (1-${size * size}) để đánh\n\n🧭 Thời gian: 60 giây`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        });
-        activeCaroGames.get(threadId).isProcessing = true;
-        handleBotTurn(api, message);
+        }, 60000);
+        
+        activeCaroGames.get(threadId).isProcessing = false;
+        startTurnTimer(api, message, threadId, true);
+        
+        try {
+            await fs.unlink(imagePath);
+        } catch (error) {}
     }
-    
-    try {
-        await fs.unlink(imagePath);
-    } catch (error) {}
 }
 
 async function handleBotTurn(api, message) {
