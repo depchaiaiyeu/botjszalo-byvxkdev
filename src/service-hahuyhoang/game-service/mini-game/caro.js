@@ -414,6 +414,99 @@ function getAIMove(board, playerMark, mode, size = 16) {
     return bestMove;
 }
 
+async function handleBotTurn(api, message, initialTurn = false) {
+    const threadId = message.threadId;
+    const game = activeCaroGames.get(threadId);
+    
+    if (!game) return;
+    
+    await api.addReaction("FLASH", message);
+
+    game.isProcessing = true;
+    startTurnTimer(api, message, threadId, false);
+    
+    const pos = getAIMove(game.board, game.playerMark, game.mode, game.size);
+    
+    clearTurnTimer(threadId);
+    
+    if (!activeCaroGames.has(threadId)) return;
+    
+    if (pos < 0 || game.moveCount >= game.size * game.size) {
+        const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.currentTurn, [], game.mode);
+        const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+        
+        const caption = `🤝 HÒA CỜ!\n\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n💭 Đôi khi hòa cũng là một kết quả tốt!\n\n🎯 Thử lại lần nữa để phân định thắng bại nhé!`;
+        await sendMessageTag(api, message, {
+            caption,
+            imagePath
+        }, 86400000);
+        
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
+        
+        try {
+            await fs.unlink(imagePath);
+        } catch (error) {}
+        
+        activeCaroGames.delete(threadId);
+        return;
+    }
+    
+    game.board[pos] = game.botMark;
+    game.currentTurn = game.playerMark;
+    game.moveCount++;
+    game.lastBotMove = pos;
+    
+    const winResult = checkWin(game.board, game.size);
+    
+    const winningLine = winResult ? winResult.line : [];
+    
+    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, pos, game.playerMark, winningLine, game.mode);
+    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+    await fs.writeFile(imagePath, imageBuffer);
+    
+    const modeName = game.mode === "master" ? "cao thủ" : game.mode === "hard" ? "khó" : "dễ";
+    
+    if (winResult) {
+        const caption = `🤖 BOT WIN!\n\n🎮 Bot đánh ô số: ${pos + 1}\n🏆 Bot ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Rút kinh nghiệm và thử lại lần sau nhé!`;
+        await sendMessageTag(api, message, {
+            caption,
+            imagePath
+        }, 86400000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
+        activeCaroGames.delete(threadId);
+        clearTurnTimer(threadId);
+    } else if (game.moveCount === game.size * game.size) {
+        const caption = `🤝 HÒA CỜ!\n\n🎮 Bot đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
+        await sendMessageTag(api, message, {
+            caption,
+            imagePath
+        }, 86400000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
+        activeCaroGames.delete(threadId);
+        clearTurnTimer(threadId);
+    } else {
+        const initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 Bot đi trước (Quân X)` : "";
+        
+        const caption = `${initialMessage}\n\n🤖 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
+        await sendMessageTag(api, message, {
+            caption,
+            imagePath
+        }, 60000);
+        await api.addReaction("UNDO", message);
+        await api.addReaction("OK", message);
+        game.isProcessing = false;
+        startTurnTimer(api, message, threadId, true);
+    }
+    
+    try {
+        await fs.unlink(imagePath);
+    } catch (error) {}
+}
+
 export async function handleCaroCommand(api, message) {
     const threadId = message.threadId;
     const content = removeMention(message);
@@ -486,120 +579,29 @@ export async function handleCaroCommand(api, message) {
         isProcessing: false
     });
     
-    const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
-    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
-    await fs.writeFile(imagePath, imageBuffer);
-    
     if (playerMark === "X") {
+        const imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
+        const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+        
         const caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chìa khóa chiến thắng!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
         }, 60000);
         startTurnTimer(api, message, threadId, true);
-    } else {
-        const caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🤖 Bot đi trước (Quân X)\n👉 Đang suy nghĩ...\n\n🎯 ${message.data.dName} chuẩn bị tinh thần nhé!`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        });
-        activeCaroGames.get(threadId).isProcessing = true;
-        handleBotTurn(api, message);
-    }
-    
-    try {
-        await fs.unlink(imagePath);
-    } catch (error) {}
-}
-
-async function handleBotTurn(api, message) {
-    const threadId = message.threadId;
-    const game = activeCaroGames.get(threadId);
-    
-    if (!game) return;
-    
-    await api.addReaction("FLASH", message);
-
-    game.isProcessing = true;
-    startTurnTimer(api, message, threadId, false);
-    
-    const pos = getAIMove(game.board, game.playerMark, game.mode, game.size);
-    
-    clearTurnTimer(threadId);
-    
-    if (!activeCaroGames.has(threadId)) return;
-    
-    if (pos < 0 || game.moveCount >= game.size * game.size) {
-        const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.currentTurn, [], game.mode);
-        const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
-        await fs.writeFile(imagePath, imageBuffer);
-        
-        const caption = `🤝 HÒA CỜ!\n\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n💭 Đôi khi hòa cũng là một kết quả tốt!\n\n🎯 Thử lại lần nữa để phân định thắng bại nhé!`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, 86400000);
-        
-        await api.addReaction("UNDO", message);
-        await api.addReaction("OK", message);
         
         try {
             await fs.unlink(imagePath);
         } catch (error) {}
-        
-        activeCaroGames.delete(threadId);
-        return;
-    }
-    
-    game.board[pos] = game.botMark;
-    game.currentTurn = game.playerMark;
-    game.moveCount++;
-    game.lastBotMove = pos;
-    
-    const winResult = checkWin(game.board, game.size);
-    
-    const winningLine = winResult ? winResult.line : [];
-    
-    const imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, pos, game.playerMark, winningLine, game.mode);
-    const imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
-    await fs.writeFile(imagePath, imageBuffer);
-    
-    if (winResult) {
-        const modeName = mode === "master" ? "cao thủ" : mode === "hard" ? "khó" : "dễ";
-        const caption = `🤖 BOT WIN!\n\n🎮 Bot đánh ô số: ${pos + 1}\n🏆 Bot ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Rút kinh nghiệm và thử lại lần sau nhé!`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, 86400000);
-        await api.addReaction("UNDO", message);
-        await api.addReaction("OK", message);
-        activeCaroGames.delete(threadId);
-        clearTurnTimer(threadId);
-    } else if (game.moveCount === game.size * game.size) {
-        const caption = `🤝 HÒA CỜ!\n\n🎮 Bot đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, 86400000);
-        await api.addReaction("UNDO", message);
-        await api.addReaction("OK", message);
-        activeCaroGames.delete(threadId);
-        clearTurnTimer(threadId);
     } else {
-        const caption = `🎮 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
+        const initialCaption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🤖 Bot đi trước (Quân X)\n👉 Đang suy nghĩ...\n\n🎯 ${message.data.dName} chuẩn bị tinh thần nhé!`;
         await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, 60000);
-        await api.addReaction("UNDO", message);
-        await api.addReaction("OK", message);
-        game.isProcessing = false;
-        startTurnTimer(api, message, threadId, true);
+            caption: initialCaption
+        });
+        activeCaroGames.get(threadId).isProcessing = true;
+        handleBotTurn(api, message, true);
     }
-    
-    try {
-        await fs.unlink(imagePath);
-    } catch (error) {}
 }
 
 export async function handleCaroMessage(api, message) {
@@ -687,4 +689,4 @@ export async function handleCaroMessage(api, message) {
     } catch (error) {}
     
     handleBotTurn(api, message);
-} 
+}
