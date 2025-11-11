@@ -59,7 +59,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, width, height);
     
-    ctx.font = "bold 16px 'BeVietnamPro'";
+    ctx.font = "bold 20px 'BeVietnamPro'";
     
     ctx.textAlign = "left";
     if (playerMark === "X") {
@@ -67,7 +67,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.fillText(`X: ${playerName}`, 20, 30);
     } else {
         ctx.fillStyle = "#FF0000";
-        ctx.fillText("X: BOt", 20, 30);
+        ctx.fillText("X: BOT", 20, 30);
     }
 
     ctx.textAlign = "right";
@@ -76,7 +76,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.fillText(`O: ${playerName}`, width - 20, 30);
     } else {
         ctx.fillStyle = "#0000FF";
-        ctx.fillText("O: BOt", width - 20, 30);
+        ctx.fillText("O: BOT", width - 20, 30);
     }
     
     const boardTop = headerHeight;
@@ -241,63 +241,176 @@ const BOARD_SIZE = 16;
 const EMPTY = ".";
 const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
-function analyzePattern(board, pos, mark, size) {
+function analyzeLineAdvanced(board, pos, dr, dc, mark, size) {
     const r = Math.floor(pos / size);
     const c = pos % size;
-    let maxCount = 0;
-    let openEnds = 0;
+    let count = 1;
+    let opens = 0;
     let hasGap = false;
 
+    
+    let tempCount = 1;
+    let tempGaps = 0;
+    let blockedLeft = false;
+    
+    for (let i = 1; i <= 5; i++) {
+        const nr = r + dr * i;
+        const nc = c + dc * i;
+        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
+            blockedLeft = true;
+            break;
+        }
+        const cell = board[nr * size + nc];
+        if (cell === mark) {
+            tempCount++;
+        } else if (cell === EMPTY) {
+            if (tempGaps === 0) {
+                tempGaps = 1; 
+                hasGap = true;
+            } else {
+                break;
+            }
+        } else {
+            blockedLeft = true;
+            break;
+        }
+    }
+
+    if (!blockedLeft) opens++;
+
+    tempCount = 1;
+    tempGaps = 0;
+    let blockedRight = false;
+    
+    for (let i = 1; i <= 5; i++) {
+        const nr = r - dr * i;
+        const nc = c - dc * i;
+        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
+            blockedRight = true;
+            break;
+        }
+        const cell = board[nr * size + nc];
+        if (cell === mark) {
+            tempCount++;
+        } else if (cell === EMPTY) {
+            if (tempGaps === 0) {
+                tempGaps = 1; 
+            } else {
+                break;
+            }
+        } else {
+            blockedRight = true;
+            break;
+        }
+    }
+
+    if (!blockedRight) opens++;
+
+    count = 1;
+    for(let i=1; i<5; i++) {
+        const nr = r + dr * i;
+        const nc = c + dc * i;
+        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
+        else break;
+    }
+    for(let i=1; i<5; i++) {
+        const nr = r - dr * i;
+        const nc = c - dc * i;
+        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
+        else break;
+    }
+
+    return { count, opens, hasGap };
+}
+
+function getPatternScore(count, opens, hasGap) {
+    const WIN_SCORE = 1000000000;
+    const FIVE_SCORE = WIN_SCORE;
+    const FOUR_OPEN = WIN_SCORE / 2;
+    const FOUR_BLOCKED = WIN_SCORE / 100;
+    const THREE_OPEN = WIN_SCORE / 1000;
+    const THREE_BLOCKED = WIN_SCORE / 100000;
+    const TWO_OPEN = THREE_BLOCKED / 10;
+
+    if (count >= 5) return FIVE_SCORE;
+    if (count === 4) {
+        if (opens === 2 && !hasGap) return FOUR_OPEN;
+        if (opens === 1 && !hasGap) return FOUR_BLOCKED;
+        if (opens === 2 && hasGap) return FOUR_BLOCKED / 2; 
+    }
+    if (count === 3) {
+        if (opens === 2 && !hasGap) return THREE_OPEN;
+        if (opens === 1 && !hasGap) return THREE_BLOCKED;
+        if (opens === 2 && hasGap) return THREE_BLOCKED / 2;
+    }
+    if (count === 2) {
+        if (opens === 2 && !hasGap) return TWO_OPEN;
+    }
+    return count * opens * 10;
+}
+
+function analyzePosition(board, pos, mark, size) {
+    let maxScore = 0;
+    
+    for (const [dr, dc] of DIRECTIONS) {
+        const pattern = analyzeLineAdvanced(board, pos, dr, dc, mark, size);
+        const score = getPatternScore(pattern.count, pattern.opens, pattern.hasGap);
+        if (score > maxScore) maxScore = score;
+    }
+    
+    return maxScore;
+}
+
+function detectDoubleThreat(board, pos, mark, size, length, openRequired) {
+    const r = Math.floor(pos / size);
+    const c = pos % size;
+    let threatCount = 0;
+    
     for (const [dr, dc] of DIRECTIONS) {
         let count = 1;
         let opens = 0;
-        let gap = 0;
         
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= length; i++) {
             const nr = r + dr * i;
             const nc = c + dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
             const cell = board[nr * size + nc];
-            if (cell === mark) {
-                count++;
-            } else if (cell === EMPTY && gap === 0 && i < 5) {
-                gap = 1;
-            } else {
+            if (cell === mark) count++;
+            else {
                 if (cell === EMPTY) opens++;
                 break;
             }
         }
-
-        for (let i = 1; i <= 5; i++) {
+        
+        for (let i = 1; i <= length; i++) {
             const nr = r - dr * i;
             const nc = c - dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
             const cell = board[nr * size + nc];
-            if (cell === mark) {
-                count++;
-            } else if (cell === EMPTY && gap === 0 && i < 5) {
-                gap = 1;
-            } else {
+            if (cell === mark) count++;
+            else {
                 if (cell === EMPTY) opens++;
                 break;
             }
         }
-
-        if (count > maxCount) {
-            maxCount = count;
-            openEnds = opens;
-            hasGap = gap > 0;
-        }
+        
+        if (count >= length && opens >= openRequired) threatCount++;
     }
+    
+    return threatCount >= 2;
+}
 
-    return { count: maxCount, openEnds, hasGap };
+function detectDoubleThree(board, pos, mark, size) {
+    return detectDoubleThreat(board, pos, mark, size, 3, 2); 
+}
+
+function detectDoubleFour(board, pos, mark, size) {
+    return detectDoubleThreat(board, pos, mark, size, 4, 1);
 }
 
 function getCandidateMoves(board, size, botMark, playerMark) {
     const candidates = new Set();
-    const center = Math.floor(size / 2);
-    const centerRange = 6;
-
+    
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) {
             const r = Math.floor(i / size);
@@ -318,20 +431,16 @@ function getCandidateMoves(board, size, botMark, playerMark) {
             }
         }
     }
-
-    if (candidates.size === 0) {
-        for (let r = center - centerRange; r <= center + centerRange; r++) {
-            for (let c = center - centerRange; c <= center + centerRange; c++) {
-                if (r >= 0 && r < size && c >= 0 && c < size) {
-                    const idx = r * size + c;
-                    if (board[idx] === EMPTY) {
-                        candidates.add(idx);
-                    }
-                }
-            }
+    
+    if (candidates.size === 0 && board.every(cell => cell === EMPTY)) {
+        const center = Math.floor(size / 2);
+        candidates.add(center * size + center);
+    } else if (candidates.size === 0) {
+        for (let i = 0; i < size * size; i++) {
+            if (board[i] === EMPTY) candidates.add(i);
         }
     }
-
+    
     return Array.from(candidates);
 }
 
@@ -340,41 +449,111 @@ function evaluateMove(board, pos, mark, oppMark, size) {
     const c = pos % size;
     const center = Math.floor(size / 2);
     let score = 0;
-
+    
     const distToCenter = Math.abs(r - center) + Math.abs(c - center);
-    score += Math.max(0, 10 - distToCenter);
-
+    score += Math.max(0, 20 - distToCenter);
+    
     board[pos] = mark;
-    const myPattern = analyzePattern(board, pos, mark, size);
+    const myScore = analyzePosition(board, pos, mark, size);
+    const myDoubleThree = detectDoubleThree(board, pos, mark, size);
+    const myDoubleFour = detectDoubleFour(board, pos, mark, size);
     board[pos] = EMPTY;
-
+    
     board[pos] = oppMark;
-    const oppPattern = analyzePattern(board, pos, oppMark, size);
+    const oppScore = analyzePosition(board, pos, oppMark, size);
+    const oppDoubleThree = detectDoubleThree(board, pos, oppMark, size);
+    const oppDoubleFour = detectDoubleFour(board, pos, oppMark, size);
     board[pos] = EMPTY;
-
-    if (myPattern.count >= 5) return 100000000;
-    if (oppPattern.count >= 5) return 90000000;
-
-    if (myPattern.count === 4 && myPattern.openEnds >= 1) score += 10000000;
-    if (oppPattern.count === 4 && oppPattern.openEnds >= 1) score += 8000000;
-
-    if (myPattern.count === 3 && myPattern.openEnds === 2) score += 500000;
-    if (oppPattern.count === 3 && oppPattern.openEnds === 2) score += 400000;
-
-    if (oppPattern.count === 3 && oppPattern.openEnds === 1) score += 50000;
-    if (myPattern.count === 3 && myPattern.openEnds === 1) score += 30000;
-
-    if (oppPattern.count === 2 && oppPattern.openEnds === 2) score += 5000;
-    if (myPattern.count === 2 && myPattern.openEnds === 2) score += 3000;
-
+    
+    score += myScore * 1.2;
+    score += oppScore * 1.1; 
+    
+    if (myDoubleFour) score += 8000000;
+    if (oppDoubleFour) score += 7500000;
+    
+    if (myDoubleThree) score += 300000;
+    if (oppDoubleThree) score += 250000;
+    
     return score;
+}
+
+const MAX_SCORE = 1000000000; 
+
+function minimax(board, depth, alpha, beta, isMaximizingPlayer, botMark, playerMark, size) {
+    const currentMark = isMaximizingPlayer ? botMark : playerMark;
+    const oppMark = isMaximizingPlayer ? playerMark : botMark;
+    
+    const candidates = getCandidateMoves(board, size, botMark, playerMark);
+    
+    if (depth === 0 || candidates.length === 0) {
+        let finalScore = 0;
+        for (const move of candidates) {
+            board[move] = botMark;
+            finalScore += evaluateMove(board, move, botMark, playerMark, size);
+            board[move] = EMPTY;
+            
+            board[move] = playerMark;
+            finalScore -= evaluateMove(board, move, playerMark, botMark, size);
+            board[move] = EMPTY;
+        }
+        return finalScore;
+    }
+    
+    if (isMaximizingPlayer) {
+        let maxEval = -Infinity;
+        
+        for (const move of candidates) {
+            board[move] = currentMark;
+            
+            if (checkWinAt(board, move, currentMark, size)) {
+                board[move] = EMPTY;
+                return MAX_SCORE + depth;
+            }
+            
+            const evaluation = minimax(board, depth - 1, alpha, beta, false, botMark, playerMark, size);
+            board[move] = EMPTY;
+            
+            maxEval = Math.max(maxEval, evaluation);
+            alpha = Math.max(alpha, maxEval);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return maxEval;
+    } else {
+        let minEval = Infinity;
+        
+        for (const move of candidates) {
+            board[move] = currentMark;
+            
+            if (checkWinAt(board, move, currentMark, size)) {
+                board[move] = EMPTY;
+                return -MAX_SCORE - depth;
+            }
+            
+            const evaluation = minimax(board, depth - 1, alpha, beta, true, botMark, playerMark, size);
+            board[move] = EMPTY;
+            
+            minEval = Math.min(minEval, evaluation);
+            beta = Math.min(beta, minEval);
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        return minEval;
+    }
 }
 
 function getAIMove(board, playerMark, mode, size = 16) {
     const botMark = playerMark === "X" ? "O" : "X";
+    const candidates = getCandidateMoves(board, size, botMark, playerMark);
     
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== EMPTY) continue;
+    if (candidates.length === 0) {
+        const center = Math.floor(size / 2);
+        return center * size + center;
+    }
+    
+    for (const i of candidates) {
         board[i] = botMark;
         if (checkWinAt(board, i, botMark, size)) {
             board[i] = EMPTY;
@@ -383,8 +562,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== EMPTY) continue;
+    for (const i of candidates) {
         board[i] = playerMark;
         if (checkWinAt(board, i, playerMark, size)) {
             board[i] = EMPTY;
@@ -392,25 +570,48 @@ function getAIMove(board, playerMark, mode, size = 16) {
         }
         board[i] = EMPTY;
     }
-
-    const candidates = getCandidateMoves(board, size, botMark, playerMark);
     
-    if (candidates.length === 0) {
-        const center = Math.floor(size / 2);
-        return center * size + center;
+    for (const i of candidates) {
+        board[i] = playerMark;
+        if (detectDoubleFour(board, i, playerMark, size)) {
+            board[i] = EMPTY;
+            return i;
+        }
+        board[i] = EMPTY;
+    }
+    
+    let depth = 1; 
+    switch (mode) {
+        case "easy":
+            depth = 1; 
+            break;
+        case "hard":
+            depth = 2; 
+            break;
+        case "master":
+            depth = 3; 
+            break;
     }
 
     let bestMove = candidates[0];
     let bestScore = -Infinity;
+    
+    const evaluatedCandidates = candidates.map(move => ({
+        move,
+        score: evaluateMove(board, move, botMark, playerMark, size)
+    })).sort((a, b) => b.score - a.score).slice(0, 10); 
 
-    for (const move of candidates) {
-        const score = evaluateMove(board, move, botMark, playerMark, size);
+    for (const { move } of evaluatedCandidates) {
+        board[move] = botMark;
+        const score = minimax(board, depth - 1, -Infinity, Infinity, false, botMark, playerMark, size);
+        board[move] = EMPTY;
+        
         if (score > bestScore) {
             bestScore = score;
             bestMove = move;
         }
     }
-
+    
     return bestMove;
 }
 
@@ -421,7 +622,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     if (!game) return;
     
     await api.addReaction("FLASH", message);
-
+    
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
@@ -491,7 +692,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     } else {
         const initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân X)` : "";
         
-        const caption = `${initialMessage}\n\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
+        const caption = `${initialMessage}\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -523,7 +724,7 @@ export async function handleCaroCommand(api, message) {
             `💡 Ví dụ:\n` +
             `• ${prefix}caro easy >> Dễ\n` +
             `• ${prefix}caro hard x >> Khó\n` +
-            `• ${prefix}caro master >> Cao thủ\n\n` +
+            `• ${prefix}caro master >> Cao thủ (Sử dụng Alpha-Beta)\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -533,7 +734,7 @@ export async function handleCaroCommand(api, message) {
         );
         return;
     }
-
+    
     if (activeCaroGames.has(threadId)) {
         await sendMessageWarning(api, message, `⚠️ Đang có trận đấu đang diễn ra!\nVui lòng hoàn thành trận này trước khi bắt đầu trận mới.`, 60000);
         return;
@@ -543,7 +744,7 @@ export async function handleCaroCommand(api, message) {
     let mode = "";
     const size = 16;
     let playerMark = "";
-
+    
     if (["easy", "hard", "master"].includes(inputMode)) {
         mode = inputMode;
         if (mode === "master") {
