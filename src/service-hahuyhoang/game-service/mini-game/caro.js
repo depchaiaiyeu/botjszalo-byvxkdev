@@ -12,6 +12,9 @@ const __dirname = path.dirname(__filename);
 const activeCaroGames = new Map();
 const turnTimers = new Map();
 
+const TTL_ONE_HOUR = 3600000;
+const TTL_ONE_MINUTE = 60000;
+
 function clearTurnTimer(threadId) {
     const timer = turnTimers.get(threadId);
     if (timer) {
@@ -29,15 +32,15 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         
         if (isPlayerTurn) {
             const caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
-            await sendMessageTag(api, message, { caption }, 86400000);
+            await sendMessageTag(api, message, { caption }, TTL_ONE_HOUR);
         } else {
             const caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
-            await sendMessageTag(api, message, { caption });
+            await sendMessageTag(api, message, { caption }, TTL_ONE_HOUR);
         }
         
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
-    }, 60000);
+    }, TTL_ONE_MINUTE);
     
     turnTimers.set(threadId, timer);
 }
@@ -244,133 +247,125 @@ const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
 function analyzeLineAdvanced(board, pos, dr, dc, mark, size) {
     const r = Math.floor(pos / size);
     const c = pos % size;
-    let count = 1;
+    let sequence = [];
+    let gaps = [];
     let opens = 0;
-    let hasGap = false;
-
     
-    let tempCount = 1;
-    let tempGaps = 0;
-    let blockedLeft = false;
-    
-    for (let i = 1; i <= 5; i++) {
+    for (let i = -5; i <= 5; i++) {
+        if (i === 0) continue;
         const nr = r + dr * i;
         const nc = c + dc * i;
         if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-            blockedLeft = true;
-            break;
+            if (i < 0) opens = 0;
+            else opens = opens === 0 ? 0 : opens;
+            continue;
         }
         const cell = board[nr * size + nc];
         if (cell === mark) {
-            tempCount++;
+            sequence.push(i);
         } else if (cell === EMPTY) {
-            if (tempGaps === 0) {
-                tempGaps = 1; 
-                hasGap = true;
-            } else {
-                break;
-            }
+            if (i < 0 && sequence.length === 0) opens = 1;
+            if (i > 0 && sequence.length > 0) opens = opens === 1 ? 2 : 1;
+            if (sequence.length > 0 && gaps.length < 2) gaps.push(i);
         } else {
-            blockedLeft = true;
-            break;
+            if (i < 0) sequence = [];
+            else break;
         }
     }
-
-    if (!blockedLeft) opens++;
-
-    tempCount = 1;
-    tempGaps = 0;
-    let blockedRight = false;
     
-    for (let i = 1; i <= 5; i++) {
-        const nr = r - dr * i;
-        const nc = c - dc * i;
-        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-            blockedRight = true;
-            break;
-        }
-        const cell = board[nr * size + nc];
-        if (cell === mark) {
-            tempCount++;
-        } else if (cell === EMPTY) {
-            if (tempGaps === 0) {
-                tempGaps = 1; 
-            } else {
-                break;
-            }
-        } else {
-            blockedRight = true;
-            break;
-        }
-    }
-
-    if (!blockedRight) opens++;
-
-    count = 1;
-    for(let i=1; i<5; i++) {
-        const nr = r + dr * i;
-        const nc = c + dc * i;
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
-        else break;
-    }
-    for(let i=1; i<5; i++) {
-        const nr = r - dr * i;
-        const nc = c - dc * i;
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
-        else break;
-    }
-
-    return { count, opens, hasGap };
+    let count = sequence.length + 1;
+    let hasGap = gaps.length > 0;
+    
+    return { count, opens, hasGap, gaps: gaps.length };
 }
 
-function getPatternScore(count, opens, hasGap) {
-    const WIN_SCORE = 1000000000;
-    const FIVE_SCORE = WIN_SCORE;
-    const FOUR_OPEN = WIN_SCORE / 2;
-    const FOUR_BLOCKED = WIN_SCORE / 100;
-    const THREE_OPEN = WIN_SCORE / 1000;
-    const THREE_BLOCKED = WIN_SCORE / 100000;
-    const TWO_OPEN = THREE_BLOCKED / 10;
-
-    if (count >= 5) return FIVE_SCORE;
+function getPatternScore(count, opens, hasGap, gaps) {
+    if (count >= 5) return 100000000;
     if (count === 4) {
-        if (opens === 2 && !hasGap) return FOUR_OPEN;
-        if (opens === 1 && !hasGap) return FOUR_BLOCKED;
-        if (opens === 2 && hasGap) return FOUR_BLOCKED / 2; 
+        if (opens >= 1 && !hasGap) return 50000000;
+        if (opens >= 2 && hasGap && gaps === 1) return 10000000;
+        if (opens === 1 && hasGap && gaps === 1) return 5000000;
     }
     if (count === 3) {
-        if (opens === 2 && !hasGap) return THREE_OPEN;
-        if (opens === 1 && !hasGap) return THREE_BLOCKED;
-        if (opens === 2 && hasGap) return THREE_BLOCKED / 2;
+        if (opens === 2 && !hasGap) return 1000000;
+        if (opens >= 1 && hasGap && gaps === 1) return 500000;
+        if (opens === 1) return 100000;
     }
     if (count === 2) {
-        if (opens === 2 && !hasGap) return TWO_OPEN;
+        if (opens === 2 && !hasGap) return 10000;
+        if (opens >= 1 && hasGap) return 5000;
     }
-    return count * opens * 10;
+    return count * opens * 100;
 }
 
 function analyzePosition(board, pos, mark, size) {
+    const r = Math.floor(pos / size);
+    const c = pos % size;
     let maxScore = 0;
+    let patterns = [];
     
     for (const [dr, dc] of DIRECTIONS) {
         const pattern = analyzeLineAdvanced(board, pos, dr, dc, mark, size);
-        const score = getPatternScore(pattern.count, pattern.opens, pattern.hasGap);
+        const score = getPatternScore(pattern.count, pattern.opens, pattern.hasGap, pattern.gaps);
+        patterns.push({ ...pattern, score, dir: [dr, dc] });
         if (score > maxScore) maxScore = score;
     }
     
-    return maxScore;
+    return { maxScore, patterns };
 }
 
-function detectDoubleThreat(board, pos, mark, size, length, openRequired) {
+function detectDoubleThree(board, pos, mark, size) {
     const r = Math.floor(pos / size);
     const c = pos % size;
-    let threatCount = 0;
+    let openThrees = 0;
+    
+    for (const [dr, dc] of DIRECTIONS) {
+        let count = 1;
+        let opens = 0;
+        let gaps = 0;
+        
+        for (let i = 1; i <= 4; i++) {
+            const nr = r + dr * i;
+            const nc = c + dc * i;
+            if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
+            const cell = board[nr * size + nc];
+            if (cell === mark) count++;
+            else if (cell === EMPTY && gaps === 0 && i < 4) gaps = 1;
+            else {
+                if (cell === EMPTY) opens++;
+                break;
+            }
+        }
+        
+        for (let i = 1; i <= 4; i++) {
+            const nr = r - dr * i;
+            const nc = c - dc * i;
+            if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
+            const cell = board[nr * size + nc];
+            if (cell === mark) count++;
+            else if (cell === EMPTY && gaps === 0 && i < 4) gaps = 1;
+            else {
+                if (cell === EMPTY) opens++;
+                break;
+            }
+        }
+        
+        if (count >= 3 && opens === 2) openThrees++;
+    }
+    
+    return openThrees >= 2;
+}
+
+function detectDoubleFour(board, pos, mark, size) {
+    const r = Math.floor(pos / size);
+    const c = pos % size;
+    let fours = 0;
     
     for (const [dr, dc] of DIRECTIONS) {
         let count = 1;
         let opens = 0;
         
-        for (let i = 1; i <= length; i++) {
+        for (let i = 1; i <= 4; i++) {
             const nr = r + dr * i;
             const nc = c + dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
@@ -382,7 +377,7 @@ function detectDoubleThreat(board, pos, mark, size, length, openRequired) {
             }
         }
         
-        for (let i = 1; i <= length; i++) {
+        for (let i = 1; i <= 4; i++) {
             const nr = r - dr * i;
             const nc = c - dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
@@ -394,22 +389,16 @@ function detectDoubleThreat(board, pos, mark, size, length, openRequired) {
             }
         }
         
-        if (count >= length && opens >= openRequired) threatCount++;
+        if (count === 4 && opens >= 1) fours++;
     }
     
-    return threatCount >= 2;
-}
-
-function detectDoubleThree(board, pos, mark, size) {
-    return detectDoubleThreat(board, pos, mark, size, 3, 2); 
-}
-
-function detectDoubleFour(board, pos, mark, size) {
-    return detectDoubleThreat(board, pos, mark, size, 4, 1);
+    return fours >= 2;
 }
 
 function getCandidateMoves(board, size, botMark, playerMark) {
     const candidates = new Set();
+    const center = Math.floor(size / 2);
+    const centerRange = 6;
     
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) {
@@ -432,12 +421,16 @@ function getCandidateMoves(board, size, botMark, playerMark) {
         }
     }
     
-    if (candidates.size === 0 && board.every(cell => cell === EMPTY)) {
-        const center = Math.floor(size / 2);
-        candidates.add(center * size + center);
-    } else if (candidates.size === 0) {
-        for (let i = 0; i < size * size; i++) {
-            if (board[i] === EMPTY) candidates.add(i);
+    if (candidates.size === 0) {
+        for (let r = center - centerRange; r <= center + centerRange; r++) {
+            for (let c = center - centerRange; c <= center + centerRange; c++) {
+                if (r >= 0 && r < size && c >= 0 && c < size) {
+                    const idx = r * size + c;
+                    if (board[idx] === EMPTY) {
+                        candidates.add(idx);
+                    }
+                }
+            }
         }
     }
     
@@ -451,109 +444,54 @@ function evaluateMove(board, pos, mark, oppMark, size) {
     let score = 0;
     
     const distToCenter = Math.abs(r - center) + Math.abs(c - center);
-    score += Math.max(0, 20 - distToCenter);
+    score += Math.max(0, 10 - distToCenter);
     
     board[pos] = mark;
-    const myScore = analyzePosition(board, pos, mark, size);
+    const myAnalysis = analyzePosition(board, pos, mark, size);
     const myDoubleThree = detectDoubleThree(board, pos, mark, size);
     const myDoubleFour = detectDoubleFour(board, pos, mark, size);
     board[pos] = EMPTY;
     
     board[pos] = oppMark;
-    const oppScore = analyzePosition(board, pos, oppMark, size);
+    const oppAnalysis = analyzePosition(board, pos, oppMark, size);
     const oppDoubleThree = detectDoubleThree(board, pos, oppMark, size);
     const oppDoubleFour = detectDoubleFour(board, pos, oppMark, size);
     board[pos] = EMPTY;
     
-    score += myScore * 1.2;
-    score += oppScore * 1.1; 
+    if (myAnalysis.maxScore >= 100000000) return 100000000;
+    if (oppAnalysis.maxScore >= 100000000) return 99000000;
     
-    if (myDoubleFour) score += 8000000;
-    if (oppDoubleFour) score += 7500000;
+    if (myDoubleFour) score += 80000000;
+    if (oppDoubleFour) score += 75000000;
     
-    if (myDoubleThree) score += 300000;
-    if (oppDoubleThree) score += 250000;
+    if (myAnalysis.maxScore >= 50000000) score += 70000000;
+    if (oppAnalysis.maxScore >= 50000000) score += 65000000;
+    
+    if (myDoubleThree) score += 30000000;
+    if (oppDoubleThree) score += 25000000;
+    
+    score += myAnalysis.maxScore * 1.2;
+    score += oppAnalysis.maxScore * 1.1;
+    
+    let myThreats = 0;
+    let oppThreats = 0;
+    for (const pattern of myAnalysis.patterns) {
+        if (pattern.count >= 3 && pattern.opens >= 1) myThreats++;
+    }
+    for (const pattern of oppAnalysis.patterns) {
+        if (pattern.count >= 3 && pattern.opens >= 1) oppThreats++;
+    }
+    score += myThreats * 500000;
+    score += oppThreats * 400000;
     
     return score;
 }
 
-const MAX_SCORE = 1000000000; 
-
-function minimax(board, depth, alpha, beta, isMaximizingPlayer, botMark, playerMark, size) {
-    const currentMark = isMaximizingPlayer ? botMark : playerMark;
-    const oppMark = isMaximizingPlayer ? playerMark : botMark;
-    
-    const candidates = getCandidateMoves(board, size, botMark, playerMark);
-    
-    if (depth === 0 || candidates.length === 0) {
-        let finalScore = 0;
-        for (const move of candidates) {
-            board[move] = botMark;
-            finalScore += evaluateMove(board, move, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            board[move] = playerMark;
-            finalScore -= evaluateMove(board, move, playerMark, botMark, size);
-            board[move] = EMPTY;
-        }
-        return finalScore;
-    }
-    
-    if (isMaximizingPlayer) {
-        let maxEval = -Infinity;
-        
-        for (const move of candidates) {
-            board[move] = currentMark;
-            
-            if (checkWinAt(board, move, currentMark, size)) {
-                board[move] = EMPTY;
-                return MAX_SCORE + depth;
-            }
-            
-            const evaluation = minimax(board, depth - 1, alpha, beta, false, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            maxEval = Math.max(maxEval, evaluation);
-            alpha = Math.max(alpha, maxEval);
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return maxEval;
-    } else {
-        let minEval = Infinity;
-        
-        for (const move of candidates) {
-            board[move] = currentMark;
-            
-            if (checkWinAt(board, move, currentMark, size)) {
-                board[move] = EMPTY;
-                return -MAX_SCORE - depth;
-            }
-            
-            const evaluation = minimax(board, depth - 1, alpha, beta, true, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            minEval = Math.min(minEval, evaluation);
-            beta = Math.min(beta, minEval);
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return minEval;
-    }
-}
-
 function getAIMove(board, playerMark, mode, size = 16) {
     const botMark = playerMark === "X" ? "O" : "X";
-    const candidates = getCandidateMoves(board, size, botMark, playerMark);
     
-    if (candidates.length === 0) {
-        const center = Math.floor(size / 2);
-        return center * size + center;
-    }
-    
-    for (const i of candidates) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== EMPTY) continue;
         board[i] = botMark;
         if (checkWinAt(board, i, botMark, size)) {
             board[i] = EMPTY;
@@ -562,7 +500,8 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
-    for (const i of candidates) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== EMPTY) continue;
         board[i] = playerMark;
         if (checkWinAt(board, i, playerMark, size)) {
             board[i] = EMPTY;
@@ -571,7 +510,8 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
-    for (const i of candidates) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== EMPTY) continue;
         board[i] = playerMark;
         if (detectDoubleFour(board, i, playerMark, size)) {
             board[i] = EMPTY;
@@ -580,32 +520,28 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
-    let depth = 1; 
-    switch (mode) {
-        case "easy":
-            depth = 1; 
-            break;
-        case "hard":
-            depth = 2; 
-            break;
-        case "master":
-            depth = 3; 
-            break;
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== EMPTY) continue;
+        board[i] = playerMark;
+        if (detectDoubleThree(board, i, playerMark, size)) {
+            board[i] = EMPTY;
+            return i;
+        }
+        board[i] = EMPTY;
     }
-
+    
+    const candidates = getCandidateMoves(board, size, botMark, playerMark);
+    
+    if (candidates.length === 0) {
+        const center = Math.floor(size / 2);
+        return center * size + center;
+    }
+    
     let bestMove = candidates[0];
     let bestScore = -Infinity;
     
-    const evaluatedCandidates = candidates.map(move => ({
-        move,
-        score: evaluateMove(board, move, botMark, playerMark, size)
-    })).sort((a, b) => b.score - a.score).slice(0, 10); 
-
-    for (const { move } of evaluatedCandidates) {
-        board[move] = botMark;
-        const score = minimax(board, depth - 1, -Infinity, Infinity, false, botMark, playerMark, size);
-        board[move] = EMPTY;
-        
+    for (const move of candidates) {
+        const score = evaluateMove(board, move, botMark, playerMark, size);
         if (score > bestScore) {
             bestScore = score;
             bestMove = move;
@@ -641,7 +577,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 86400000);
+        }, TTL_ONE_HOUR);
         
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
@@ -674,7 +610,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 86400000);
+        }, TTL_ONE_HOUR);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
@@ -684,7 +620,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 86400000);
+        }, TTL_ONE_HOUR);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
@@ -696,7 +632,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 60000);
+        }, TTL_ONE_MINUTE);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         game.isProcessing = false;
@@ -724,7 +660,7 @@ export async function handleCaroCommand(api, message) {
             `💡 Ví dụ:\n` +
             `• ${prefix}caro easy >> Dễ\n` +
             `• ${prefix}caro hard x >> Khó\n` +
-            `• ${prefix}caro master >> Cao thủ (Sử dụng Alpha-Beta)\n\n` +
+            `• ${prefix}caro master >> Cao thủ\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -736,7 +672,7 @@ export async function handleCaroCommand(api, message) {
     }
     
     if (activeCaroGames.has(threadId)) {
-        await sendMessageWarning(api, message, `⚠️ Đang có trận đấu đang diễn ra!\nVui lòng hoàn thành trận này trước khi bắt đầu trận mới.`, 60000);
+        await sendMessageWarning(api, message, `⚠️ Đang có trận đấu đang diễn ra!\nVui lòng hoàn thành trận này trước khi bắt đầu trận mới.`, TTL_ONE_MINUTE);
         return;
     }
     
@@ -753,12 +689,12 @@ export async function handleCaroCommand(api, message) {
             playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
         }
     } else {
-        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn:\n• easy - Dễ\n• hard - Khó\n• master - Cao thủ", 60000);
+        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn:\n• easy - Dễ\n• hard - Khó\n• master - Cao thủ", TTL_ONE_MINUTE);
         return;
     }
     
     if (!["X", "O"].includes(playerMark)) {
-        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\nVui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", 60000);
+        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\nVui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_ONE_MINUTE);
         return;
     }
     
@@ -789,7 +725,7 @@ export async function handleCaroCommand(api, message) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 60000);
+        }, TTL_ONE_MINUTE);
         startTurnTimer(api, message, threadId, true);
         
         try {
@@ -819,7 +755,7 @@ export async function handleCaroMessage(api, message) {
         const caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 BOT đã dành chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
         await sendMessageTag(api, message, {
             caption
-        });
+        }, TTL_ONE_HOUR);
         activeCaroGames.delete(threadId);
         return;
     }
@@ -831,13 +767,13 @@ export async function handleCaroMessage(api, message) {
     const pos = parseInt(content.trim(), 10) - 1;
     
     if (pos < 0 || pos >= game.size * game.size) {
-        await sendMessageWarning(api, message, `🚫 Số ô không hợp lệ!\nVui lòng chọn từ 1 đến ${game.size * game.size}`, 60000);
+        await sendMessageWarning(api, message, `🚫 Số ô không hợp lệ!\nVui lòng chọn từ 1 đến ${game.size * game.size}`, TTL_ONE_MINUTE);
         startTurnTimer(api, message, threadId, true);
         return;
     }
     
     if (game.board[pos] !== ".") {
-        await sendMessageWarning(api, message, "⚠️ Ô này đã có quân cờ rồi!\nHãy chọn một ô trống khác", 60000);
+        await sendMessageWarning(api, message, "⚠️ Ô này đã có quân cờ rồi!\nHãy chọn một ô trống khác", TTL_ONE_MINUTE);
         startTurnTimer(api, message, threadId, true);
         return;
     }
@@ -860,7 +796,7 @@ export async function handleCaroMessage(api, message) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 300000);
+        }, TTL_ONE_HOUR);
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
         try {
@@ -872,7 +808,7 @@ export async function handleCaroMessage(api, message) {
         await sendMessageTag(api, message, {
             caption,
             imagePath
-        }, 86400000);
+        }, TTL_ONE_HOUR);
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
         try {
