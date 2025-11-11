@@ -578,7 +578,7 @@ async function handleBotTurn(api, message) {
     } else if (game.moveCount === game.size * game.size) {
         const caption = `🤝 HÒA CỜ!\n\n🎮 Bot đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
         await sendMessageTag(api, message, {
-         là    caption,
+            caption,
             imagePath
         }, 86400000);
         await api.addReaction("UNDO", message);
