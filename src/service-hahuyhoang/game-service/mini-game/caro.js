@@ -28,10 +28,10 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         if (!game) return;
         
         if (isPlayerTurn) {
-            const caption = `⏱️ HẾT GIỜ!\n\n👤 ${game.playerName} không đánh trong 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
+            const caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này.`;
             await sendMessageTag(api, message, { caption });
         } else {
-            const caption = `⏱️ HẾT GIỜ!\n\n🤖 BOT không đánh trong 60 giây\n🏆 ${game.playerName} đã dành chiến thắng!`;
+            const caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này.`;
             await sendMessageTag(api, message, { caption });
         }
         
@@ -479,7 +479,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
-        const caption = `🤝 HÒA CỜ!\n\n🎮 Bot đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
+        const caption = `🤝 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -524,7 +524,7 @@ export async function handleCaroCommand(api, message) {
             `• ${prefix}caro easy - Dễ, ngẫu nhiên X/O\n` +
             `• ${prefix}caro hard x - Khó, bạn chọn X\n` +
             `• ${prefix}caro master o - Siêu khó, bạn chọn O\n\n` +
-            `📋 Luật chơi:\n` +
+            `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
             `• Gõ số ô (1-256) để đánh quân\n` +
