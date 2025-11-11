@@ -469,7 +469,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     const modeName = game.mode === "master" ? "cao thủ" : game.mode === "hard" ? "khó" : "dễ";
     
     if (winResult) {
-        const caption = `🤖 BOT WIN!\n\n🎮 BOt đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Rút kinh nghiệm và thử lại lần sau nhé!`;
+        const caption = `🤖 BOT WIN!\n\n🎮 BOT đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Hãy rút kinh nghiệm và thử lại lần sau nhé!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -491,7 +491,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     } else {
         const initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân X)` : "";
         
-        const caption = `${initialMessage}\n\n🤖 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
+        const caption = `${initialMessage}\n\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
