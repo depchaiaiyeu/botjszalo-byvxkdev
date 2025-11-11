@@ -252,7 +252,7 @@ const DIRECTIONS = [
 
 const PATTERN_SCORES = {
     FIVE: 100000000,
-    OPEN_FOUR: 50000000,
+    OPEN_FOUR: 40000000,
     CLOSED_FOUR: 100000,
     OPEN_THREE: 50000,
     CLOSED_THREE: 1000,
@@ -263,9 +263,9 @@ const PATTERN_SCORES = {
 };
 
 const FORK_BONUS = {
-    OPEN_FOUR_OPEN_THREE: 40000000,
-    OPEN_FOUR_CLOSED_THREE: 30000000,
-    DOUBLE_OPEN_THREE: 20000000
+    OPEN_FOUR_OPEN_THREE: 80000000,
+    DOUBLE_OPEN_THREE: 70000000,
+    OPEN_FOUR_CLOSED_THREE: 30000000
 };
 
 const DIAGONAL_BONUS_MULTIPLIER = 1.5;
@@ -306,46 +306,6 @@ const ZOBRIST = {
 
 const transpositionTable = new Map();
 const TT_FLAG = { EXACT: 0, LOWER_BOUND: 1, UPPER_BOUND: 2 };
-
-function evaluateLine(line, mark, oppMark) {
-    let myPieces = 0;
-    let oppPieces = 0;
-    let emptyCells = 0;
-
-    for (const cell of line) {
-        if (cell === mark) myPieces++;
-        else if (cell === oppMark) oppPieces++;
-        else emptyCells++;
-    }
-
-    if (myPieces > 0 && oppPieces > 0) return 0;
-
-    if (myPieces > 0) {
-        const openEnds = (line[0] === EMPTY ? 1 : 0) + (line[line.length - 1] === EMPTY ? 1 : 0);
-        switch (myPieces) {
-            case 5: return PATTERN_SCORES.FIVE;
-            case 4:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_FOUR : PATTERN_SCORES.CLOSED_FOUR;
-            case 3:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_THREE : PATTERN_SCORES.CLOSED_THREE;
-            case 2:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_TWO : PATTERN_SCORES.CLOSED_TWO;
-            case 1:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_ONE : PATTERN_SCORES.CLOSED_ONE;
-        }
-    }
-    else if (oppPieces > 0) {
-        const openEnds = (line[0] === EMPTY ? 1 : 0) + (line[line.length - 1] === EMPTY ? 1 : 0);
-        switch (oppPieces) {
-            case 5: return PATTERN_SCORES.FIVE;
-            case 4:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_FOUR : PATTERN_SCORES.CLOSED_FOUR;
-            case 3:
-                return openEnds === 2 ? PATTERN_SCORES.OPEN_THREE : PATTERN_SCORES.CLOSED_THREE;
-        }
-    }
-    return 0;
-}
 
 function evaluateBoard(board, botMark, playerMark, size) {
     let myScore = 0;
@@ -560,7 +520,7 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
 
     scoredMoves.sort((a, b) => b.score - a.score);
 
-    const MAX_CANDIDATES = 15;
+    const MAX_CANDIDATES = 12;
     return scoredMoves.slice(0, MAX_CANDIDATES).map(m => m.move);
 }
 
