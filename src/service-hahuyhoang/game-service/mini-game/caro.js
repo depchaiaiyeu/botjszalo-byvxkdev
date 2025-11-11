@@ -263,12 +263,13 @@ const PATTERN_SCORES = {
 };
 
 const FORK_BONUS = {
-    OPEN_FOUR_OPEN_THREE: 80000000,
-    DOUBLE_OPEN_THREE: 70000000,
+    OPEN_FOUR_OPEN_THREE: 90000000,
+    DOUBLE_OPEN_THREE: 80000000,
     OPEN_FOUR_CLOSED_THREE: 30000000
 };
 
-const DIAGONAL_BONUS_MULTIPLIER = 3.0;
+const DIAGONAL_BONUS_MULTIPLIER = 4.0;
+const OPPONENT_THREAT_MULTIPLIER = 1.5;
 
 const CENTER_MIN = 3;
 const CENTER_MAX = 12;
@@ -388,7 +389,7 @@ function evaluateBoard(board, botMark, playerMark, size) {
                 }
 
                 if (isMyMark) myScore += lineScore * diagonalBonus;
-                else oppScore += lineScore * diagonalBonus;
+                else oppScore += lineScore * diagonalBonus * OPPONENT_THREAT_MULTIPLIER;
             }
         }
     }
@@ -396,8 +397,8 @@ function evaluateBoard(board, botMark, playerMark, size) {
     if (myOpenFours > 0 && myOpenThrees > 0) myScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
     else if (myOpenThrees > 1) myScore += FORK_BONUS.DOUBLE_OPEN_THREE;
 
-    if (oppOpenFours > 0 && oppOpenThrees > 0) oppScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
-    else if (oppOpenThrees > 1) oppScore += FORK_BONUS.DOUBLE_OPEN_THREE;
+    if (oppOpenFours > 0 && oppOpenThrees > 0) oppScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    else if (oppOpenThrees > 1) oppScore += FORK_BONUS.DOUBLE_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
 
     return myScore - oppScore;
 }
@@ -425,16 +426,16 @@ function quickHeuristic(board, move, myMark, oppMark, size) {
     if (myAnalysis.openFour && myAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
     if (myAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE;
     
-    if (oppAnalysis.openFour && oppAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE * 0.9;
-    if (oppAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE * 0.9;
+    if (oppAnalysis.openFour && oppAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    if (oppAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
 
     score += myAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR;
     score += myAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR;
     score += myAnalysis.openThree * PATTERN_SCORES.OPEN_THREE;
     
-    score += oppAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR * 0.8;
-    score += oppAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR * 0.8;
-    score += oppAnalysis.openThree * PATTERN_SCORES.OPEN_THREE * 0.8;
+    score += oppAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR * OPPONENT_THREAT_MULTIPLIER * 0.9;
+    score += oppAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR * OPPONENT_THREAT_MULTIPLIER * 0.9;
+    score += oppAnalysis.openThree * PATTERN_SCORES.OPEN_THREE * OPPONENT_THREAT_MULTIPLIER * 0.9;
 
     return score;
 }
@@ -679,10 +680,23 @@ function getAIMove(board, playerMark, mode, size = 16) {
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) continue;
         board[i] = playerMark;
+        const analysis = analyzeMove(board, i, playerMark, size);
+        
         if (checkWinAt(board, i, playerMark, size)) {
             board[i] = EMPTY;
             return i;
         }
+        
+        if (analysis.openFour > 0 || analysis.closedFour > 0) {
+            board[i] = EMPTY;
+            return i;
+        }
+        
+        if (analysis.openThree > 0) {
+            board[i] = EMPTY;
+            return i;
+        }
+        
         board[i] = EMPTY;
     }
 
