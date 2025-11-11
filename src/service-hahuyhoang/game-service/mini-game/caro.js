@@ -240,182 +240,213 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-const BOARD_SIZE = 16;
-const EMPTY = ".";
 const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
-function analyzeLineAdvanced(board, pos, dr, dc, mark, size) {
+function analyzePattern(board, pos, mark, size) {
     let r = Math.floor(pos / size);
     let c = pos % size;
-    let count = 1;
-    let opens = 0;
-    let hasGap = false;
-
-    
-    let tempCount = 1;
-    let tempGaps = 0;
-    let blockedLeft = false;
-    
-    for (let i = 1; i <= 5; i++) {
-        let nr = r + dr * i;
-        let nc = c + dc * i;
-        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-            blockedLeft = true;
-            break;
-        }
-        let cell = board[nr * size + nc];
-        if (cell === mark) {
-            tempCount++;
-        } else if (cell === EMPTY) {
-            if (tempGaps === 0) {
-                tempGaps = 1; 
-                hasGap = true;
-            } else {
-                break;
-            }
-        } else {
-            blockedLeft = true;
-            break;
-        }
-    }
-
-    if (!blockedLeft) opens++;
-
-    tempCount = 1;
-    tempGaps = 0;
-    let blockedRight = false;
-    
-    for (let i = 1; i <= 5; i++) {
-        let nr = r - dr * i;
-        let nc = c - dc * i;
-        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-            blockedRight = true;
-            break;
-        }
-        let cell = board[nr * size + nc];
-        if (cell === mark) {
-            tempCount++;
-        } else if (cell === EMPTY) {
-            if (tempGaps === 0) {
-                tempGaps = 1; 
-            } else {
-                break;
-            }
-        } else {
-            blockedRight = true;
-            break;
-        }
-    }
-
-    if (!blockedRight) opens++;
-
-    count = 1;
-    for(let i=1; i<5; i++) {
-        let nr = r + dr * i;
-        let nc = c + dc * i;
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
-        else break;
-    }
-    for(let i=1; i<5; i++) {
-        let nr = r - dr * i;
-        let nc = c - dc * i;
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr * size + nc] === mark) count++;
-        else break;
-    }
-
-    return { count, opens, hasGap };
-}
-
-function getPatternScore(count, opens, hasGap) {
-    let WIN_SCORE = 1000000000;
-    let FIVE_SCORE = WIN_SCORE;
-    let FOUR_OPEN = WIN_SCORE / 2;
-    let FOUR_BLOCKED = WIN_SCORE / 100;
-    let THREE_OPEN = WIN_SCORE / 1000;
-    let THREE_BLOCKED = WIN_SCORE / 100000;
-    let TWO_OPEN = THREE_BLOCKED / 10;
-
-    if (count >= 5) return FIVE_SCORE;
-    if (count === 4) {
-        if (opens === 2 && !hasGap) return FOUR_OPEN;
-        if (opens === 1 && !hasGap) return FOUR_BLOCKED;
-        if (opens === 2 && hasGap) return FOUR_BLOCKED / 2; 
-    }
-    if (count === 3) {
-        if (opens === 2 && !hasGap) return THREE_OPEN;
-        if (opens === 1 && !hasGap) return THREE_BLOCKED;
-        if (opens === 2 && hasGap) return THREE_BLOCKED / 2;
-    }
-    if (count === 2) {
-        if (opens === 2 && !hasGap) return TWO_OPEN;
-    }
-    return count * opens * 10;
-}
-
-function analyzePosition(board, pos, mark, size) {
-    let maxScore = 0;
-    
-    for (let [dr, dc] of DIRECTIONS) {
-        let pattern = analyzeLineAdvanced(board, pos, dr, dc, mark, size);
-        let score = getPatternScore(pattern.count, pattern.opens, pattern.hasGap);
-        if (score > maxScore) maxScore = score;
-    }
-    
-    return maxScore;
-}
-
-function detectDoubleThreat(board, pos, mark, size, length, openRequired) {
-    let r = Math.floor(pos / size);
-    let c = pos % size;
-    let threatCount = 0;
+    let patterns = [];
     
     for (let [dr, dc] of DIRECTIONS) {
         let count = 1;
-        let opens = 0;
+        let leftOpen = false;
+        let rightOpen = false;
+        let leftPos = null;
+        let rightPos = null;
         
-        for (let i = 1; i <= length; i++) {
+        for (let i = 1; i <= 4; i++) {
             let nr = r + dr * i;
             let nc = c + dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
-            let cell = board[nr * size + nc];
-            if (cell === mark) count++;
-            else {
-                if (cell === EMPTY) opens++;
+            let idx = nr * size + nc;
+            if (board[idx] === mark) {
+                count++;
+            } else if (board[idx] === ".") {
+                rightOpen = true;
+                rightPos = idx;
+                break;
+            } else {
                 break;
             }
         }
         
-        for (let i = 1; i <= length; i++) {
+        for (let i = 1; i <= 4; i++) {
             let nr = r - dr * i;
             let nc = c - dc * i;
             if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
-            let cell = board[nr * size + nc];
-            if (cell === mark) count++;
-            else {
-                if (cell === EMPTY) opens++;
+            let idx = nr * size + nc;
+            if (board[idx] === mark) {
+                count++;
+            } else if (board[idx] === ".") {
+                leftOpen = true;
+                leftPos = idx;
+                break;
+            } else {
                 break;
             }
         }
         
-        if (count >= length && opens >= openRequired) threatCount++;
+        patterns.push({
+            count,
+            leftOpen,
+            rightOpen,
+            leftPos,
+            rightPos,
+            direction: [dr, dc]
+        });
     }
     
-    return threatCount >= 2;
+    return patterns;
 }
 
-function detectDoubleThree(board, pos, mark, size) {
-    return detectDoubleThreat(board, pos, mark, size, 3, 2); 
+function findWinningMove(board, mark, size) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] === ".") {
+            board[i] = mark;
+            if (checkWinAt(board, i, mark, size)) {
+                board[i] = ".";
+                return i;
+            }
+            board[i] = ".";
+        }
+    }
+    return -1;
 }
 
-function detectDoubleFour(board, pos, mark, size) {
-    return detectDoubleThreat(board, pos, mark, size, 4, 1);
+function findBlockingMove(board, mark, oppMark, size) {
+    let threats = [];
+    
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== ".") continue;
+        
+        let patterns = analyzePattern(board, i, oppMark, size);
+        
+        for (let pattern of patterns) {
+            if (pattern.count >= 3 && (pattern.leftOpen || pattern.rightOpen)) {
+                let isBlocked = false;
+                
+                if (pattern.leftOpen && pattern.leftPos !== null) {
+                    let leftR = Math.floor(pattern.leftPos / size);
+                    let leftC = pattern.leftPos % size;
+                    let checkR = leftR - pattern.direction[0];
+                    let checkC = leftC - pattern.direction[1];
+                    if (checkR >= 0 && checkR < size && checkC >= 0 && checkC < size) {
+                        let checkIdx = checkR * size + checkC;
+                        if (board[checkIdx] === mark) {
+                            isBlocked = true;
+                        }
+                    }
+                }
+                
+                if (pattern.rightOpen && pattern.rightPos !== null) {
+                    let rightR = Math.floor(pattern.rightPos / size);
+                    let rightC = pattern.rightPos % size;
+                    let checkR = rightR + pattern.direction[0];
+                    let checkC = rightC + pattern.direction[1];
+                    if (checkR >= 0 && checkR < size && checkC >= 0 && checkC < size) {
+                        let checkIdx = checkR * size + checkC;
+                        if (board[checkIdx] === mark) {
+                            isBlocked = true;
+                        }
+                    }
+                }
+                
+                if (!isBlocked) {
+                    let priority = pattern.count === 4 ? 1000 : pattern.count === 3 ? 100 : 10;
+                    if (pattern.leftOpen && pattern.rightOpen) priority *= 2;
+                    
+                    if (pattern.leftOpen && pattern.leftPos !== null) {
+                        threats.push({ pos: pattern.leftPos, priority });
+                    }
+                    if (pattern.rightOpen && pattern.rightPos !== null) {
+                        threats.push({ pos: pattern.rightPos, priority });
+                    }
+                }
+            }
+        }
+    }
+    
+    if (threats.length > 0) {
+        threats.sort((a, b) => b.priority - a.priority);
+        return threats[0].pos;
+    }
+    
+    return -1;
 }
 
-function getCandidateMoves(board, size, botMark, playerMark) {
+function findDoubleThreatMove(board, mark, size) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== ".") continue;
+        
+        board[i] = mark;
+        let patterns = analyzePattern(board, i, mark, size);
+        board[i] = ".";
+        
+        let openThrees = 0;
+        let openFours = 0;
+        
+        for (let pattern of patterns) {
+            if (pattern.count >= 3 && pattern.leftOpen && pattern.rightOpen) {
+                if (pattern.count === 4) openFours++;
+                else if (pattern.count === 3) openThrees++;
+            }
+        }
+        
+        if (openFours >= 1 || openThrees >= 2) {
+            return i;
+        }
+    }
+    
+    return -1;
+}
+
+function findSplitAttackMove(board, mark, size) {
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== ".") continue;
+        
+        let r = Math.floor(i / size);
+        let c = i % size;
+        
+        for (let [dr, dc] of DIRECTIONS) {
+            let positions = [];
+            for (let step = -4; step <= 4; step++) {
+                if (step === 0) continue;
+                let nr = r + dr * step;
+                let nc = c + dc * step;
+                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                    let idx = nr * size + nc;
+                    positions.push({ idx, step, val: board[idx] });
+                }
+            }
+            
+            let myCount = positions.filter(p => p.val === mark).length;
+            let emptyCount = positions.filter(p => p.val === ".").length;
+            
+            if (myCount >= 2 && emptyCount >= 3) {
+                let hasGoodGap = false;
+                for (let p of positions) {
+                    if (p.val === mark) {
+                        let gapLeft = positions.find(x => x.step === p.step - 1);
+                        let gapRight = positions.find(x => x.step === p.step + 1);
+                        if ((gapLeft && gapLeft.val === ".") || (gapRight && gapRight.val === ".")) {
+                            hasGoodGap = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasGoodGap) return i;
+            }
+        }
+    }
+    
+    return -1;
+}
+
+function getCandidateMoves(board, size, mark) {
     let candidates = new Set();
     
     for (let i = 0; i < size * size; i++) {
-        if (board[i] !== EMPTY) {
+        if (board[i] !== ".") {
             let r = Math.floor(i / size);
             let c = i % size;
             
@@ -426,7 +457,7 @@ function getCandidateMoves(board, size, botMark, playerMark) {
                     let nc = c + dc;
                     if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
                         let idx = nr * size + nc;
-                        if (board[idx] === EMPTY) {
+                        if (board[idx] === ".") {
                             candidates.add(idx);
                         }
                     }
@@ -435,190 +466,69 @@ function getCandidateMoves(board, size, botMark, playerMark) {
         }
     }
     
-    if (candidates.size === 0 && board.every(cell => cell === EMPTY)) {
+    if (candidates.size === 0) {
         let center = Math.floor(size / 2);
         candidates.add(center * size + center);
-    } else if (candidates.size === 0) {
-        for (let i = 0; i < size * size; i++) {
-            if (board[i] === EMPTY) candidates.add(i);
-        }
     }
     
     return Array.from(candidates);
 }
 
-function evaluateMove(board, pos, mark, oppMark, size) {
+function evaluatePosition(board, pos, mark, oppMark, size) {
+    let score = 0;
     let r = Math.floor(pos / size);
     let c = pos % size;
     let center = Math.floor(size / 2);
-    let score = 0;
     
     let distToCenter = Math.abs(r - center) + Math.abs(c - center);
-    score += Math.max(0, 20 - distToCenter);
+    score += Math.max(0, 15 - distToCenter);
     
     board[pos] = mark;
-    let myScore = analyzePosition(board, pos, mark, size);
-    let myDoubleThree = detectDoubleThree(board, pos, mark, size);
-    let myDoubleFour = detectDoubleFour(board, pos, mark, size);
-    board[pos] = EMPTY;
+    let myPatterns = analyzePattern(board, pos, mark, size);
+    board[pos] = ".";
+    
+    for (let p of myPatterns) {
+        if (p.count >= 4) score += 5000;
+        else if (p.count === 3 && p.leftOpen && p.rightOpen) score += 500;
+        else if (p.count === 3) score += 100;
+        else if (p.count === 2 && p.leftOpen && p.rightOpen) score += 50;
+    }
     
     board[pos] = oppMark;
-    let oppScore = analyzePosition(board, pos, oppMark, size);
-    let oppDoubleThree = detectDoubleThree(board, pos, oppMark, size);
-    let oppDoubleFour = detectDoubleFour(board, pos, oppMark, size);
-    board[pos] = EMPTY;
+    let oppPatterns = analyzePattern(board, pos, oppMark, size);
+    board[pos] = ".";
     
-    score += myScore * 1.2;
-    score += oppScore * 1.1; 
-    
-    if (myDoubleFour) score += 8000000;
-    if (oppDoubleFour) score += 7500000;
-    
-    if (myDoubleThree) score += 300000;
-    if (oppDoubleThree) score += 250000;
+    for (let p of oppPatterns) {
+        if (p.count >= 4) score += 4000;
+        else if (p.count === 3 && p.leftOpen && p.rightOpen) score += 400;
+        else if (p.count === 3) score += 80;
+    }
     
     return score;
 }
 
-let MAX_SCORE = 1000000000; 
-
-function minimax(board, depth, alpha, beta, isMaximizingPlayer, botMark, playerMark, size) {
-    let currentMark = isMaximizingPlayer ? botMark : playerMark;
-    let oppMark = isMaximizingPlayer ? playerMark : botMark;
-    
-    let candidates = getCandidateMoves(board, size, botMark, playerMark);
-    
-    if (depth === 0 || candidates.length === 0) {
-        let finalScore = 0;
-        for (let move of candidates) {
-            board[move] = botMark;
-            finalScore += evaluateMove(board, move, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            board[move] = playerMark;
-            finalScore -= evaluateMove(board, move, playerMark, botMark, size);
-            board[move] = EMPTY;
-        }
-        return finalScore;
-    }
-    
-    
-    let sortedCandidates = candidates.map(move => ({
-        move,
-        score: evaluateMove(board, move, currentMark, oppMark, size)
-    })).sort((a, b) => b.score - a.score);
-
-
-    if (isMaximizingPlayer) {
-        let maxEval = -Infinity;
-        
-        for (let { move } of sortedCandidates) {
-            board[move] = currentMark;
-            
-            if (checkWinAt(board, move, currentMark, size)) {
-                board[move] = EMPTY;
-                return MAX_SCORE + depth;
-            }
-            
-            let evaluation = minimax(board, depth - 1, alpha, beta, false, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            maxEval = Math.max(maxEval, evaluation);
-            alpha = Math.max(alpha, maxEval);
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return maxEval;
-    } else {
-        let minEval = Infinity;
-        
-        for (let { move } of sortedCandidates) {
-            board[move] = currentMark;
-            
-            if (checkWinAt(board, move, currentMark, size)) {
-                board[move] = EMPTY;
-                return -MAX_SCORE - depth;
-            }
-            
-            let evaluation = minimax(board, depth - 1, alpha, beta, true, botMark, playerMark, size);
-            board[move] = EMPTY;
-            
-            minEval = Math.min(minEval, evaluation);
-            beta = Math.min(beta, minEval);
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return minEval;
-    }
-}
-
 function getAIMove(board, playerMark, mode, size = 16) {
     let botMark = playerMark === "X" ? "O" : "X";
-    let candidates = getCandidateMoves(board, size, botMark, playerMark);
     
-    if (candidates.length === 0) {
-        let center = Math.floor(size / 2);
-        return center * size + center;
-    }
+    let winMove = findWinningMove(board, botMark, size);
+    if (winMove !== -1) return winMove;
     
-    for (let i of candidates) {
-        board[i] = botMark;
-        if (checkWinAt(board, i, botMark, size)) {
-            board[i] = EMPTY;
-            return i;
-        }
-        board[i] = EMPTY;
-    }
+    let blockMove = findBlockingMove(board, botMark, playerMark, size);
+    if (blockMove !== -1) return blockMove;
     
-    for (let i of candidates) {
-        board[i] = playerMark;
-        if (checkWinAt(board, i, playerMark, size)) {
-            board[i] = EMPTY;
-            return i;
-        }
-        board[i] = EMPTY;
-    }
+    let doubleThreat = findDoubleThreatMove(board, botMark, size);
+    if (doubleThreat !== -1) return doubleThreat;
     
-    for (let i of candidates) {
-        board[i] = playerMark;
-        if (detectDoubleFour(board, i, playerMark, size)) {
-            board[i] = EMPTY;
-            return i;
-        }
-        board[i] = EMPTY;
-    }
+    let splitAttack = findSplitAttackMove(board, botMark, size);
+    if (splitAttack !== -1) return splitAttack;
     
-    let depth = 1; 
-    switch (mode) {
-        case "easy":
-            depth = 1; 
-            break;
-        case "hard":
-            depth = 2; 
-            break;
-        case "master":
-            depth = 3; 
-            break;
-    }
-
+    let candidates = getCandidateMoves(board, size, botMark);
+    
     let bestMove = candidates[0];
     let bestScore = -Infinity;
     
-    let MAX_CANDIDATES_TO_SEARCH = 20;
-
-    
-    let evaluatedCandidates = candidates.map(move => ({
-        move,
-        score: evaluateMove(board, move, botMark, playerMark, size)
-    })).sort((a, b) => b.score - a.score).slice(0, MAX_CANDIDATES_TO_SEARCH); 
-
-    for (let { move } of evaluatedCandidates) {
-        board[move] = botMark;
-        let score = minimax(board, depth - 1, -Infinity, Infinity, false, botMark, playerMark, size);
-        board[move] = EMPTY;
-        
+    for (let move of candidates) {
+        let score = evaluatePosition(board, move, botMark, playerMark, size);
         if (score > bestScore) {
             bestScore = score;
             bestMove = move;
@@ -737,7 +647,7 @@ export async function handleCaroCommand(api, message) {
             `💡 Ví dụ:\n` +
             `• ${prefix}caro easy >> Dễ\n` +
             `• ${prefix}caro hard x >> Khó\n` +
-            `• ${prefix}caro master >> Cao thủ (Sử dụng Alpha-Beta Depth 3)\n\n` +
+            `• ${prefix}caro master >> Cao thủ\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
