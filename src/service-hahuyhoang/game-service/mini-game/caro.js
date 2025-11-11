@@ -251,29 +251,31 @@ const DIRECTIONS = [
 ];
 
 const PATTERN_SCORES = {
-    FIVE: 100000000,
-    OPEN_FOUR: 40000000,
-    CLOSED_FOUR: 100000,
-    OPEN_THREE: 50000,
-    CLOSED_THREE: 1000,
-    OPEN_TWO: 500,
-    CLOSED_TWO: 50,
-    OPEN_ONE: 10,
-    CLOSED_ONE: 1
+    FIVE: 1000000000,
+    OPEN_FOUR: 10000000,
+    CLOSED_FOUR: 1000000,
+    OPEN_THREE: 100000,
+    BROKEN_THREE: 50000,
+    CLOSED_THREE: 10000,
+    OPEN_TWO: 1000,
+    CLOSED_TWO: 500,
+    OPEN_ONE: 100,
+    CLOSED_ONE: 10
 };
 
 const FORK_BONUS = {
-    OPEN_FOUR_OPEN_THREE: 90000000,
-    DOUBLE_OPEN_THREE: 80000000,
-    OPEN_FOUR_CLOSED_THREE: 30000000
+    OPEN_FOUR_OPEN_THREE: 50000000,
+    DOUBLE_OPEN_THREE: 20000000,
+    OPEN_FOUR_BROKEN_THREE: 10000000,
+    TRIPLE_OPEN_THREE: 5000000
 };
 
-const DIAGONAL_BONUS_MULTIPLIER = 4.0;
-const OPPONENT_THREAT_MULTIPLIER = 1.5;
+const DIAGONAL_BONUS_MULTIPLIER = 1.5;
+const OPPONENT_THREAT_MULTIPLIER = 3.0;
+const CENTER_BONUS = 100;
 
 const CENTER_MIN = 3;
 const CENTER_MAX = 12;
-const CENTER_BONUS = 50;
 
 const ZOBRIST = {
     table: [],
@@ -312,8 +314,10 @@ function evaluateBoard(board, botMark, playerMark, size) {
     let myScore = 0;
     let oppScore = 0;
     let myOpenThrees = 0;
+    let myBrokenThrees = 0;
     let myOpenFours = 0;
     let oppOpenThrees = 0;
+    let oppBrokenThrees = 0;
     let oppOpenFours = 0;
 
     for (let r = 0; r < size; r++) {
@@ -335,14 +339,18 @@ function evaluateBoard(board, botMark, playerMark, size) {
                 const [dr, dc] = DIRECTIONS[i];
                 let line = [mark];
                 let openEnds = 0;
+                let brokenCount = 0;
                 let count = 1;
 
                 let rB = r - dr;
                 let cB = c - dc;
                 if (rB >= 0 && rB < size && cB >= 0 && cB < size && board[rB * size + cB] === EMPTY) {
                     openEnds++;
+                } else if (rB >= 0 && rB < size && cB >= 0 && cB < size && board[rB * size + cB] === mark) {
+                    brokenCount++;
                 }
 
+                let forwardBroken = 0;
                 for (let k = 1; k < 5; k++) {
                     let rF = r + dr * k;
                     let cF = c + dc * k;
@@ -355,6 +363,7 @@ function evaluateBoard(board, botMark, playerMark, size) {
                     } else if (cell === EMPTY) {
                         openEnds++;
                         line.push(cell);
+                        if (k < 4) forwardBroken++;
                         break;
                     } else {
                         break;
@@ -375,10 +384,13 @@ function evaluateBoard(board, botMark, playerMark, size) {
                         lineScore = PATTERN_SCORES.CLOSED_FOUR;
                     }
                 } else if (count === 3) {
-                    if (openEnds === 2) {
+                    if (openEnds === 2 && brokenCount === 0) {
                         lineScore = PATTERN_SCORES.OPEN_THREE;
                         if(isMyMark) myOpenThrees++; else oppOpenThrees++;
-                    } else if (openEnds === 1) {
+                    } else if (openEnds === 1 || brokenCount > 0) {
+                        lineScore = PATTERN_SCORES.BROKEN_THREE;
+                        if(isMyMark) myBrokenThrees++; else oppBrokenThrees++;
+                    } else {
                         lineScore = PATTERN_SCORES.CLOSED_THREE;
                     }
                 } else if (count === 2) {
@@ -395,9 +407,12 @@ function evaluateBoard(board, botMark, playerMark, size) {
     }
 
     if (myOpenFours > 0 && myOpenThrees > 0) myScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
+    else if (myOpenFours > 0 && myBrokenThrees > 0) myScore += FORK_BONUS.OPEN_FOUR_BROKEN_THREE;
     else if (myOpenThrees > 1) myScore += FORK_BONUS.DOUBLE_OPEN_THREE;
+    else if (myOpenThrees > 2) myScore += FORK_BONUS.TRIPLE_OPEN_THREE;
 
     if (oppOpenFours > 0 && oppOpenThrees > 0) oppScore += FORK_BONUS.OPEN_FOUR_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    else if (oppOpenFours > 0 && oppBrokenThrees > 0) oppScore += FORK_BONUS.OPEN_FOUR_BROKEN_THREE * OPPONENT_THREAT_MULTIPLIER;
     else if (oppOpenThrees > 1) oppScore += FORK_BONUS.DOUBLE_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
 
     return myScore - oppScore;
@@ -420,48 +435,58 @@ function quickHeuristic(board, move, myMark, oppMark, size) {
     const oppAnalysis = analyzeMove(board, move, oppMark, size);
     board[move] = EMPTY;
     
-    if (myAnalysis.five) return PATTERN_SCORES.FIVE + 1000;
-    if (oppAnalysis.five) return PATTERN_SCORES.FIVE;
+    if (myAnalysis.five) return PATTERN_SCORES.FIVE + 10000;
+    if (oppAnalysis.five) return -PATTERN_SCORES.FIVE * 2;
     
     if (myAnalysis.openFour && myAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE;
+    if (myAnalysis.openFour && myAnalysis.brokenThree) score += FORK_BONUS.OPEN_FOUR_BROKEN_THREE;
     if (myAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE;
+    if (myAnalysis.openThree > 2) score += FORK_BONUS.TRIPLE_OPEN_THREE;
     
-    if (oppAnalysis.openFour && oppAnalysis.openThree) score += FORK_BONUS.OPEN_FOUR_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
-    if (oppAnalysis.openThree > 1) score += FORK_BONUS.DOUBLE_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    if (oppAnalysis.openFour && oppAnalysis.openThree) score -= FORK_BONUS.OPEN_FOUR_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    if (oppAnalysis.openFour && oppAnalysis.brokenThree) score -= FORK_BONUS.OPEN_FOUR_BROKEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    if (oppAnalysis.openThree > 1) score -= FORK_BONUS.DOUBLE_OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
 
     score += myAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR;
     score += myAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR;
     score += myAnalysis.openThree * PATTERN_SCORES.OPEN_THREE;
+    score += myAnalysis.brokenThree * PATTERN_SCORES.BROKEN_THREE;
     
-    score += oppAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR * OPPONENT_THREAT_MULTIPLIER * 0.9;
-    score += oppAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR * OPPONENT_THREAT_MULTIPLIER * 0.9;
-    score += oppAnalysis.openThree * PATTERN_SCORES.OPEN_THREE * OPPONENT_THREAT_MULTIPLIER * 0.9;
+    score -= oppAnalysis.openFour * PATTERN_SCORES.OPEN_FOUR * OPPONENT_THREAT_MULTIPLIER;
+    score -= oppAnalysis.closedFour * PATTERN_SCORES.CLOSED_FOUR * OPPONENT_THREAT_MULTIPLIER;
+    score -= oppAnalysis.openThree * PATTERN_SCORES.OPEN_THREE * OPPONENT_THREAT_MULTIPLIER;
+    score -= oppAnalysis.brokenThree * PATTERN_SCORES.BROKEN_THREE * OPPONENT_THREAT_MULTIPLIER;
 
     return score;
 }
 
 function analyzeMove(board, pos, mark, size) {
-    let five = 0, openFour = 0, closedFour = 0, openThree = 0;
+    let five = 0, openFour = 0, closedFour = 0, openThree = 0, brokenThree = 0;
     const r = Math.floor(pos / size);
     const c = pos % size;
 
     for (const [dr, dc] of DIRECTIONS) {
         let count = 1;
         let openEnds = 0;
+        let broken = 0;
 
+        let forwardOpen = 0;
         for (let i = 1; i < 5; i++) {
             const rF = r + dr * i, cF = c + dc * i;
             if (rF < 0 || rF >= size || cF < 0 || cF >= size || board[rF * size + cF] !== mark) {
                 if (rF >= 0 && rF < size && cF >= 0 && cF < size && board[rF * size + cF] === EMPTY) openEnds++;
+                if (i < 4 && board[rF * size + cF] === EMPTY) forwardOpen++;
                 break;
             }
             count++;
         }
 
+        let backwardOpen = 0;
         for (let i = 1; i < 5; i++) {
             const rB = r - dr * i, cB = c - dc * i;
             if (rB < 0 || rB >= size || cB < 0 || cB >= size || board[rB * size + cB] !== mark) {
                 if (rB >= 0 && rB < size && cB >= 0 && cB < size && board[rB * size + cB] === EMPTY) openEnds++;
+                if (i < 4 && board[rB * size + cB] === EMPTY) backwardOpen++;
                 break;
             }
             count++;
@@ -473,9 +498,10 @@ function analyzeMove(board, pos, mark, size) {
             else if (openEnds === 1) closedFour++;
         } else if (count === 3) {
             if (openEnds === 2) openThree++;
+            else if (openEnds >= 1 || broken > 0 || forwardOpen + backwardOpen > 0) brokenThree++;
         }
     }
-    return { five, openFour, closedFour, openThree };
+    return { five, openFour, closedFour, openThree, brokenThree };
 }
 
 function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
@@ -484,7 +510,7 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
     }
 
     const candidateSet = new Set();
-    const neighborRadius = 2;
+    const neighborRadius = 3;
 
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) {
@@ -503,7 +529,7 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
         }
     }
 
-    if (moveCount < 10) {
+    if (moveCount < 15) {
         for (let r = CENTER_MIN; r <= CENTER_MAX; r++) {
             for (let c = CENTER_MIN; c <= CENTER_MAX; c++) {
                 if (board[r * size + c] === EMPTY) {
@@ -521,7 +547,7 @@ function generateCandidateMoves(board, size, moveCount, botMark, playerMark) {
 
     scoredMoves.sort((a, b) => b.score - a.score);
 
-    const MAX_CANDIDATES = 12;
+    const MAX_CANDIDATES = 20;
     return scoredMoves.slice(0, MAX_CANDIDATES).map(m => m.move);
 }
 
@@ -614,13 +640,13 @@ function getBestMove(board, playerMark, botMark, mode, size, moveCount) {
     
     const currentHash = ZOBRIST.computeHash(board, size, playerMark, botMark);
 
-    const DEPTHS = { easy: 2, hard: 3, master: 4 };
-    const MAX_DEPTH = DEPTHS[mode] || 2;
+    const DEPTHS = { easy: 3, hard: 4, master: 6 };
+    const MAX_DEPTH = DEPTHS[mode] || 3;
 
     let bestMove = -1;
     let orderedMoves = [];
 
-    for (let currentDepth = 2; currentDepth <= MAX_DEPTH; currentDepth += 1) {
+    for (let currentDepth = 1; currentDepth <= MAX_DEPTH; currentDepth += 1) {
         let alpha = -Infinity;
         let beta = Infinity;
         let currentBestScore = -Infinity;
@@ -677,6 +703,7 @@ function getAIMove(board, playerMark, mode, size = 16) {
         board[i] = EMPTY;
     }
     
+    let defenseMoves = [];
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== EMPTY) continue;
         board[i] = playerMark;
@@ -687,17 +714,21 @@ function getAIMove(board, playerMark, mode, size = 16) {
             return i;
         }
         
-        if (analysis.openFour > 0 || analysis.closedFour > 0) {
-            board[i] = EMPTY;
-            return i;
-        }
+        let threatScore = 0;
+        if (analysis.openFour > 0 || analysis.closedFour > 0) threatScore = 100000;
+        else if (analysis.openThree > 0) threatScore = 10000;
+        else if (analysis.brokenThree > 0) threatScore = 1000;
         
-        if (analysis.openThree > 0) {
-            board[i] = EMPTY;
-            return i;
+        if (threatScore > 0) {
+            defenseMoves.push({ move: i, score: threatScore });
         }
         
         board[i] = EMPTY;
+    }
+    
+    if (defenseMoves.length > 0) {
+        defenseMoves.sort((a, b) => b.score - a.score);
+        return defenseMoves[0].move;
     }
 
     const moveCount = board.filter(cell => cell !== EMPTY).length;
