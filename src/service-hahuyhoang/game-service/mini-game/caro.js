@@ -28,10 +28,10 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         if (!game) return;
         
         if (isPlayerTurn) {
-            const caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này`;
-            await sendMessageTag(api, message, { caption });
+            const caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
+            await sendMessageTag(api, message, { caption }, 86400000);
         } else {
-            const caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này`;
+            const caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
             await sendMessageTag(api, message, { caption });
         }
         
@@ -67,7 +67,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.fillText(`X: ${playerName}`, 20, 30);
     } else {
         ctx.fillStyle = "#FF0000";
-        ctx.fillText("X: BOT", 20, 30);
+        ctx.fillText("X: BOt", 20, 30);
     }
 
     ctx.textAlign = "right";
@@ -76,7 +76,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.fillText(`O: ${playerName}`, width - 20, 30);
     } else {
         ctx.fillStyle = "#0000FF";
-        ctx.fillText("O: BOT", width - 20, 30);
+        ctx.fillText("O: BOt", width - 20, 30);
     }
     
     const boardTop = headerHeight;
@@ -469,7 +469,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     const modeName = game.mode === "master" ? "cao thủ" : game.mode === "hard" ? "khó" : "dễ";
     
     if (winResult) {
-        const caption = `🤖 BOT WIN!\n\n🎮 BOT đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Rút kinh nghiệm và thử lại lần sau nhé!`;
+        const caption = `🤖 BOT WIN!\n\n🎮 BOt đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Rút kinh nghiệm và thử lại lần sau nhé!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -479,7 +479,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
-        const caption = `🏆 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao.\n🎯 Cả bạn và Bot đều chơi xuất sắc!`;
+        const caption = `🏆 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và BOT đều chơi xuất sắc!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -489,7 +489,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
     } else {
-        const initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🌟 Bot đi trước (Quân X)` : "";
+        const initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân X)` : "";
         
         const caption = `${initialMessage}\n\n🤖 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
         await sendMessageTag(api, message, {
@@ -517,13 +517,13 @@ export async function handleCaroCommand(api, message) {
     
     if (args.length < 2) {
         await sendMessageComplete(api, message, 
-            `🎮 CỜ CARO - THÁCH ĐẤU TRÍ TUỆ\n\n` +
-            `📌 Cú pháp:\n` +
+            `🎮 CỜ CARO - THỬ THÁCH TRÍ TUỆ\n\n` +
+            `🌟 Cú pháp:\n` +
             `${prefix}caro [easy/hard/master] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
-            `• ${prefix}caro easy - Dễ, ngẫu nhiên X/O\n` +
-            `• ${prefix}caro hard x - Khó, bạn chọn X\n` +
-            `• ${prefix}caro master o - Siêu khó, bạn chọn O\n\n` +
+            `• ${prefix}caro easy >> Dễ\n` +
+            `• ${prefix}caro hard x >> Khó\n` +
+            `• ${prefix}caro master >> Cao thủ\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -594,7 +594,7 @@ export async function handleCaroCommand(api, message) {
         try {
             await fs.unlink(imagePath);
         } catch (error) {}
-    });
+    } else {
         activeCaroGames.get(threadId).isProcessing = true;
         handleBotTurn(api, message, true);
     }
@@ -615,7 +615,7 @@ export async function handleCaroMessage(api, message) {
     
     if (content.trim().toLowerCase() === "lose") {
         clearTurnTimer(threadId);
-        const caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 Bot chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
+        const caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 BOT đã dành chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
         await sendMessageTag(api, message, {
             caption
         });
@@ -667,7 +667,7 @@ export async function handleCaroMessage(api, message) {
         } catch (error) {}
         return;
     } else if (game.moveCount === game.size * game.size) {
-        const caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và bot đều chơi rất xuất sắc!`;
+        const caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
