@@ -241,12 +241,19 @@ function checkWin(board, size = 16) {
     return null;
 }
 
+/**
+ * Điều chỉnh độ sâu tìm kiếm cho Minimax/Alpha-Beta Pruning.
+ * Đã giới hạn tối đa là 4 theo yêu cầu để đảm bảo tốc độ phản hồi nhanh.
+ */
 function getDifficulty(mode) {
     switch (mode) {
-        case "easy": return 4;
-        case "hard": return 6;
-        case "master": return 8;
-        default: return 4;
+        // Dễ: Độ sâu 2 cho phản hồi tức thì
+        case "easy": return 2;
+        // Khó: Độ sâu 3
+        case "hard": return 3;
+        // Cao thủ: Độ sâu 4 (Mức tối đa được yêu cầu)
+        case "master": return 4;
+        default: return 2;
     }
 }
 
@@ -469,82 +476,3 @@ export async function handleCaroMessage(api, message) {
     if (!game) return;
     if (game.isProcessing) return;
     if (message.data.uidFrom !== game.playerId) return;
-    if (game.currentTurn !== game.playerMark) return;
-    
-    let content = message.data.content || "";
-    
-    if (message.data.mentions && message.data.mentions.length > 0) return;
-    
-    if (content.trim().toLowerCase() === "lose") {
-        clearTurnTimer(threadId);
-        let caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 BOT đã dành chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
-        await sendMessageTag(api, message, {
-            caption
-        }, TTL_LONG);
-        activeCaroGames.delete(threadId);
-        return;
-    }
-    
-    if (!/^\d+$/.test(String(content).trim())) return;
-
-    clearTurnTimer(threadId);
-    
-    let pos = parseInt(content.trim(), 10) - 1;
-    
-    if (pos < 0 || pos >= game.size * game.size) {
-        await sendMessageWarning(api, message, `🚫 Số ô không hợp lệ!\nVui lòng chọn từ 1 đến ${game.size * game.size}`, TTL_SHORT);
-        startTurnTimer(api, message, threadId, true);
-        return;
-    }
-    
-    if (game.board[pos] !== ".") {
-        await sendMessageWarning(api, message, "⚠️ Ô này đã có quân cờ rồi!\nHãy chọn một ô trống khác", TTL_SHORT);
-        startTurnTimer(api, message, threadId, true);
-        return;
-    }
-    
-    game.isProcessing = true;
-    game.board[pos] = game.playerMark;
-    game.currentTurn = game.botMark;
-    game.moveCount++;
-    
-    let winResult = checkWin(game.board, game.size);
-    
-    let winningLine = winResult ? winResult.line : [];
-    
-    let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
-    let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
-    await fs.writeFile(imagePath, imageBuffer);
-    
-    if (winResult) {
-        let caption = `👑 PLAYER WIN!\n\n👤 ${game.playerName} đánh ô số: ${pos + 1}\n🏆 Chúc mừng một chiến thắng xuất sắc!\n\n🌟 Bạn đã chơi rất hay trong ván cờ này.`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, TTL_LONG);
-        activeCaroGames.delete(threadId);
-        clearTurnTimer(threadId);
-        try {
-            await fs.unlink(imagePath);
-        } catch (error) {}
-        return;
-    } else if (game.moveCount === game.size * game.size) {
-        let caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
-        await sendMessageTag(api, message, {
-            caption,
-            imagePath
-        }, TTL_LONG);
-        activeCaroGames.delete(threadId);
-        clearTurnTimer(threadId);
-        try {
-            await fs.unlink(imagePath);
-        } catch (error) {}
-        return;
-    }
-    
-    try {
-        await fs.unlink(imagePath);
-    } catch (error) {}
-    
-    handleBotTurn(api, message);
-}
