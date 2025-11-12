@@ -2,6 +2,7 @@ import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Worker } from "worker_threads";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
@@ -11,6 +12,7 @@ const __dirname = path.dirname(__filename);
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
+let aiWorkers = new Map();
 
 const TTL_LONG = 3600000; 
 const TTL_SHORT = 60000;
@@ -240,302 +242,75 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
-
-function analyzePattern(board, pos, mark, size) {
-    let r = Math.floor(pos / size);
-    let c = pos % size;
-    let patterns = [];
+function convertBoardToBitboard(board1D, size = 16) {
+    const BOARD_SIZE = size;
+    const BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
+    const BITBOARD_SLOTS = Math.ceil(BOARD_CELLS / 32);
+    let blackBitboard = new Array(BITBOARD_SLOTS).fill(0);
+    let whiteBitboard = new Array(BITBOARD_SLOTS).fill(0);
     
-    for (let [dr, dc] of DIRECTIONS) {
-        let count = 1;
-        let leftOpen = false;
-        let rightOpen = false;
-        let leftPos = null;
-        let rightPos = null;
-        
-        for (let i = 1; i <= 4; i++) {
-            let nr = r + dr * i;
-            let nc = c + dc * i;
-            if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
-            let idx = nr * size + nc;
-            if (board[idx] === mark) {
-                count++;
-            } else if (board[idx] === ".") {
-                rightOpen = true;
-                rightPos = idx;
-                break;
-            } else {
-                break;
-            }
+    for (let i = 0; i < board1D.length; i++) {
+        if (board1D[i] === "X") {
+            const slot = Math.floor(i / 32);
+            const bit = i % 32;
+            if (slot < BITBOARD_SLOTS) blackBitboard[slot] |= (1 << bit);
+        } else if (board1D[i] === "O") {
+            const slot = Math.floor(i / 32);
+            const bit = i % 32;
+            if (slot < BITBOARD_SLOTS) whiteBitboard[slot] |= (1 << bit);
         }
+    }
+    
+    return { blackBitboard, whiteBitboard };
+}
+
+function convertMoveTo1D(move, size = 16) {
+    if (move && move.row !== undefined && move.col !== undefined) {
+        return move.row * size + move.col;
+    }
+    return -1;
+}
+
+function getDifficulty(mode) {
+    switch (mode) {
+        case "easy": return "easy";
+        case "hard": return "medium";
+        case "master": return "hard";
+        default: return "easy";
+    }
+}
+
+function getWorkerPath() {
+    return path.resolve(__dirname, "workers", "ai-worker.js");
+}
+
+async function getAIMoveGkoos(board1D, playerMark, mode, size = 16) {
+    return new Promise((resolve, reject) => {
+        const workerPath = getWorkerPath();
+        const worker = new Worker(workerPath, { workerData: { size } });
         
-        for (let i = 1; i <= 4; i++) {
-            let nr = r - dr * i;
-            let nc = c - dc * i;
-            if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
-            let idx = nr * size + nc;
-            if (board[idx] === mark) {
-                count++;
-            } else if (board[idx] === ".") {
-                leftOpen = true;
-                leftPos = idx;
-                break;
-            } else {
-                break;
-            }
-        }
+        const { blackBitboard, whiteBitboard } = convertBoardToBitboard(board1D, size);
+        const computerPlayer = playerMark === "X" ? "white" : "black"; // Adapt: Assume bot is opposite
+        const humanPlayer = playerMark;
+        const difficulty = getDifficulty(mode);
         
-        patterns.push({
-            count,
-            leftOpen,
-            rightOpen,
-            leftPos,
-            rightPos,
-            direction: [dr, dc]
+        worker.postMessage({
+            type: "FIND_BEST_MOVE",
+            data: { blackBitboard, whiteBitboard, computerPlayer, humanPlayer, difficulty }
         });
-    }
-    
-    return patterns;
-}
-
-function findWinningMove(board, mark, size) {
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] === ".") {
-            board[i] = mark;
-            if (checkWinAt(board, i, mark, size)) {
-                board[i] = ".";
-                return i;
+        
+        worker.on("message", (msg) => {
+            if (msg.type === "BEST_MOVE_FOUND") {
+                const pos1D = convertMoveTo1D(msg.move, size);
+                resolve(pos1D);
             }
-            board[i] = ".";
-        }
-    }
-    return -1;
-}
-
-function findBlockingMove(board, mark, oppMark, size) {
-    let threats = [];
-    
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== ".") continue;
+        });
         
-        let patterns = analyzePattern(board, i, oppMark, size);
-        
-        for (let pattern of patterns) {
-            if (pattern.count >= 3 && (pattern.leftOpen || pattern.rightOpen)) {
-                let isBlocked = false;
-                
-                if (pattern.leftOpen && pattern.leftPos !== null) {
-                    let leftR = Math.floor(pattern.leftPos / size);
-                    let leftC = pattern.leftPos % size;
-                    let checkR = leftR - pattern.direction[0];
-                    let checkC = leftC - pattern.direction[1];
-                    if (checkR >= 0 && checkR < size && checkC >= 0 && checkC < size) {
-                        let checkIdx = checkR * size + checkC;
-                        if (board[checkIdx] === mark) {
-                            isBlocked = true;
-                        }
-                    }
-                }
-                
-                if (pattern.rightOpen && pattern.rightPos !== null) {
-                    let rightR = Math.floor(pattern.rightPos / size);
-                    let rightC = pattern.rightPos % size;
-                    let checkR = rightR + pattern.direction[0];
-                    let checkC = rightC + pattern.direction[1];
-                    if (checkR >= 0 && checkR < size && checkC >= 0 && checkC < size) {
-                        let checkIdx = checkR * size + checkC;
-                        if (board[checkIdx] === mark) {
-                            isBlocked = true;
-                        }
-                    }
-                }
-                
-                if (!isBlocked) {
-                    let priority = pattern.count === 4 ? 1000 : pattern.count === 3 ? 100 : 10;
-                    if (pattern.leftOpen && pattern.rightOpen) priority *= 2;
-                    
-                    if (pattern.leftOpen && pattern.leftPos !== null) {
-                        threats.push({ pos: pattern.leftPos, priority });
-                    }
-                    if (pattern.rightOpen && pattern.rightPos !== null) {
-                        threats.push({ pos: pattern.rightPos, priority });
-                    }
-                }
-            }
-        }
-    }
-    
-    if (threats.length > 0) {
-        threats.sort((a, b) => b.priority - a.priority);
-        return threats[0].pos;
-    }
-    
-    return -1;
-}
-
-function findDoubleThreatMove(board, mark, size) {
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== ".") continue;
-        
-        board[i] = mark;
-        let patterns = analyzePattern(board, i, mark, size);
-        board[i] = ".";
-        
-        let openThrees = 0;
-        let openFours = 0;
-        
-        for (let pattern of patterns) {
-            if (pattern.count >= 3 && pattern.leftOpen && pattern.rightOpen) {
-                if (pattern.count === 4) openFours++;
-                else if (pattern.count === 3) openThrees++;
-            }
-        }
-        
-        if (openFours >= 1 || openThrees >= 2) {
-            return i;
-        }
-    }
-    
-    return -1;
-}
-
-function findSplitAttackMove(board, mark, size) {
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== ".") continue;
-        
-        let r = Math.floor(i / size);
-        let c = i % size;
-        
-        for (let [dr, dc] of DIRECTIONS) {
-            let positions = [];
-            for (let step = -4; step <= 4; step++) {
-                if (step === 0) continue;
-                let nr = r + dr * step;
-                let nc = c + dc * step;
-                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-                    let idx = nr * size + nc;
-                    positions.push({ idx, step, val: board[idx] });
-                }
-            }
-            
-            let myCount = positions.filter(p => p.val === mark).length;
-            let emptyCount = positions.filter(p => p.val === ".").length;
-            
-            if (myCount >= 2 && emptyCount >= 3) {
-                let hasGoodGap = false;
-                for (let p of positions) {
-                    if (p.val === mark) {
-                        let gapLeft = positions.find(x => x.step === p.step - 1);
-                        let gapRight = positions.find(x => x.step === p.step + 1);
-                        if ((gapLeft && gapLeft.val === ".") || (gapRight && gapRight.val === ".")) {
-                            hasGoodGap = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasGoodGap) return i;
-            }
-        }
-    }
-    
-    return -1;
-}
-
-function getCandidateMoves(board, size, mark) {
-    let candidates = new Set();
-    
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== ".") {
-            let r = Math.floor(i / size);
-            let c = i % size;
-            
-            for (let dr = -2; dr <= 2; dr++) {
-                for (let dc = -2; dc <= 2; dc++) {
-                    if (dr === 0 && dc === 0) continue;
-                    let nr = r + dr;
-                    let nc = c + dc;
-                    if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-                        let idx = nr * size + nc;
-                        if (board[idx] === ".") {
-                            candidates.add(idx);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    if (candidates.size === 0) {
-        let center = Math.floor(size / 2);
-        candidates.add(center * size + center);
-    }
-    
-    return Array.from(candidates);
-}
-
-function evaluatePosition(board, pos, mark, oppMark, size) {
-    let score = 0;
-    let r = Math.floor(pos / size);
-    let c = pos % size;
-    let center = Math.floor(size / 2);
-    
-    let distToCenter = Math.abs(r - center) + Math.abs(c - center);
-    score += Math.max(0, 15 - distToCenter);
-    
-    board[pos] = mark;
-    let myPatterns = analyzePattern(board, pos, mark, size);
-    board[pos] = ".";
-    
-    for (let p of myPatterns) {
-        if (p.count >= 4) score += 5000;
-        else if (p.count === 3 && p.leftOpen && p.rightOpen) score += 500;
-        else if (p.count === 3) score += 100;
-        else if (p.count === 2 && p.leftOpen && p.rightOpen) score += 50;
-    }
-    
-    board[pos] = oppMark;
-    let oppPatterns = analyzePattern(board, pos, oppMark, size);
-    board[pos] = ".";
-    
-    for (let p of oppPatterns) {
-        if (p.count >= 4) score += 4000;
-        else if (p.count === 3 && p.leftOpen && p.rightOpen) score += 400;
-        else if (p.count === 3) score += 80;
-    }
-    
-    return score;
-}
-
-function getAIMove(board, playerMark, mode, size = 16) {
-    let botMark = playerMark === "X" ? "O" : "X";
-    
-    let winMove = findWinningMove(board, botMark, size);
-    if (winMove !== -1) return winMove;
-    
-    let blockMove = findBlockingMove(board, botMark, playerMark, size);
-    if (blockMove !== -1) return blockMove;
-    
-    let doubleThreat = findDoubleThreatMove(board, botMark, size);
-    if (doubleThreat !== -1) return doubleThreat;
-    
-    let splitAttack = findSplitAttackMove(board, botMark, size);
-    if (splitAttack !== -1) return splitAttack;
-    
-    let candidates = getCandidateMoves(board, size, botMark);
-    
-    let bestMove = candidates[0];
-    let bestScore = -Infinity;
-    
-    for (let move of candidates) {
-        let score = evaluatePosition(board, move, botMark, playerMark, size);
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-        }
-    }
-    
-    return bestMove;
+        worker.on("error", reject);
+        worker.on("exit", (code) => {
+            if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`));
+        });
+    });
 }
 
 async function handleBotTurn(api, message, initialTurn = false) {
@@ -549,7 +324,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
-    let pos = getAIMove(game.board, game.playerMark, game.mode, game.size);
+    let pos = await getAIMoveGkoos(game.board, game.playerMark, game.mode, game.size);
     
     clearTurnTimer(threadId);
     
@@ -615,7 +390,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     } else {
         let initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân X)` : "";
         
-        let caption = `${initialMessage}\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Hãy suy nghĩ kỹ trước khi đánh!`;
+        let caption = `${initialMessage}\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Timing kĩ trước khi đánh nhé`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
