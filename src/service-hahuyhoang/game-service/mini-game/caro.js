@@ -202,146 +202,170 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-const SCORE_PATTERNS = {
-    FIVE: 1000000,
-    LIVE_FOUR: 50000,
-    DEAD_FOUR: 5000,
-    LIVE_THREE: 1000,
-    DEAD_THREE: 100,
-    LIVE_TWO: 10,
-    DEAD_TWO: 1,
-};
-
-function evaluateDirection(board, row, col, dr, dc, player, size) {
-    let pattern = "";
-    const opponent = player === "X" ? "O" : "X";
-
-    for (let i = -4; i <= 4; i++) {
-        if (i === 0) {
-            pattern += 'O';
-            continue;
-        }
-
-        const r = row + i * dr;
-        const c = col + i * dc;
-        const idx = r * size + c;
-
-        if (r < 0 || r >= size || c < 0 || c >= size) {
-            pattern += 'X';
-        } else if (board[idx] === player) {
-            pattern += 'O';
-        } else if (board[idx] === opponent) {
-            pattern += 'X';
-        } else {
-            pattern += '_';
-        }
+function getScoreForLine({ count, openEnds }) {
+    if (count >= 5) return 100000;
+    if (count === 4) {
+        if (openEnds === 2) return 10000;
+        if (openEnds === 1) return 1000;
     }
-
-    if (pattern.includes("OOOOO")) return SCORE_PATTERNS.FIVE;
-    if (pattern.includes("_OOOO_")) return SCORE_PATTERNS.LIVE_FOUR;
-
-    if (pattern.includes("XOOOO_")) return SCORE_PATTERNS.DEAD_FOUR;
-    if (pattern.includes("_OOOOX")) return SCORE_PATTERNS.DEAD_FOUR;
-    if (pattern.includes("OOO_O")) return SCORE_PATTERNS.DEAD_FOUR;
-    if (pattern.includes("O_OOO")) return SCORE_PATTERNS.DEAD_FOUR;
-    if (pattern.includes("OO_OO")) return SCORE_PATTERNS.DEAD_FOUR;
-
-    if (pattern.includes("_OOO_")) return SCORE_PATTERNS.LIVE_THREE;
-    if (pattern.includes("_O_OO_")) return SCORE_PATTERNS.LIVE_THREE;
-    if (pattern.includes("_OO_O_")) return SCORE_PATTERNS.LIVE_THREE;
-
-    if (pattern.includes("XOOO_")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("_OOOX")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("XO_OO_")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("_OO_OX")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("XOO_O_")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("_O_OOX")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("O_O_O")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("O_OO_")) return SCORE_PATTERNS.DEAD_THREE;
-
-    if (pattern.includes("__OO__")) return SCORE_PATTERNS.LIVE_TWO;
-    if (pattern.includes("_O_O_")) return SCORE_PATTERNS.LIVE_TWO;
-    if (pattern.includes("_OO__")) return SCORE_PATTERNS.LIVE_TWO;
-    if (pattern.includes("__OO_")) return SCORE_PATTERNS.LIVE_TWO;
-
-    if (pattern.includes("XOO___")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("___OOX")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("XO_O_")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("_O_OX")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("X_OO_")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("_OO_X")) return SCORE_PATTERNS.DEAD_TWO;
-
-    return 0;
+    if (count === 3) {
+        if (openEnds === 2) return 1000;
+        if (openEnds === 1) return 100;
+    }
+    if (count === 2) {
+        if (openEnds === 2) return 100;
+        if (openEnds === 1) return 10;
+    }
+    return count;
 }
 
-function calculateScore(board, row, col, player, size) {
-    let score = 0;
-    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+function countConsecutive(board, row, col, dx, dy, player, size) {
+    let count = 1;
+    let openEnds = 0;
 
-    for (const [dr, dc] of directions) {
-        score += evaluateDirection(board, row, col, dr, dc, player, size);
+    let newRow = row + dx;
+    let newCol = col + dy;
+    while (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === player
+    ) {
+        count++;
+        newRow += dx;
+        newCol += dy;
+    }
+    if (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === '.'
+    ) {
+        openEnds++;
     }
 
-    return score;
+    newRow = row - dx;
+    newCol = col - dy;
+    while (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === player
+    ) {
+        count++;
+        newRow -= dx;
+        newCol -= dy;
+    }
+    if (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === '.'
+    ) {
+        openEnds++;
+    }
+
+    return { count, openEnds };
 }
 
-function findBestMove(board, botMark, playerMark, size, mode) {
-    let movesWithScores = [];
+function evaluateAllDirections(board, row, col, player, size) {
+    const directions = [
+        [0, 1],
+        [1, 0],
+        [1, 1],
+        [1, -1]
+    ];
+
+    let totalScore = 0;
+
+    for (let [dx, dy] of directions) {
+        const lineInfo = countConsecutive(board, row, col, dx, dy, player, size);
+        totalScore += getScoreForLine(lineInfo);
+    }
+
+    return totalScore;
+}
+
+function evaluatePosition(board, pos, aiPlayer, opponent, size, mode) {
+    const row = Math.floor(pos / size);
+    const col = pos % size;
+
+    let defensiveWeight;
+    switch (mode) {
+        case 'master':
+            defensiveWeight = 1.4;
+            break;
+        case 'hard':
+            defensiveWeight = 1.2;
+            break;
+        case 'easy':
+        default:
+            defensiveWeight = 0.8;
+            break;
+    }
+
+    board[pos] = aiPlayer;
+    const aiScore = evaluateAllDirections(board, row, col, aiPlayer, size);
+    
+    board[pos] = opponent;
+    const playerScore = evaluateAllDirections(board, row, col, opponent, size);
+
+    board[pos] = '.';
+    
+    return aiScore + playerScore * defensiveWeight;
+}
+
+function isEmptyBoard(board) {
+    return board.every(cell => cell === '.');
+}
+
+function getCandidatePositions(board, size) {
+    if (isEmptyBoard(board)) {
+        const center = Math.floor(size / 2);
+        return [center * size + center];
+    }
+
+    const candidates = new Set();
+    const range = 2; 
 
     for (let i = 0; i < size * size; i++) {
-        if (board[i] === ".") {
+        if (board[i] !== '.') {
             const r = Math.floor(i / size);
             const c = i % size;
-
-            const aiScore = calculateScore(board, r, c, botMark, size);
-
-            let defensiveWeight;
-            switch (mode) {
-                case 'master':
-                    defensiveWeight = 1.4;
-                    break;
-                case 'hard':
-                    defensiveWeight = 1.2;
-                    break;
-                case 'easy':
-                default:
-                    defensiveWeight = 0.8;
-                    break;
+            for (let dr = -range; dr <= range; dr++) {
+                for (let dc = -range; dc <= range; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = r + dr;
+                    const newCol = c + dc;
+                    const newIdx = newRow * size + newCol;
+                    if (
+                        newRow >= 0 && newRow < size &&
+                        newCol >= 0 && newCol < size &&
+                        board[newIdx] === '.'
+                    ) {
+                        candidates.add(newIdx);
+                    }
+                }
             }
-
-            const playerScore = calculateScore(board, r, c, playerMark, size);
-            const totalScore = aiScore + playerScore * defensiveWeight;
-
-            movesWithScores.push({ pos: i, score: totalScore });
         }
     }
-
-    if (movesWithScores.length === 0) return -1;
-
-    movesWithScores.sort((a, b) => b.score - a.score);
-
-    return movesWithScores[0].pos;
+    return Array.from(candidates);
 }
 
-
 function getAIMove(game) {
-    const { board, botMark, playerMark, size, moveCount, mode } = game;
+    const { board, botMark, playerMark, size, mode } = game;
+    
+    const candidates = getCandidatePositions(board, size);
+    if (candidates.length === 0) return -1;
 
-    if (moveCount === 0 && botMark === 'X') {
-        const center = Math.floor(size / 2);
-        const centerPositions = [
-            (center - 1) * size + (center - 1),
-            (center - 1) * size + center,
-            center * size + (center - 1),
-            center * size + center
-        ];
-        const validCenterPositions = centerPositions.filter(p => board[p] === '.');
-        if (validCenterPositions.length > 0) {
-            return validCenterPositions[Math.floor(Math.random() * validCenterPositions.length)];
+    let bestScore = -Infinity;
+    let bestMove = candidates[0];
+
+    for (const pos of candidates) {
+        const score = evaluatePosition(board, pos, botMark, playerMark, size, mode);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = pos;
         }
     }
-
-    return findBestMove(board, botMark, playerMark, size, mode);
+    
+    return bestMove;
 }
 
 
