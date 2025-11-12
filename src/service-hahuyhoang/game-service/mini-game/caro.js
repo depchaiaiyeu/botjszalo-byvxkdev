@@ -239,17 +239,37 @@ function evaluateDirection(board, row, col, dr, dc, player, size) {
 
     if (pattern.includes("OOOOO")) return SCORE_PATTERNS.FIVE;
     if (pattern.includes("_OOOO_")) return SCORE_PATTERNS.LIVE_FOUR;
+
     if (pattern.includes("XOOOO_")) return SCORE_PATTERNS.DEAD_FOUR;
     if (pattern.includes("_OOOOX")) return SCORE_PATTERNS.DEAD_FOUR;
-    if (pattern.includes("OO_OO")) return SCORE_PATTERNS.DEAD_FOUR;
     if (pattern.includes("OOO_O")) return SCORE_PATTERNS.DEAD_FOUR;
+    if (pattern.includes("O_OOO")) return SCORE_PATTERNS.DEAD_FOUR;
+    if (pattern.includes("OO_OO")) return SCORE_PATTERNS.DEAD_FOUR;
+
     if (pattern.includes("_OOO_")) return SCORE_PATTERNS.LIVE_THREE;
+    if (pattern.includes("_O_OO_")) return SCORE_PATTERNS.LIVE_THREE;
+    if (pattern.includes("_OO_O_")) return SCORE_PATTERNS.LIVE_THREE;
+
     if (pattern.includes("XOOO_")) return SCORE_PATTERNS.DEAD_THREE;
     if (pattern.includes("_OOOX")) return SCORE_PATTERNS.DEAD_THREE;
+    if (pattern.includes("XO_OO_")) return SCORE_PATTERNS.DEAD_THREE;
+    if (pattern.includes("_OO_OX")) return SCORE_PATTERNS.DEAD_THREE;
+    if (pattern.includes("XOO_O_")) return SCORE_PATTERNS.DEAD_THREE;
+    if (pattern.includes("_O_OOX")) return SCORE_PATTERNS.DEAD_THREE;
+    if (pattern.includes("O_O_O")) return SCORE_PATTERNS.DEAD_THREE;
     if (pattern.includes("O_OO_")) return SCORE_PATTERNS.DEAD_THREE;
-    if (pattern.includes("_OO_")) return SCORE_PATTERNS.LIVE_TWO;
-    if (pattern.includes("XOO_")) return SCORE_PATTERNS.DEAD_TWO;
-    if (pattern.includes("_OOX")) return SCORE_PATTERNS.DEAD_TWO;
+
+    if (pattern.includes("__OO__")) return SCORE_PATTERNS.LIVE_TWO;
+    if (pattern.includes("_O_O_")) return SCORE_PATTERNS.LIVE_TWO;
+    if (pattern.includes("_OO__")) return SCORE_PATTERNS.LIVE_TWO;
+    if (pattern.includes("__OO_")) return SCORE_PATTERNS.LIVE_TWO;
+
+    if (pattern.includes("XOO___")) return SCORE_PATTERNS.DEAD_TWO;
+    if (pattern.includes("___OOX")) return SCORE_PATTERNS.DEAD_TWO;
+    if (pattern.includes("XO_O_")) return SCORE_PATTERNS.DEAD_TWO;
+    if (pattern.includes("_O_OX")) return SCORE_PATTERNS.DEAD_TWO;
+    if (pattern.includes("X_OO_")) return SCORE_PATTERNS.DEAD_TWO;
+    if (pattern.includes("_OO_X")) return SCORE_PATTERNS.DEAD_TWO;
 
     return 0;
 }
@@ -265,9 +285,8 @@ function calculateScore(board, row, col, player, size) {
     return score;
 }
 
-function findBestMove(board, botMark, playerMark, size) {
-    let bestScore = -Infinity;
-    let bestMove = -1;
+function findBestMove(board, botMark, playerMark, size, mode) {
+    let movesWithScores = [];
 
     for (let i = 0; i < size * size; i++) {
         if (board[i] === ".") {
@@ -275,23 +294,39 @@ function findBestMove(board, botMark, playerMark, size) {
             const c = i % size;
 
             const aiScore = calculateScore(board, r, c, botMark, size);
-            const playerScore = calculateScore(board, r, c, playerMark, size);
 
-            const totalScore = aiScore + playerScore * 1.3;
-
-            if (totalScore > bestScore) {
-                bestScore = totalScore;
-                bestMove = i;
+            let defensiveWeight;
+            switch (mode) {
+                case 'master':
+                    defensiveWeight = 1.4;
+                    break;
+                case 'hard':
+                    defensiveWeight = 1.2;
+                    break;
+                case 'easy':
+                default:
+                    defensiveWeight = 0.8;
+                    break;
             }
+
+            const playerScore = calculateScore(board, r, c, playerMark, size);
+            const totalScore = aiScore + playerScore * defensiveWeight;
+
+            movesWithScores.push({ pos: i, score: totalScore });
         }
     }
-    return bestMove;
+
+    if (movesWithScores.length === 0) return -1;
+
+    movesWithScores.sort((a, b) => b.score - a.score);
+
+    return movesWithScores[0].pos;
 }
 
 
 function getAIMove(game) {
-    const { board, botMark, playerMark, size, moveCount } = game;
-    
+    const { board, botMark, playerMark, size, moveCount, mode } = game;
+
     if (moveCount === 0 && botMark === 'X') {
         const center = Math.floor(size / 2);
         const centerPositions = [
@@ -301,14 +336,12 @@ function getAIMove(game) {
             center * size + center
         ];
         const validCenterPositions = centerPositions.filter(p => board[p] === '.');
-        if(validCenterPositions.length > 0) {
+        if (validCenterPositions.length > 0) {
             return validCenterPositions[Math.floor(Math.random() * validCenterPositions.length)];
         }
     }
 
-    const bestMove = findBestMove(board, botMark, playerMark, size);
-    
-    return bestMove;
+    return findBestMove(board, botMark, playerMark, size, mode);
 }
 
 
@@ -455,7 +488,7 @@ export async function handleCaroCommand(api, message) {
     }
 
     if (!["X", "O"].includes(playerMark)) {
-        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\nVui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
+        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\Vui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
         return;
     }
 
