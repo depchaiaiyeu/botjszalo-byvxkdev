@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
-import { Solution } from "@algorithm.ts/gomoku";
+import { GomokuSolution } from "@algorithm.ts/gomoku";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +32,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         if (!game) return;
 
         if (isPlayerTurn) {
-            let caption = `⏱️ HẾT GIỜ..!\\n\\n👤 ${game.playerName} không đánh trong vòng 60 giây\\n🏆 BOT đã dành chiến thắng ván cờ này!`;
+            let caption = `⏱️ HẾT GIỜ..!\\n\\n👤 ${game.playerName} không đánh trong vòng 60 giây\\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
             await sendMessageTag(api, message, { caption }, TTL_LONG);
         } else {
             let caption = `⏱️ HẾT GIỜ..!\\n\\n🤖 BOT không đánh trong vòng 60 giây\\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
@@ -248,7 +248,7 @@ function convertBoardToMoves(board1D, size = 16) {
 }
 
 async function getAIMoveAlgo(board1D, playerMark, mode, size = 16) {
-    const sol = new Solution({ MAX_ROW: size, MAX_COL: size, MAX_ADJACENT: 5 });
+    const sol = new GomokuSolution({ MAX_ROW: size, MAX_COL: size, MAX_ADJACENT: 5 });
     const moves = convertBoardToMoves(board1D, size);
     for (const move of moves) {
         sol.forward(move.row, move.col, move.player);
@@ -355,9 +355,9 @@ export async function handleCaroCommand(api, message) {
             `🌟 Cú pháp:\n` +
             `${prefix}caro [easy/hard/master] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
-            `• ${prefix}caro easy >> Dễ\n` +
-            `• ${prefix}caro hard >> Khó\n` +
-            `• ${prefix}caro master >> Cao thủ\n\n` +
+            `• ${prefix}caro easy >> Dễ (Độ sâu 2)\n` +
+            `• ${prefix}caro hard x >> Khó (Độ sâu 3)\n` +
+            `• ${prefix}caro master >> Cao thủ (Độ sâu 4)\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -418,6 +418,7 @@ export async function handleCaroCommand(api, message) {
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
         await fs.writeFile(imagePath, imageBuffer);
 
+        let modeName = mode === "master" ? "cao thủ" : mode === "hard" ? "khó" : "dễ";
         let caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chìa khóa chiến thắng! BOT đang chơi ở cấp độ ${modeName}. Độ sâu tìm kiếm: ${getDifficulty(mode)}.`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_SHORT);
         startTurnTimer(api, message, threadId, true);
