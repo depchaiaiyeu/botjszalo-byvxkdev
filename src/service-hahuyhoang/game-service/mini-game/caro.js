@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
-import { Solution } from "@algorithm.ts/gomoku";
+import { GomokuSolution } from "@algorithm.ts/gomoku";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 let activeCaroGames = new Map();
 let turnTimers = new Map();
 
-const TTL_LONG = 3600000; 
+const TTL_LONG = 3600000;
 const TTL_SHORT = 60000;
 
 function clearTurnTimer(threadId) {
@@ -32,10 +32,10 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         if (!game) return;
         
         if (isPlayerTurn) {
-            let caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
+            let caption = `⏱️ HẾT GIỜ..\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!`;
             await sendMessageTag(api, message, { caption }, TTL_LONG);
         } else {
-            let caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
+            let caption = `⏱️ HẾT GIỜ..\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
             await sendMessageTag(api, message, { caption }, TTL_LONG);
         }
         
@@ -264,7 +264,7 @@ function convertBoardToMoves(board1D, size = 16) {
 }
 
 async function getAIMoveAlgo(board1D, playerMark, mode, size = 16) {
-    const sol = new Solution({ MAX_ROW: size, MAX_COL: size, MAX_ADJACENT: 5 });
+    const sol = new GomokuSolution({ MAX_ROW: size, MAX_COL: size, MAX_ADJACENT: 5 });
     const moves = convertBoardToMoves(board1D, size);
     for (const move of moves) {
         sol.forward(move.row, move.col, move.player);
