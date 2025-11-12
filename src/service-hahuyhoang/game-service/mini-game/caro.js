@@ -2,17 +2,16 @@ import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Worker } from "worker_threads";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
+import { Solution } from "@algorithm.ts/gomoku";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
-let aiWorkers = new Map();
 
 const TTL_LONG = 3600000; 
 const TTL_SHORT = 60000;
@@ -242,75 +241,39 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function convertBoardToBitboard(board1D, size = 16) {
-    const BOARD_SIZE = size;
-    const BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
-    const BITBOARD_SLOTS = Math.ceil(BOARD_CELLS / 32);
-    let blackBitboard = new Array(BITBOARD_SLOTS).fill(0);
-    let whiteBitboard = new Array(BITBOARD_SLOTS).fill(0);
-    
-    for (let i = 0; i < board1D.length; i++) {
-        if (board1D[i] === "X") {
-            const slot = Math.floor(i / 32);
-            const bit = i % 32;
-            if (slot < BITBOARD_SLOTS) blackBitboard[slot] |= (1 << bit);
-        } else if (board1D[i] === "O") {
-            const slot = Math.floor(i / 32);
-            const bit = i % 32;
-            if (slot < BITBOARD_SLOTS) whiteBitboard[slot] |= (1 << bit);
-        }
-    }
-    
-    return { blackBitboard, whiteBitboard };
-}
-
-function convertMoveTo1D(move, size = 16) {
-    if (move && move.row !== undefined && move.col !== undefined) {
-        return move.row * size + move.col;
-    }
-    return -1;
-}
-
 function getDifficulty(mode) {
     switch (mode) {
-        case "easy": return "easy";
-        case "hard": return "medium";
-        case "master": return "hard";
-        default: return "easy";
+        case "easy": return 4;
+        case "hard": return 6;
+        case "master": return 8;
+        default: return 4;
     }
 }
 
-function getWorkerPath() {
-    return path.resolve(__dirname, "workers", "ai-worker.js");
+function convertBoardToMoves(board1D, size = 16) {
+    const moves = [];
+    for (let i = 0; i < board1D.length; i++) {
+        if (board1D[i] !== ".") {
+            const row = Math.floor(i / size);
+            const col = i % size;
+            const player = board1D[i] === "X" ? 1 : 2;
+            moves.push({ row, col, player });
+        }
+    }
+    return moves;
 }
 
-async function getAIMoveGkoos(board1D, playerMark, mode, size = 16) {
-    return new Promise((resolve, reject) => {
-        const workerPath = getWorkerPath();
-        const worker = new Worker(workerPath, { workerData: { size } });
-        
-        const { blackBitboard, whiteBitboard } = convertBoardToBitboard(board1D, size);
-        const computerPlayer = playerMark === "X" ? "white" : "black"; // Adapt: Assume bot is opposite
-        const humanPlayer = playerMark;
-        const difficulty = getDifficulty(mode);
-        
-        worker.postMessage({
-            type: "FIND_BEST_MOVE",
-            data: { blackBitboard, whiteBitboard, computerPlayer, humanPlayer, difficulty }
-        });
-        
-        worker.on("message", (msg) => {
-            if (msg.type === "BEST_MOVE_FOUND") {
-                const pos1D = convertMoveTo1D(msg.move, size);
-                resolve(pos1D);
-            }
-        });
-        
-        worker.on("error", reject);
-        worker.on("exit", (code) => {
-            if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`));
-        });
-    });
+async function getAIMoveAlgo(board1D, playerMark, mode, size = 16) {
+    const sol = new Solution({ MAX_ROW: size, MAX_COL: size, MAX_ADJACENT: 5 });
+    const moves = convertBoardToMoves(board1D, size);
+    for (const move of moves) {
+        sol.forward(move.row, move.col, move.player);
+    }
+    const botPlayer = playerMark === "X" ? 2 : 1;
+    const depth = getDifficulty(mode);
+    sol.depth = depth;
+    const [row, col] = sol.minimaxSearch(botPlayer);
+    return row * size + col;
 }
 
 async function handleBotTurn(api, message, initialTurn = false) {
@@ -324,7 +287,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
-    let pos = await getAIMoveGkoos(game.board, game.playerMark, game.mode, game.size);
+    let pos = await getAIMoveAlgo(game.board, game.playerMark, game.mode, game.size);
     
     clearTurnTimer(threadId);
     
@@ -390,7 +353,7 @@ async function handleBotTurn(api, message, initialTurn = false) {
     } else {
         let initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân X)` : "";
         
-        let caption = `${initialMessage}\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Timing kĩ trước khi đánh nhé`;
+        let caption = `${initialMessage}\n🌟 BOT đánh ô số: ${pos + 1}\n\n🎯 Lượt của ${game.playerName} (Quân ${game.playerMark})\n\n👉 Gõ số ô (1-${game.size * game.size})\n⏱️ Thời gian: 60 giây\n\n💡 Thời gian phản hồi: 1s hay 2s...`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
@@ -566,7 +529,7 @@ export async function handleCaroMessage(api, message) {
         } catch (error) {}
         return;
     } else if (game.moveCount === game.size * game.size) {
-        let caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
+        let caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
         await sendMessageTag(api, message, {
             caption,
             imagePath
