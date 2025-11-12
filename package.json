@@ -13,6 +13,7 @@
     "start": "node src/index.js main"
   },
   "dependencies": {
+    "@algorithm.ts/gomoku": "^1.2.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "@google-cloud/aiplatform": "^4.1.0",
     "@google/genai": "^0.8.0",
