@@ -6,9 +6,13 @@ export async function userBussinessCardCommand(api, message, aliasCommand) {
   const senderId = message.data.uidFrom;
   const prefixCommand = getGlobalPrefix();
   const content = removeMention(message);
-  const textString = content
+  let textString = content
     .replace(`${prefixCommand}${aliasCommand}`, "")
     .trim();
+
+  if (!textString) {
+    textString = "Danh Thiếp Liên Hệ";
+  }
 
   try {
     const targetUserId =
