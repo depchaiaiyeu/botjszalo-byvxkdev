@@ -206,254 +206,172 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function getAIMove(game) {
-    const { board: board1D, botMark, playerMark, size, mode } = game;
+function getScoreForLine({ count, openEnds }) {
+    if (count >= 5) return 100000;
+    if (count === 4) {
+        if (openEnds === 2) return 10000;
+        if (openEnds === 1) return 1000;
+    }
+    if (count === 3) {
+        if (openEnds === 2) return 1000;
+        if (openEnds === 1) return 100;
+    }
+    if (count === 2) {
+        if (openEnds === 2) return 100;
+        if (openEnds === 1) return 10;
+    }
+    return count;
+}
 
-    const O = botMark;
-    const X = playerMark;
-    const Empty = ".";
+function countConsecutive(board, row, col, dx, dy, player, size) {
+    let count = 1;
+    let openEnds = 0;
 
-    const currGame = {
-        sq: [],
-        noOfRow: size,
-        noOfCol: size
-    };
-    for (let i = 0; i < size; i++) {
-        currGame.sq[i] = [];
-        for (let j = 0; j < size; j++) {
-            currGame.sq[i][j] = board1D[i * size + j];
-        }
+    let newRow = row + dx;
+    let newCol = col + dy;
+    while (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === player
+    ) {
+        count++;
+        newRow += dx;
+        newCol += dy;
+    }
+    if (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === '.'
+    ) {
+        openEnds++;
     }
 
-    const referee = {
-        isWin: function() {
-            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-            for (let r = 0; r < size; r++) {
-                for (let c = 0; c < size; c++) {
-                    const player = currGame.sq[r][c];
-                    if (player === Empty) continue;
-                    for (let [dr, dc] of directions) {
-                        let count = 1;
-                        for (let i = 1; i < 5; i++) {
-                            const nr = r + dr * i;
-                            const nc = c + dc * i;
-                            if (nr < 0 || nr >= size || nc < 0 || nc >= size || currGame.sq[nr][nc] !== player) break;
-                            count++;
-                        }
-                        if (count >= 5) return player;
-                    }
-                }
-            }
-            return null;
-        }
-    };
+    newRow = row - dx;
+    newCol = col - dy;
+    while (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === player
+    ) {
+        count++;
+        newRow -= dx;
+        newCol -= dy;
+    }
+    if (
+        newRow >= 0 && newRow < size &&
+        newCol >= 0 && newCol < size &&
+        board[newRow * size + newCol] === '.'
+    ) {
+        openEnds++;
+    }
 
-    var XX, YY;
+    return { count, openEnds };
+}
 
-    let maxDepth;
-    let timeLimit;
+function evaluateAllDirections(board, row, col, player, size) {
+    const directions = [
+        [0, 1],
+        [1, 0],
+        [1, 1],
+        [1, -1]
+    ];
+
+    let totalScore = 0;
+
+    for (let [dx, dy] of directions) {
+        const lineInfo = countConsecutive(board, row, col, dx, dy, player, size);
+        totalScore += getScoreForLine(lineInfo);
+    }
+
+    return totalScore;
+}
+
+function evaluatePosition(board, pos, aiPlayer, opponent, size, mode) {
+    const row = Math.floor(pos / size);
+    const col = pos % size;
+
+    let defensiveWeight;
     switch (mode) {
         case 'master':
-            maxDepth = 4;
-            timeLimit = 10000;
+            defensiveWeight = 1.4;
             break;
         case 'hard':
-            maxDepth = 3;
-            timeLimit = 5000;
+            defensiveWeight = 1.2;
             break;
         case 'easy':
         default:
-            maxDepth = 2;
-            timeLimit = 3000;
+            defensiveWeight = 0.8;
             break;
     }
 
-    var startTime = new Date().getTime();
+    board[pos] = aiPlayer;
+    const aiScore = evaluateAllDirections(board, row, col, aiPlayer, size);
+    
+    board[pos] = opponent;
+    const playerScore = evaluateAllDirections(board, row, col, opponent, size);
 
-    function cval() {
-        var cval_value = 0;
-        var val = function(XO) {
-            var value = 0;
-            for (var i = 0; i < currGame.noOfRow; i++) {
-                for (var j = 0; j < currGame.noOfCol; j++) {
-                    value += evaluateLine(i, j, 0, 1, XO);
-                    value += evaluateLine(i, j, 1, 0, XO);
-                    value += evaluateLine(i, j, 1, 1, XO);
-                    value += evaluateLine(i, j, 1, -1, XO);
-                }
-            }
-            return value;
-        }
-
-        function evaluateLine(row, col, row_increment, col_increment, XO) {
-            var score = 0;
-            var count = 0;
-            var blank = 0;
-            var opponent = (XO === X) ? O : X;
-
-            for (var i = 0; i < 5; i++) {
-                var r = row + i * row_increment;
-                var c = col + i * col_increment;
-                if (r >= 0 && r < currGame.noOfRow && c >= 0 && c < currGame.noOfCol) {
-                    if (currGame.sq[r][c] == XO) {
-                        count++;
-                    } else if (currGame.sq[r][c] == Empty) {
-                        blank++;
-                    } else {
-                        return 0;
-                    }
-                } else {
-                    return 0;
-                }
-            }
-
-            if (count == 5) {
-                score += 1000000;
-            } else if (count == 4 && blank == 1) {
-                score += 50000;
-            } else if (count == 3 && blank == 2) {
-                score += 5000;
-            } else if (count == 2 && blank == 3) {
-                score += 500;
-            }
-
-            var blockScore = 0;
-            count = 0;
-            blank = 0;
-            for (var i = 0; i < 5; i++) {
-                var r = row + i * row_increment;
-                var c = col + i * col_increment;
-                if (r >= 0 && r < currGame.noOfRow && c >= 0 && c < currGame.noOfCol) {
-                    if (currGame.sq[r][c] == opponent) {
-                        count++;
-                    } else if (currGame.sq[r][c] == Empty) {
-                        blank++;
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            if (count == 4 && blank == 1) {
-                blockScore += 40000;
-            } else if (count == 3 && blank == 2) {
-                blockScore += 4000;
-            }
-            score += blockScore;
-            return score;
-        }
-
-        cval_value = val(O) - val(X);
-        return cval_value;
-    }
-
-    function alphabeta(XO, alpha, beta, depth) {
-        if (new Date().getTime() - startTime > timeLimit) {
-            return (XO === O) ? alpha : beta;
-        }
-
-        var winner = referee.isWin();
-        if (winner === X) return -999999999;
-        if (winner === O) return 999999999;
-        if (depth == 0) return cval();
-
-        var moveGen = function() {
-            this.moves = [];
-            this.existingPieces = [];
-            var possi = new Array(size).fill(0).map(() => new Array(size).fill(false));
-            let hasPieces = false;
-
-            for (var i = 0; i < currGame.noOfRow; i++) {
-                for (var j = 0; j < currGame.noOfCol; j++) {
-                    if (currGame.sq[i][j] != Empty) {
-                        hasPieces = true;
-                        this.existingPieces.push({ row: i, col: j });
-                        for (var stepI = -1; stepI <= 1; stepI++) {
-                            for (var stepJ = -1; stepJ <= 1; stepJ++) {
-                                if (stepI === 0 && stepJ === 0) continue;
-                                let r = i + stepI;
-                                let c = j + stepJ;
-                                if (r >= 0 && r < currGame.noOfRow && c >= 0 && c < currGame.noOfCol && currGame.sq[r][c] === Empty) {
-                                    possi[r][c] = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!hasPieces) {
-                this.moves.push({ row: Math.floor(size / 2), col: Math.floor(size / 2) });
-                return;
-            }
-
-            for (var i = 0; i < currGame.noOfRow; i++) {
-                for (var j = 0; j < currGame.noOfCol; j++) {
-                    if (possi[i][j]) {
-                        this.moves.push({ row: i, col: j });
-                    }
-                }
-            }
-
-            this.moves.sort((a, b) => {
-                if (this.existingPieces.length === 0) return 0;
-                let distA = Math.min(...this.existingPieces.map(p => Math.max(Math.abs(p.row - a.row), Math.abs(p.col - a.col))));
-                let distB = Math.min(...this.existingPieces.map(p => Math.max(Math.abs(p.row - b.row), Math.abs(p.col - b.col))));
-                return distA - distB;
-            });
-        }
-
-        var gen = new moveGen();
-        if (gen.moves.length === 0) return 0;
-
-        var score;
-        if (XO == O) {
-            for (let move of gen.moves) {
-                currGame.sq[move.row][move.col] = XO;
-                score = alphabeta(X, alpha, beta, depth - 1);
-                currGame.sq[move.row][move.col] = Empty;
-                if (score > alpha) {
-                    if (depth === maxDepth) {
-                        XX = move.row;
-                        YY = move.col;
-                    }
-                    alpha = score;
-                }
-                if (alpha >= beta) break;
-            }
-            return alpha;
-        } else {
-            for (let move of gen.moves) {
-                currGame.sq[move.row][move.col] = XO;
-                score = alphabeta(O, alpha, beta, depth - 1);
-                currGame.sq[move.row][move.col] = Empty;
-                if (score < beta) {
-                    beta = score;
-                }
-                if (alpha >= beta) break;
-            }
-            return beta;
-        }
-    }
-
-    var bestMove = { row: -1, col: -1 };
-    for (let depth = 1; depth <= maxDepth; depth++) {
-        if (new Date().getTime() - startTime > timeLimit && bestMove.row !== -1) {
-            break;
-        }
-        alphabeta(O, -Infinity, Infinity, depth);
-        bestMove = { row: XX, col: YY };
-    }
-
-    if (bestMove.row === -1 || typeof bestMove.row === 'undefined') {
-        const firstMoveIdx = board1D.indexOf(Empty);
-        return (firstMoveIdx !== -1) ? firstMoveIdx : 0;
-    }
-
-    return bestMove.row * size + bestMove.col;
+    board[pos] = '.';
+    
+    return aiScore + playerScore * defensiveWeight;
 }
+
+function isEmptyBoard(board) {
+    return board.every(cell => cell === '.');
+}
+
+function getCandidatePositions(board, size) {
+    if (isEmptyBoard(board)) {
+        const center = Math.floor(size / 2);
+        return [center * size + center];
+    }
+
+    const candidates = new Set();
+    const range = 2; 
+
+    for (let i = 0; i < size * size; i++) {
+        if (board[i] !== '.') {
+            const r = Math.floor(i / size);
+            const c = i % size;
+            for (let dr = -range; dr <= range; dr++) {
+                for (let dc = -range; dc <= range; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = r + dr;
+                    const newCol = c + dc;
+                    const newIdx = newRow * size + newCol;
+                    if (
+                        newRow >= 0 && newRow < size &&
+                        newCol >= 0 && newCol < size &&
+                        board[newIdx] === '.'
+                    ) {
+                        candidates.add(newIdx);
+                    }
+                }
+            }
+        }
+    }
+    return Array.from(candidates);
+}
+
+function getAIMove(game) {
+    const { board, botMark, playerMark, size, mode } = game;
+    
+    const candidates = getCandidatePositions(board, size);
+    if (candidates.length === 0) return -1;
+
+    let bestScore = -Infinity;
+    let bestMove = candidates[0];
+
+    for (const pos of candidates) {
+        const score = evaluatePosition(board, pos, botMark, playerMark, size, mode);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = pos;
+        }
+    }
+    
+    return bestMove;
+}
+
 
 async function handleBotTurn(api, message, initialTurn = false) {
     let threadId = message.threadId;
@@ -664,7 +582,7 @@ export async function handleCaroMessage(api, message) {
         return;
     }
 
-    if (!/^\d+$/.test(String(content).trim())) return;
+    if (!/^\d+$/.test(content.trim())) return;
 
     clearTurnTimer(threadId);
 
