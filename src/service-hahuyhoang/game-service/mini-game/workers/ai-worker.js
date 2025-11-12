@@ -1,8 +1,10 @@
-// AI Worker - Self-contained version that works in both dev and production
+// AI Worker - Node.js worker_threads version (adapted from browser Web Worker)
 // All dependencies are included inline to avoid import issues
 
+import { parentPort } from 'worker_threads';
+
 // Constants
-const BOARD_SIZE = 16;
+const BOARD_SIZE = 16;  // Adapted for 16x16 board
 const BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
 const BITBOARD_SLOTS = 8;
 
@@ -206,7 +208,6 @@ function hasOpen4PatternSimple(playerBitboard, blackBitboard, whiteBitboard, row
   // If we have 4 or more consecutive stones, check if it's truly "open"
   if (count >= 4) {
     // For an "open 4", we need at least one end to be extendable to create 5-in-a-row
-    // Check the positions immediately beyond our consecutive stones
     const positiveEnd = row + dRow * (positiveCount + 1);
     const positiveEndCol = col + dCol * (positiveCount + 1);
     const negativeEnd = row - dRow * (negativeCount + 1);
@@ -527,15 +528,14 @@ function generateCandidateMoves(blackBitboard, whiteBitboard) {
   
   // If no stones on board, start from center with high priority
   if (stonePositions.length === 0) {
-    addCandidate(7, 7, 1000); // Center of 15x15 board
-    addCandidate(6, 6, 900);
-    addCandidate(6, 7, 950);
-    addCandidate(6, 8, 900);
-    addCandidate(7, 6, 950);
-    addCandidate(7, 8, 950);
-    addCandidate(8, 6, 900);
+    addCandidate(7, 8, 1000); // Center of 16x16 board (adjust for even size)
+    addCandidate(7, 7, 900);
+    addCandidate(8, 8, 950);
     addCandidate(8, 7, 950);
-    addCandidate(8, 8, 900);
+    addCandidate(7, 9, 900);
+    addCandidate(8, 9, 900);
+    addCandidate(9, 8, 900);
+    addCandidate(9, 7, 900);
     return candidates.sort((a, b) => b.priority - a.priority);
   }
   
@@ -559,7 +559,7 @@ function generateCandidateMoves(blackBitboard, whiteBitboard) {
         }
         
         // Priority: higher for denser areas and center positions
-        const centerBonus = 14 - (Math.abs(newRow - 7) + Math.abs(newCol - 7));
+        const centerBonus = 15 - (Math.abs(newRow - 7.5) + Math.abs(newCol - 7.5));
         const priority = 100 + density * 20 + centerBonus;
         
         addCandidate(newRow, newCol, priority);
@@ -584,7 +584,7 @@ function generateCandidateMoves(blackBitboard, whiteBitboard) {
           const newCol = col + dCol;
           
           // Lower priority for distance-2 moves
-          const centerBonus = 14 - (Math.abs(newRow - 7) + Math.abs(newCol - 7));
+          const centerBonus = 15 - (Math.abs(newRow - 7.5) + Math.abs(newCol - 7.5));
           const priority = 30 + localDensity * 5 + centerBonus;
           
           addCandidate(newRow, newCol, priority);
@@ -653,7 +653,7 @@ function findBestMoveAdaptive(blackBitboard, whiteBitboard, computerPlayer, huma
   
   const candidates = generateCandidateMoves(blackBitboard, whiteBitboard);
   if (candidates.length === 0) {
-    return { row: 7, col: 7 };
+    return { row: 7, col: 8 }; // Center fallback for 16x16
   }
   
   if (progressCallback) progressCallback(30);
@@ -861,9 +861,9 @@ function evaluateStrategicPosition(blackBitboard, whiteBitboard, move, computerP
   const { row, col } = move;
   let score = 0;
   
-  // Center control bonus
-  const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
-  score += (14 - centerDist) * 3;
+  // Center control bonus (adjusted for 16x16)
+  const centerDist = Math.abs(row - 7.5) + Math.abs(col - 7.5);
+  score += (15 - centerDist) * 3;
   
   // Connectivity bonus - prefer positions that connect to existing stones
   let connectivity = 0;
@@ -937,9 +937,9 @@ function evaluateStrategicPosition(blackBitboard, whiteBitboard, move, computerP
 function evaluatePositionQuality(row, col, blackBitboard, whiteBitboard) {
   let score = 0;
   
-  // Distance from center
-  const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
-  score += (14 - centerDist) * 2;
+  // Distance from center (adjusted for 16x16)
+  const centerDist = Math.abs(row - 7.5) + Math.abs(col - 7.5);
+  score += (15 - centerDist) * 2;
   
   // Density in local area
   let localDensity = 0;
@@ -976,10 +976,10 @@ function clearTranspositionTable() {}
 function clearEvaluationCache() {}
 function initZobristTable() {}
 
-// Listen for messages from the main thread
-self.addEventListener('message', async function (e) {
+// Listen for messages from the main thread (Node.js worker_threads version)
+parentPort.on('message', async function (e) {
   try {
-    const { type, data } = e.data;
+    const { type, data } = e;
 
     switch (type) {
       case "FIND_BEST_MOVE": {
@@ -987,7 +987,7 @@ self.addEventListener('message', async function (e) {
 
         // Debug: Check if bitboards are properly received
         if (!blackBitboard || !whiteBitboard) {
-          self.postMessage({
+          parentPort.postMessage({
             type: "BEST_MOVE_FOUND",
             move: null,
           });
@@ -1004,14 +1004,14 @@ self.addEventListener('message', async function (e) {
             difficulty
           );
           
-          self.postMessage({
+          parentPort.postMessage({
             type: "BEST_MOVE_FOUND",
             move: bestMove,
           });
         } catch (error) {
-          self.postMessage({
+          parentPort.postMessage({
             type: "BEST_MOVE_FOUND",
-            move: { row: 7, col: 7 }, // Fallback center move
+            move: { row: 7, col: 8 }, // Fallback center move for 16x16
           });
         }
         break;
@@ -1032,16 +1032,16 @@ self.addEventListener('message', async function (e) {
     }
   } catch (error) {
     console.error('AI Worker error:', error);
-    self.postMessage({
+    parentPort.postMessage({
       type: "BEST_MOVE_FOUND",
-      move: { row: 7, col: 7 }, // Center fallback
+      move: { row: 7, col: 8 }, // Center fallback for 16x16
     });
   }
 });
 
-// Progress callback function
+// Progress callback function (adapted for parentPort)
 function progressCallback(progress) {
-  self.postMessage({
+  parentPort.postMessage({
     type: "PROGRESS_UPDATE",
     progress: progress,
   });
@@ -1083,7 +1083,7 @@ async function findBestMove(
     // If board is empty, place first move in center immediately
     if (totalStones === 0) {
       progressCallback(100);
-      return { row: 7, col: 7 }; // Center of 15x15 board
+      return { row: 7, col: 8 }; // Center of 16x16 board
     }
     
     // For hard difficulty in very complex positions, skip some threat checks and go straight to deep search
@@ -1244,13 +1244,13 @@ async function findBestMove(
     
     // Ultimate fallback - center move
     progressCallback(100);
-    return { row: 7, col: 7 };
+    return { row: 7, col: 8 };
     
   } catch (error) {
     console.error('AI Worker error in findBestMove:', error);
     // Emergency fallback
     progressCallback(100);
-    return { row: 7, col: 7 };
+    return { row: 7, col: 8 };
   }
 }
 
