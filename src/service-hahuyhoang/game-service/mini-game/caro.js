@@ -278,8 +278,8 @@ export async function handleCaroCommand(api, message) {
             `${prefix}caro [normal/medium/hard/fuckme] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
             `• ${prefix}caro normal >> Chế độ Thường\n` +
-            `• ${prefix}caro medium x >> Chế độ Trung bình, bạn cầm X\n` +
-            `• ${prefix}caro hard o >> Chế độ Khó, bạn cầm O (mặc định)\n` +
+            `• ${prefix}caro medium >> Chế độ Trung bình, bạn cầm X\n` +
+            `• ${prefix}caro hard >> Chế độ Khó, bạn cầm O (mặc định)\n` +
             `• ${prefix}caro fuckme >> Chế độ Cực khó (mặc định bạn cầm O)\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
