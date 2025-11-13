@@ -16,17 +16,17 @@ const TTL_SHORT = 60000;
 const BOARD_SIZE = 16;
 const BLACK_PLAYER = 'black';
 const WHITE_PLAYER = 'white';
-const SEARCH_DEPTH = 3;
+const SEARCH_DEPTH = 4;
 
 const SCORES = {
-    FIVE: 100000,
-    LIVE_FOUR: 10000,
-    DEAD_FOUR: 1000,
-    LIVE_THREE: 1000,
-    DEAD_THREE: 100,
-    LIVE_TWO: 100,
-    DEAD_TWO: 10,
-    ONE: 1
+    FIVE: 1000000000,
+    LIVE_FOUR: 100000000,
+    DEAD_FOUR: 10000000,
+    LIVE_THREE: 10000000,
+    DEAD_THREE: 100000,
+    LIVE_TWO: 10000,
+    DEAD_TWO: 1000,
+    ONE: 10
 };
 
 function clearTurnTimer(threadId) {
@@ -59,8 +59,8 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
 function getPatternScore(count, openEnds) {
     if (count >= 5) return SCORES.FIVE;
     if (count === 4) {
-        if (openEnds === 2) return SCORES.LIVE_FOUR;
-        if (openEnds === 1) return SCORES.DEAD_FOUR;
+        if (openEnds >= 1) return SCORES.LIVE_FOUR;
+        return SCORES.DEAD_FOUR;
     }
     if (count === 3) {
         if (openEnds === 2) return SCORES.LIVE_THREE;
@@ -74,7 +74,7 @@ function getPatternScore(count, openEnds) {
     return 0;
 }
 
-function evaluateLine(board, row, col, dx, dy, player) {
+function checkLinePattern(board, row, col, dx, dy, player) {
     let count = 1;
     let openEnds = 0;
     
@@ -100,18 +100,25 @@ function evaluateLine(board, row, col, dx, dy, player) {
         openEnds++;
     }
     
-    return getPatternScore(count, openEnds);
+    return { count, openEnds };
 }
 
 function evaluatePlayer(board, player) {
     let score = 0;
     const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
-    
+    const visited = new Set();
+
     for (let row = 0; row < BOARD_SIZE; row++) {
         for (let col = 0; col < BOARD_SIZE; col++) {
             if (board[row][col] === player) {
                 for (const [dx, dy] of directions) {
-                    score += evaluateLine(board, row, col, dx, dy, player);
+                    const key = `${row},${col},${dx},${dy}`;
+                    if (visited.has(key)) continue;
+
+                    const { count, openEnds } = checkLinePattern(board, row, col, dx, dy, player);
+                    score += getPatternScore(count, openEnds);
+                    
+                    visited.add(key);
                 }
             }
         }
@@ -122,7 +129,7 @@ function evaluatePlayer(board, player) {
 function evaluateBoard(board, aiPlayer, humanPlayer) {
     let score = 0;
     score += evaluatePlayer(board, aiPlayer);
-    score -= evaluatePlayer(board, humanPlayer);
+    score -= evaluatePlayer(board, humanPlayer) * 1.5;
     return score;
 }
 
@@ -157,9 +164,88 @@ function getCandidateMoves(board) {
     return Array.from(candidates).map(pos => pos.split(',').map(Number));
 }
 
+function getReflexMove(board, aiPlayer, humanPlayer) {
+    const candidates = getCandidateMoves(board);
+    
+    for (const [row, col] of candidates) {
+        board[row][col] = aiPlayer;
+        if (isWin(board, row, col, aiPlayer)) {
+            board[row][col] = null;
+            return { row, col };
+        }
+        board[row][col] = null;
+    }
+
+    for (const [row, col] of candidates) {
+        board[row][col] = humanPlayer;
+        if (isWin(board, row, col, humanPlayer)) {
+            board[row][col] = null;
+            return { row, col };
+        }
+        board[row][col] = null;
+    }
+
+    for (const [row, col] of candidates) {
+        board[row][col] = aiPlayer;
+        if (isLiveFour(board, row, col, aiPlayer)) {
+            board[row][col] = null;
+            return { row, col };
+        }
+        board[row][col] = null;
+    }
+
+    for (const [row, col] of candidates) {
+        board[row][col] = humanPlayer;
+        if (isLiveFour(board, row, col, humanPlayer)) {
+            board[row][col] = null;
+            return { row, col };
+        }
+        board[row][col] = null;
+    }
+    
+    for (const [row, col] of candidates) {
+        board[row][col] = humanPlayer;
+        if (isLiveThree(board, row, col, humanPlayer)) {
+             board[row][col] = null;
+             return { row, col };
+        }
+        board[row][col] = null;
+    }
+
+    return null;
+}
+
+function isWin(board, row, col, player) {
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    for (const [dx, dy] of directions) {
+        const { count } = checkLinePattern(board, row, col, dx, dy, player);
+        if (count >= 5) return true;
+    }
+    return false;
+}
+
+function isLiveFour(board, row, col, player) {
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    for (const [dx, dy] of directions) {
+        const { count, openEnds } = checkLinePattern(board, row, col, dx, dy, player);
+        if (count === 4 && openEnds >= 1) return true;
+    }
+    return false;
+}
+
+function isLiveThree(board, row, col, player) {
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+    for (const [dx, dy] of directions) {
+        const { count, openEnds } = checkLinePattern(board, row, col, dx, dy, player);
+        if (count === 3 && openEnds === 2) return true;
+    }
+    return false;
+}
+
 function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer, humanPlayer) {
     const evaluation = evaluateBoard(board, aiPlayer, humanPlayer);
-    if (depth === 0 || Math.abs(evaluation) > SCORES.FIVE / 2) {
+    
+    if (depth === 0 || Math.abs(evaluation) > SCORES.FIVE / 10) {
         return evaluation;
     }
 
@@ -191,30 +277,6 @@ function minimax(board, depth, alpha, beta, isMaximizing, aiPlayer, humanPlayer)
     }
 }
 
-function getDefensiveMove(board, humanPlayer) {
-    const candidates = getCandidateMoves(board);
-    let bestScore = -Infinity;
-    let bestMove = candidates[0];
-
-    for (const [row, col] of candidates) {
-        board[row][col] = humanPlayer;
-        let score = evaluatePlayer(board, humanPlayer); 
-        board[row][col] = null;
-
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = { row, col };
-        }
-    }
-    
-    if (bestScore < SCORES.DEAD_THREE) {
-        const randomIdx = Math.floor(Math.random() * candidates.length);
-        return { row: candidates[randomIdx][0], col: candidates[randomIdx][1] };
-    }
-
-    return bestMove;
-}
-
 function getBestMoveMinimax(board, depth, aiPlayer, humanPlayer) {
     let bestScore = -Infinity;
     let bestMove = null;
@@ -240,9 +302,15 @@ function getBestMoveMinimax(board, depth, aiPlayer, humanPlayer) {
 
 function getBestMove(game) {
     const { board, mode, aiMark, humanMark } = game;
+    
+    const reflexMove = getReflexMove(board, aiMark, humanMark);
+    if (reflexMove) {
+        return reflexMove;
+    }
 
     if (mode === 'de') {
-        return getDefensiveMove(board, humanMark);
+        const candidates = getCandidateMoves(board);
+        return { row: candidates[0][0], col: candidates[0][1] };
     }
     if (mode === 'kho') {
         return getBestMoveMinimax(board, 2, aiMark, humanMark);
@@ -498,7 +566,7 @@ export async function handleCaroCommand(api, message) {
             `• ${prefix}caro caothu >> Cao thủ\n` +
             `• ${prefix}caro caothu o >> Bạn đi trước (Cầm X)\n\n` +
             `📜 Luật chơi:\n` +
-            `• Thêm 'o' vào cuối để BOT cầm O (Đi sau)\n` +
+            `• Thêm 'o' vào cuối để BOT cầm O đi sau\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Gõ số ô (1-256) để đánh quân\n` +
             `• Gõ "lose" để đầu hàng\n` +
