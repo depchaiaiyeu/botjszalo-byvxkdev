@@ -2,6 +2,7 @@ import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "module";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
@@ -383,29 +384,33 @@ export async function handleCaroCommand(api, message) {
     }
     
     try {
+        const require = createRequire(import.meta.url);
+        
         const currentFileUrl = import.meta.url;
         const currentDir = path.dirname(fileURLToPath(currentFileUrl));
         const wasmFilesPath = path.resolve(currentDir, 'brain');
-        
+        const brainJsPath = path.join(wasmFilesPath, 'brain.js');
+
         global.__filename = fileURLToPath(currentFileUrl);
         global.__dirname = currentDir;
         
         global.Module = {
-            locateFile: (path) => {
-                if (path === 'brain.wasm' || path === 'brain.worker.js') {
-                    return path.join(wasmFilesPath, path);
+            locateFile: (filePath) => {
+                if (filePath === 'brain.wasm' || filePath === 'brain.worker.js') {
+                    return path.join(wasmFilesPath, filePath);
                 }
-                return path;
+                return filePath;
             },
-            mainScriptUrlOrBlob: pathToFileURL(path.join(wasmFilesPath, 'brain.js')).href,
+            mainScriptUrlOrBlob: pathToFileURL(brainJsPath).href,
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
         };
 
-        await import("./brain/brain.js");
+        const WasmModule = require(brainJsPath);
 
-        const WasmModule = global.Module;
+        delete global.__filename;
+        delete global.__dirname;
         
         const ksh_send_input_string = WasmModule.cwrap('ksh_send_input', null, ['string']);
         const ksh_get_output_string = WasmModule.cwrap('ksh_get_output', 'string', null);
@@ -421,6 +426,7 @@ export async function handleCaroCommand(api, message) {
         console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
         delete global.__filename;
         delete global.__dirname;
+        delete global.Module;
         await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
