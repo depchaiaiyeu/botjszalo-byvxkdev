@@ -397,8 +397,9 @@ export async function handleCaroCommand(api, message) {
             throw new Error(`Không tìm thấy file: ${brainCjsPath} hoặc ${brainWasmPath}`);
         }
         
-        const brainModule = await import(pathToFileURL(brainCjsPath).href);
-        const WasmModule = brainModule.default || brainModule;
+        // SỬA LỖI TẢI WASM MODULE TẠI ĐÂY
+        const require = createRequire(currentFileUrl);
+        const WasmModule = require(brainCjsPath);
         
         if (typeof WasmModule !== 'function' && typeof WasmModule !== 'object') {
             throw new Error('brain.cjs không export đúng định dạng');
