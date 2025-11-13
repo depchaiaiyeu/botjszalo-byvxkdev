@@ -490,6 +490,7 @@ export async function handleCaroCommand(api, message) {
         activeCaroGames.get(threadId).isProcessing = true;
         handleBotTurn(api, message, -1, true);
     }
+}
 export async function handleCaroMessage(api, message) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
