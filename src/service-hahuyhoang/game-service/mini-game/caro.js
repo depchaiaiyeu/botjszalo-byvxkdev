@@ -50,6 +50,22 @@ const GOMOKU_AI = {
         const bot = botMark;
         const opp = playerMark;
         const WIN_COUNT = 5;
+        const BOARD_SIZE = size;
+        const SEARCH_DEPTH = 3;
+
+        const AI_PLAYER = bot;
+        const HUMAN_PLAYER = opp;
+
+        const SCORES = {
+            FIVE: 100000,
+            LIVE_FOUR: 10000,
+            DEAD_FOUR: 1000,
+            LIVE_THREE: 1000,
+            DEAD_THREE: 100,
+            LIVE_TWO: 100,
+            DEAD_TWO: 10,
+            ONE: 1
+        };
 
         const idx = (r, c) => r * size + c;
         const isValid = (r, c) => r >= 0 && r < size && c >= 0 && c < size;
@@ -63,17 +79,17 @@ const GOMOKU_AI = {
             return empty;
         }
 
-        function checkWinAI(b, s, symbol) {
+        function checkWinner(b, s, player) {
             const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
             for (let r = 0; r < s; r++) {
                 for (let c = 0; c < s; c++) {
-                    if (b[idx(r, c)] !== symbol) continue;
+                    if (b[idx(r, c)] !== player) continue;
                     for (const [dr, dc] of directions) {
                         let count = 1;
                         for (let step = 1; step < WIN_COUNT; step++) {
                             const newRow = r + dr * step;
                             const newCol = c + dc * step;
-                            if (!isValid(newRow, newCol) || b[idx(newRow, newCol)] !== symbol) break;
+                            if (!isValid(newRow, newCol) || b[idx(newRow, newCol)] !== player) break;
                             count++;
                         }
                         if (count >= WIN_COUNT) return true;
@@ -83,163 +99,246 @@ const GOMOKU_AI = {
             return false;
         }
 
-        function centerBonus(r, c, s) {
-            let center = s / 2;
-            return -Math.abs(r - center) - Math.abs(c - center);
+        function getPatternScore(count, openEnds) {
+            if (count >= 5) return SCORES.FIVE;
+            if (count === 4) {
+                if (openEnds === 2) return SCORES.LIVE_FOUR;
+                if (openEnds === 1) return SCORES.DEAD_FOUR;
+            }
+            if (count === 3) {
+                if (openEnds === 2) return SCORES.LIVE_THREE;
+                if (openEnds === 1) return SCORES.DEAD_THREE;
+            }
+            if (count === 2) {
+                if (openEnds === 2) return SCORES.LIVE_TWO;
+                if (openEnds === 1) return SCORES.DEAD_TWO;
+            }
+            if (count === 1) return SCORES.ONE;
+            return 0;
         }
 
-        function evaluate(b, s, sym) {
+        function evaluateLine(b, s, row, col, dx, dy, player) {
+            let count = 0;
+            let openEnds = 0;
+
+            let r = row;
+            let c = col;
+            while (r >= 0 && r < s && c >= 0 && c < s && b[idx(r, c)] === player) {
+                count++;
+                r += dx;
+                c += dy;
+            }
+            if (r >= 0 && r < s && c >= 0 && c < s && !b[idx(r, c)]) {
+                openEnds++;
+            }
+
+            r = row - dx;
+            c = col - dy;
+            while (r >= 0 && r < s && c >= 0 && c < s && b[idx(r, c)] === player) {
+                count++;
+                r -= dx;
+                c -= dy;
+            }
+            if (r >= 0 && r < s && c >= 0 && c < s && !b[idx(r, c)]) {
+                openEnds++;
+            }
+            
+            return getPatternScore(count, openEnds);
+        }
+        
+        function evaluatePlayer(b, s, player) {
             let score = 0;
-            const opp = (sym === 'X') ? 'O' : 'X';
+            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            const evaluated = new Set();
 
-            function scoreLine(line) {
-                let symCount = line.filter(c => c === sym).length;
-                let oppCount = line.filter(c => c === opp).length;
-                if (symCount > 0 && oppCount > 0) return 0;
-                if (oppCount > 0) return 0;
-                if (symCount === 0) return 0;
-                return Math.pow(10, symCount);
-            }
-
-            for (let i = 0; i < s; ++i) {
-                for (let j = 0; j <= s - WIN_COUNT; ++j) {
-                    let lineH = [];
-                    for (let k = 0; k < WIN_COUNT; ++k) lineH.push(b[idx(i, j + k)]);
-                    score += scoreLine(lineH);
-
-                    let lineV = [];
-                    for (let k = 0; k < WIN_COUNT; ++k) lineV.push(b[idx(j + k, i)]);
-                    score += scoreLine(lineV);
-                }
-            }
-
-            for (let i = 0; i <= s - WIN_COUNT; ++i) {
-                for (let j = 0; j <= s - WIN_COUNT; ++j) {
-                    let lineD1 = [];
-                    for (let k = 0; k < WIN_COUNT; ++k) lineD1.push(b[idx(i + k, j + k)]);
-                    score += scoreLine(lineD1);
-
-                    let lineD2 = [];
-                    for (let k = 0; k < WIN_COUNT; ++k) lineD2.push(b[idx(i + k, j + WIN_COUNT - 1 - k)]);
-                    score += scoreLine(lineD2);
+            for (let row = 0; row < s; row++) {
+                for (let col = 0; col < s; col++) {
+                    if (b[idx(row, col)] === player) {
+                        for (const [dx, dy] of directions) {
+                            const key = `${row},${col},${dx},${dy}`;
+                            const revKey = `${row + dx * (WIN_COUNT - 1)},${col + dy * (WIN_COUNT - 1)},${-dx},${-dy}`;
+                            if (!evaluated.has(key) && !evaluated.has(revKey)) {
+                                score += evaluateLine(b, s, row, col, dx, dy, player);
+                                evaluated.add(key);
+                            }
+                        }
+                    }
                 }
             }
             return score;
         }
 
-        function minimax(b, s, depth, alpha, beta, isBot, botSym, oppSym) {
-            if (checkWinAI(b, s, oppSym)) return [-100000 - depth, null];
-            if (checkWinAI(b, s, botSym)) return [100000 + depth, null];
-            if (isFull(b) || depth === 0) return [evaluate(b, s, botSym) - evaluate(b, s, oppSym), null];
+        function evaluateBoard(b, s, aiPlayer, humanPlayer) {
+            let score = 0;
+            score += evaluatePlayer(b, s, aiPlayer);
+            score -= evaluatePlayer(b, s, humanPlayer);
+            return score;
+        }
 
-            let moves = [];
-            let close = {};
-            const dirs = [[1, 0], [0, 1], [1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1], [-1, 1]];
-            for (let i = 0; i < s; ++i) {
-                for (let j = 0; j < s; ++j) {
-                    if (b[idx(i, j)] !== '.') {
-                        for (let [di, dj] of dirs) {
-                            for (let d = -1; d <= 1; ++d) {
-                                if (d === 0) continue;
-                                let ni = i + di * d;
-                                let nj = j + dj * d;
-                                if (isValid(ni, nj) && b[idx(ni, nj)] === '.') {
-                                    close[idx(ni, nj)] = idx(ni, nj);
+        function getCandidateMoves(b, s) {
+            const candidates = new Set();
+            const range = 2;
+
+            if (getEmpty(b).length === s * s) {
+                return [idx(Math.floor(s / 2), Math.floor(s / 2))];
+            }
+
+            for (let row = 0; row < s; row++) {
+                for (let col = 0; col < s; col++) {
+                    if (b[idx(row, col)] !== '.') {
+                        for (let dr = -range; dr <= range; dr++) {
+                            for (let dc = -range; dc <= range; dc++) {
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (isValid(newRow, newCol) && b[idx(newRow, newCol)] === '.') {
+                                    candidates.add(idx(newRow, newCol));
                                 }
                             }
                         }
                     }
                 }
             }
-            
-            let closeMoves = Object.values(close);
-            moves = closeMoves.length ? closeMoves : getEmpty(b);
-            
-            if (moves.length === 0 && closeMoves.length === 0) {
-                 moves = getEmpty(b);
-            }
-            if (moves.length === s*s) {
-                return [0, Math.floor(s*s / 2)];
+            return Array.from(candidates);
+        }
+
+        function minimax(b, s, depth, alpha, beta, isMaximizing, botSym, oppSym) {
+            const evalScore = evaluateBoard(b, s, botSym, oppSym);
+            if (depth === 0 || Math.abs(evalScore) > SCORES.FIVE / 2) {
+                return evalScore;
             }
 
-            let bestScore = isBot ? -Infinity : Infinity;
-            let bestMove = null;
+            const candidates = getCandidateMoves(b, s);
+            if (candidates.length === 0) return 0;
 
-            for (const moveIndex of moves) {
-                b[moveIndex] = isBot ? botSym : oppSym;
-                let [score] = minimax(b, s, depth - 1, alpha, beta, !isBot, botSym, oppSym);
-                b[moveIndex] = '.';
-
-                if (isBot) {
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMove = moveIndex;
-                    }
+            if (isMaximizing) {
+                let maxScore = -Infinity;
+                for (const moveIndex of candidates) {
+                    b[moveIndex] = botSym;
+                    const score = minimax(b, s, depth - 1, alpha, beta, false, botSym, oppSym);
+                    b[moveIndex] = '.';
+                    maxScore = Math.max(maxScore, score);
                     alpha = Math.max(alpha, score);
-                } else {
-                    if (score < bestScore) {
-                        bestScore = score;
-                        bestMove = moveIndex;
-                    }
-                    beta = Math.min(beta, score);
+                    if (beta <= alpha) break;
                 }
-                if (beta <= alpha) break;
+                return maxScore;
+            } else {
+                let minScore = Infinity;
+                for (const moveIndex of candidates) {
+                    b[moveIndex] = oppSym;
+                    const score = minimax(b, s, depth - 1, alpha, beta, true, botSym, oppSym);
+                    b[moveIndex] = '.';
+                    minScore = Math.min(minScore, score);
+                    beta = Math.min(beta, score);
+                    if (beta <= alpha) break;
+                }
+                return minScore;
             }
-            return [bestScore, bestMove];
+        }
+        
+        function findBlockMove(b, s, player, requiredCount) {
+             const emptyMoves = getEmpty(b);
+             for (const move of emptyMoves) {
+                b[move] = player;
+                const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+                for (let r = 0; r < s; r++) {
+                    for (let c = 0; c < s; c++) {
+                        if (b[idx(r, c)] !== player) continue;
+                        for (const [dr, dc] of directions) {
+                            let count = 1;
+                            let openEnds = 0;
+                            
+                            for (let step = 1; step < WIN_COUNT; step++) {
+                                const newRow = r + dr * step;
+                                const newCol = c + dc * step;
+                                if (!isValid(newRow, newCol) || b[idx(newRow, newCol)] !== player) {
+                                    if(isValid(newRow, newCol) && b[idx(newRow, newCol)] === '.') openEnds++;
+                                    break;
+                                }
+                                count++;
+                            }
+                            
+                            let backRow = r - dr;
+                            let backCol = c - dc;
+                            if(isValid(backRow, backCol) && b[idx(backRow, backCol)] === '.') openEnds++;
+
+                            if (count === requiredCount && openEnds === 2) {
+                                b[move] = '.';
+                                return move;
+                            }
+                        }
+                    }
+                }
+                b[move] = '.';
+             }
+             return null;
         }
 
         const emptyMoves = getEmpty(board);
         if (emptyMoves.length === 0) return -1;
-
         if (emptyMoves.length === size * size) {
-            return Math.floor(size / 2) * size + Math.floor(size / 2);
+            return idx(Math.floor(size / 2), Math.floor(size / 2));
+        }
+        
+        for (const move of emptyMoves) {
+            board[move] = bot;
+            if (checkWinner(board, size, bot)) {
+                board[move] = '.';
+                return move;
+            }
+            board[move] = '.';
+        }
+
+        for (const move of emptyMoves) {
+            board[move] = opp;
+            if (checkWinner(board, size, opp)) {
+                board[move] = '.';
+                return move;
+            }
+            board[move] = '.';
         }
 
         if (mode === 'de') {
-            return emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
-        }
-
-        if (mode === 'kho') {
-            for (const move of emptyMoves) {
-                board[move] = bot;
-                if (checkWinAI(board, size, bot)) {
-                    board[move] = '.';
-                    return move;
-                }
-                board[move] = '.';
-            }
-            for (const move of emptyMoves) {
-                board[move] = opp;
-                if (checkWinAI(board, size, opp)) {
-                    board[move] = '.';
-                    return move;
-                }
-                board[move] = '.';
-            }
-
-            let bestScore = -Infinity;
-            let candidates = [];
-            for (const move of emptyMoves) {
-                let r = Math.floor(move / size);
-                let c = move % size;
-                board[move] = bot;
-                let s = evaluate(board, size, bot) - evaluate(board, size, opp) + centerBonus(r, c, size);
-                board[move] = '.';
-
-                if (s > bestScore) {
-                    bestScore = s;
-                    candidates = [move];
-                } else if (s === bestScore) {
-                    candidates.push(move);
-                }
-            }
+            const block3 = findBlockMove(board, size, opp, 3);
+            if(block3 !== null) return block3;
+            
+            const candidates = getCandidateMoves(board, size);
             return candidates[Math.floor(Math.random() * candidates.length)];
         }
 
+        if (mode === 'kho') {
+            let bestScore = -Infinity;
+            let bestMove = null;
+            const candidates = getCandidateMoves(board, size);
+
+            for (const moveIndex of candidates) {
+                board[moveIndex] = bot;
+                const score = evaluateBoard(board, size, bot, opp);
+                board[moveIndex] = '.';
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = moveIndex;
+                }
+            }
+            return bestMove !== null ? bestMove : emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
+        }
+
         if (mode === 'caothu') {
-            let depth = 2;
-            let [score, move] = minimax(board, size, depth, -Infinity, Infinity, true, bot, opp);
-            return move !== null ? move : emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
+            let bestScore = -Infinity;
+            let bestMove = null;
+            const candidates = getCandidateMoves(board, size);
+
+            for (const moveIndex of candidates) {
+                board[moveIndex] = AI_PLAYER;
+                const score = minimax(board, size, SEARCH_DEPTH - 1, -Infinity, Infinity, false, bot, opp);
+                board[moveIndex] = '.';
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = moveIndex;
+                }
+            }
+            return bestMove !== null ? bestMove : emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
         }
 
         return emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
