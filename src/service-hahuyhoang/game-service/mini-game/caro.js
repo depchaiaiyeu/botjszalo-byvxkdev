@@ -57,7 +57,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     const O_COLOR = "#0077B6";
     const NUMBER_COLOR = "#888888";
     const BLACK_COLOR = "#000000";
-    ctx.font = "bold 24px 'Be VietnamPro'";
+    ctx.font = "bold 24px 'BeVietnamPro'";
     ctx.textAlign = "left";
     if (playerMark === "X") {
         ctx.fillStyle = X_COLOR;
@@ -87,8 +87,8 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.lineTo(padding + i * cellSize, boardTop + padding + size * cellSize);
         ctx.stroke();
     }
-    let numberFont = "18px 'Be VietnamPro'";
-    let markFont = "bold 36px 'Be VietnamPro'";
+    let numberFont = "18px 'BeVietnamPro'";
+    let markFont = "bold 36px 'BeVietnamPro'";
     let circleWidth = 4;
     let circleRadius = cellSize / 2.8;
     let winLineWidth = 6;
@@ -142,7 +142,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.lineTo(endX, endY);
         ctx.stroke();
     }
-    ctx.font = "bold 18px 'Be VietnamPro'";
+    ctx.font = "bold 18px 'BeVietnamPro'";
     ctx.textAlign = "center";
     ctx.fillStyle = BLACK_COLOR;
     ctx.fillText(`Nước đi: ${moveCount}/${size * size}`, width / 2, height - 25);
@@ -165,7 +165,7 @@ function checkWin(board, size = 16) {
                     const newCol = col + dc * step;
                     if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
                     const newIdx = newRow * size + newCol;
-                      if (board[newIdx] !== mark) break;
+                    if (board[newIdx] !== mark) break;
                     line.push(newIdx);
                     count++;
                 }
@@ -181,8 +181,8 @@ const AI_ENGINE = {
     BOT: 1,
     PLAYER: 2,
     BOARD_SIZE: 16,
-    MAX_TIME: 2800,
-    transpositionTable: new Map(),
+    MAX_TIME: 2500,
+    
     levelMap: {
         "normal": 4,
         "medium": 6,
@@ -190,117 +190,165 @@ const AI_ENGINE = {
         "fuckme": 10
     },
 
-    scores: {
-        "FIVE": 100000000,
-        "OPEN_FOUR": 10000000,
-        "BLOCKED_FOUR": 100000,
-        "OPEN_THREE": 10000,
-        "BLOCKED_THREE": 100,
-        "OPEN_TWO": 10,
-        "BLOCKED_TWO": 1,
-        "CENTER": 1
+    patternScores: {
+        FIVE: 100000000,
+        OPEN_FOUR: 10000000,
+        FOUR: 500000,
+        OPEN_THREE: 50000,
+        BLOCKED_THREE: 5000,
+        OPEN_TWO: 1000,
+        BLOCKED_TWO: 100,
+        ONE: 10
     },
 
-    evaluateLine: function (line, mark) {
+    evaluatePattern: function(pattern, mark) {
+        const own = pattern.filter(x => x === mark).length;
+        const opp = pattern.filter(x => x !== mark && x !== this.EMPTY).length;
+        const empty = pattern.filter(x => x === this.EMPTY).length;
+
+        if (opp > 0 && own > 0) return 0;
+
+        if (own === 5) return mark === this.BOT ? this.patternScores.FIVE : -this.patternScores.FIVE;
+        
+        if (own === 4) {
+            if (empty === 1) return mark === this.BOT ? this.patternScores.OPEN_FOUR : -this.patternScores.OPEN_FOUR;
+            return mark === this.BOT ? this.patternScores.FOUR : -this.patternScores.FOUR;
+        }
+        
+        if (own === 3) {
+            if (empty === 2) return mark === this.BOT ? this.patternScores.OPEN_THREE : -this.patternScores.OPEN_THREE;
+            if (empty === 1) return mark === this.BOT ? this.patternScores.BLOCKED_THREE : -this.patternScores.BLOCKED_THREE;
+        }
+        
+        if (own === 2) {
+            if (empty === 3) return mark === this.BOT ? this.patternScores.OPEN_TWO : -this.patternScores.OPEN_TWO;
+            if (empty === 2) return mark === this.BOT ? this.patternScores.BLOCKED_TWO : -this.patternScores.BLOCKED_TWO;
+        }
+        
+        if (own === 1 && empty === 4) {
+            return mark === this.BOT ? this.patternScores.ONE : -this.patternScores.ONE;
+        }
+
+        return 0;
+    },
+
+    evaluatePosition: function(board) {
         let score = 0;
-        const opponentMark = (mark === this.BOT) ? this.PLAYER : this.BOT;
-        let i = 0;
-        while (i < this.BOARD_SIZE) {
-            if (line[i] === this.EMPTY) {
-                i++;
-                continue;
-            }
-            let current = line[i];
-            let j = i;
-            while (j < this.BOARD_SIZE && line[j] === current) j++;
-            let len = j - i;
-            let patScore = 0;
-            if (len >= 5) {
-                patScore = this.scores.FIVE;
-            } else if (len >= 2) {
-                let leftOpen = (i > 0 && line[i - 1] === this.EMPTY);
-                let rightOpen = (j < this.BOARD_SIZE && line[j] === this.EMPTY);
-                let opens = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
-                if (len === 4) {
-                    if (opens === 2) patScore = this.scores.OPEN_FOUR;
-                    else if (opens === 1) patScore = this.scores.BLOCKED_FOUR;
-                } else if (len === 3) {
-                    if (opens === 2) patScore = this.scores.OPEN_THREE;
-                    else if (opens === 1) patScore = this.scores.BLOCKED_THREE;
-                } else if (len === 2) {
-                    if (opens === 2) patScore = this.scores.OPEN_TWO;
-                    else if (opens === 1) patScore = this.scores.BLOCKED_TWO;
-                }
-            }
-            if (patScore > 0) {
-                if (current === mark) {
-                    score += patScore;
-                } else {
-                    score -= patScore * 1.1;
-                }
-            }
-            i = j;
-        }
-        return score;
-    },
-
-    evaluateBoard: function (board, mark) {
-        let score = 0;
-
-        for (let r = 0; r < this.BOARD_SIZE; r++) {
-            for (let c = 0; c < this.BOARD_SIZE; c++) {
-                if (board[r][c] === this.EMPTY) continue;
-                const dist = Math.max(Math.abs(r - 7.5), Math.abs(c - 7.5));
-                score += (board[r][c] === mark ? 1 : -1) * (this.scores.CENTER * (8 - dist));
-            }
-        }
-
-        for (let r = 0; r < this.BOARD_SIZE; r++) {
-            score += this.evaluateLine(board[r], mark);
-        }
-
-        for (let c = 0; c < this.BOARD_SIZE; c++) {
-            let col = [];
-            for (let r = 0; r < this.BOARD_SIZE; r++) col.push(board[r][c]);
-            score += this.evaluateLine(col, mark);
-        }
-
-        for (let k = 0; k < 2 * this.BOARD_SIZE - 1; k++) {
-            let diag = [];
-            for (let r = 0; r < this.BOARD_SIZE; r++) {
-                let c = k - r;
-                if (c >= 0 && c < this.BOARD_SIZE) diag.push(board[r][c]);
-            }
-            if (diag.length >= 5) score += this.evaluateLine(diag, mark);
-        }
-
-        for (let k = 1 - this.BOARD_SIZE; k < this.BOARD_SIZE; k++) {
-            let diag = [];
-            for (let r = 0; r < this.BOARD_SIZE; r++) {
-                let c = k + r;
-                if (c >= 0 && c < this.BOARD_SIZE) diag.push(board[r][c]);
-            }
-            if (diag.length >= 5) score += this.evaluateLine(diag, mark);
-        }
-
-        return score;
-    },
-
-    getValidMoves: function (board) {
-        const moves = [];
-        const hasNeighbor = new Set();
         const size = this.BOARD_SIZE;
+        const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                for (const [dr, dc] of directions) {
+                    let pattern = [];
+                    for (let i = 0; i < 5; i++) {
+                        const nr = r + dr * i;
+                        const nc = c + dc * i;
+                        if (nr < 0 || nr >= size || nc < 0 || nc >= size) break;
+                        pattern.push(board[nr][nc]);
+                    }
+                    if (pattern.length === 5) {
+                        score += this.evaluatePattern(pattern, this.BOT);
+                        score += this.evaluatePattern(pattern, this.PLAYER);
+                    }
+                }
+            }
+        }
 
         for (let r = 0; r < size; r++) {
             for (let c = 0; c < size; c++) {
                 if (board[r][c] !== this.EMPTY) {
-                    for (let dr = -1; dr <= 1; dr++) {
-                        for (let dc = -1; dc <= 1; dc++) {
-                            if (dr === 0 && dc === 0) continue;
-                            const nr = r + dr;
-                            const nc = c + dc;
-                            if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr][nc] === this.EMPTY) {
-                                hasNeighbor.add(nr * size + nc);
+                    const centerDist = Math.abs(r - size/2) + Math.abs(c - size/2);
+                    const centerBonus = (size - centerDist) * 2;
+                    score += board[r][c] === this.BOT ? centerBonus : -centerBonus;
+                }
+            }
+        }
+
+        return score;
+    },
+
+    getCriticalMoves: function(board) {
+        const size = this.BOARD_SIZE;
+        const moves = [];
+        const threats = new Map();
+        const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (board[r][c] !== this.EMPTY) continue;
+
+                let maxThreat = 0;
+                
+                for (const [dr, dc] of directions) {
+                    for (let offset = -4; offset <= 0; offset++) {
+                        let pattern = [];
+                        let positions = [];
+                        let valid = true;
+                        
+                        for (let i = 0; i < 5; i++) {
+                            const nr = r + dr * (offset + i);
+                            const nc = c + dc * (offset + i);
+                            if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
+                                valid = false;
+                                break;
+                            }
+                            pattern.push(board[nr][nc]);
+                            positions.push(nr * size + nc);
+                        }
+                        
+                        if (!valid) continue;
+
+                        const botCount = pattern.filter(x => x === this.BOT).length;
+                        const playerCount = pattern.filter(x => x === this.PLAYER).length;
+                        const emptyCount = pattern.filter(x => x === this.EMPTY).length;
+
+                        if (botCount >= 4 && playerCount === 0) {
+                            maxThreat = Math.max(maxThreat, 100000);
+                        } else if (playerCount >= 4 && botCount === 0) {
+                            maxThreat = Math.max(maxThreat, 90000);
+                        } else if (botCount === 3 && emptyCount === 2 && playerCount === 0) {
+                            maxThreat = Math.max(maxThreat, 10000);
+                        } else if (playerCount === 3 && emptyCount === 2 && botCount === 0) {
+                            maxThreat = Math.max(maxThreat, 9000);
+                        } else if (botCount === 3 && emptyCount === 1 && playerCount === 0) {
+                            maxThreat = Math.max(maxThreat, 5000);
+                        } else if (playerCount === 3 && emptyCount === 1 && botCount === 0) {
+                            maxThreat = Math.max(maxThreat, 4500);
+                        } else if (botCount === 2 && emptyCount === 3 && playerCount === 0) {
+                            maxThreat = Math.max(maxThreat, 1000);
+                        } else if (playerCount === 2 && emptyCount === 3 && botCount === 0) {
+                            maxThreat = Math.max(maxThreat, 900);
+                        }
+                    }
+                }
+
+                if (maxThreat > 0) {
+                    threats.set(r * size + c, maxThreat);
+                }
+            }
+        }
+
+        const sortedThreats = Array.from(threats.entries()).sort((a, b) => b[1] - a[1]);
+        
+        for (const [pos, threat] of sortedThreats.slice(0, 15)) {
+            moves.push({ r: Math.floor(pos / size), c: pos % size, threat });
+        }
+
+        if (moves.length === 0) {
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (board[r][c] !== this.EMPTY) {
+                        for (let dr = -2; dr <= 2; dr++) {
+                            for (let dc = -2; dc <= 2; dc++) {
+                                const nr = r + dr;
+                                const nc = c + dc;
+                                if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr][nc] === this.EMPTY) {
+                                    const pos = nr * size + nc;
+                                    if (!threats.has(pos)) {
+                                        moves.push({ r: nr, c: nc, threat: 0 });
+                                    }
+                                }
                             }
                         }
                     }
@@ -308,132 +356,107 @@ const AI_ENGINE = {
             }
         }
 
-        if (hasNeighbor.size === 0) {
-            return [{ r: Math.floor(size / 2), c: Math.floor(size / 2) }];
+        if (moves.length === 0) {
+            moves.push({ r: Math.floor(size / 2), c: Math.floor(size / 2), threat: 0 });
         }
-
-        hasNeighbor.forEach(idx => {
-            moves.push({ r: Math.floor(idx / size), c: idx % size });
-        });
-
-        moves.sort((a, b) => {
-            let da = Math.max(Math.abs(a.r - 7.5), Math.abs(a.c - 7.5));
-            let db = Math.max(Math.abs(b.r - 7.5), Math.abs(b.c - 7.5));
-            return da - db;
-        });
 
         return moves;
     },
 
-    alphaBeta: function (board, depth, alpha, beta, isMaximizing, startTime, timeLimit) {
-        if (Date.now() - startTime > timeLimit) {
-            return [null, 0];
+    alphaBeta: function(board, depth, alpha, beta, isMaximizing, startTime) {
+        if (Date.now() - startTime > this.MAX_TIME) {
+            return this.evaluatePosition(board);
         }
 
-        const boardKey = board.map(row => row.join('')).join('|');
-        const ttKey = `${boardKey}|${depth}|${isMaximizing}`;
-        if (this.transpositionTable.has(ttKey)) {
-            return this.transpositionTable.get(ttKey);
+        const score = this.evaluatePosition(board);
+        
+        if (Math.abs(score) >= this.patternScores.FIVE || depth === 0) {
+            return score;
         }
 
-        const score = this.evaluateBoard(board, this.BOT);
-        if (Math.abs(score) >= this.scores.FIVE || depth === 0) {
-            return [null, score];
-        }
-
-        const moves = this.getValidMoves(board);
-        if (moves.length === 0) {
-            return [null, 0];
-        }
-
-        let bestMove = null;
-
+        const moves = this.getCriticalMoves(board);
+        
         if (isMaximizing) {
             let maxEval = -Infinity;
             for (const move of moves) {
                 board[move.r][move.c] = this.BOT;
-                const [_, score] = this.alphaBeta(board, depth - 1, alpha, beta, false, startTime, timeLimit);
+                const eval_score = this.alphaBeta(board, depth - 1, alpha, beta, false, startTime);
                 board[move.r][move.c] = this.EMPTY;
-
-                if (Date.now() - startTime > timeLimit) break;
-
-                if (score > maxEval) {
-                    maxEval = score;
-                    bestMove = move;
-                }
-                alpha = Math.max(alpha, score);
-                if (beta <= alpha) break;
+                
+                maxEval = Math.max(maxEval, eval_score);
+                alpha = Math.max(alpha, eval_score);
+                
+                if (beta <= alpha || Date.now() - startTime > this.MAX_TIME) break;
             }
-            this.transpositionTable.set(ttKey, [bestMove, maxEval]);
-            return [bestMove, maxEval];
+            return maxEval;
         } else {
             let minEval = Infinity;
             for (const move of moves) {
                 board[move.r][move.c] = this.PLAYER;
-                const [_, score] = this.alphaBeta(board, depth - 1, alpha, beta, true, startTime, timeLimit);
+                const eval_score = this.alphaBeta(board, depth - 1, alpha, beta, true, startTime);
                 board[move.r][move.c] = this.EMPTY;
-
-                if (Date.now() - startTime > timeLimit) break;
-
-                if (score < minEval) {
-                    minEval = score;
-                    bestMove = move;
-                }
-                beta = Math.min(beta, score);
-                if (beta <= alpha) break;
+                
+                minEval = Math.min(minEval, eval_score);
+                beta = Math.min(beta, eval_score);
+                
+                if (beta <= alpha || Date.now() - startTime > this.MAX_TIME) break;
             }
-            this.transpositionTable.set(ttKey, [bestMove, minEval]);
-            return [bestMove, minEval];
+            return minEval;
         }
     },
 
-    findBestMove: function (game) {
+    findBestMove: function(game) {
         const startTime = Date.now();
         const maxDepth = this.levelMap[game.mode] || 6;
         this.BOARD_SIZE = game.size;
-        this.transpositionTable.clear();
 
-        const internalBoard = Array(game.size).fill(0).map(() => Array(game.size).fill(this.EMPTY));
+        const board = Array(game.size).fill(0).map(() => Array(game.size).fill(this.EMPTY));
         for (let i = 0; i < game.board.length; i++) {
             const r = Math.floor(i / game.size);
             const c = i % game.size;
             if (game.board[i] === game.botMark) {
-                internalBoard[r][c] = this.BOT;
+                board[r][c] = this.BOT;
             } else if (game.board[i] === game.playerMark) {
-                internalBoard[r][c] = this.PLAYER;
+                board[r][c] = this.PLAYER;
             }
         }
 
+        const moves = this.getCriticalMoves(board);
         let bestMove = null;
         let bestScore = -Infinity;
 
-        for (let d = 1; d <= maxDepth; d++) {
-            const [move, score] = this.alphaBeta(internalBoard.map(row => [...row]), d, -Infinity, Infinity, true, startTime, this.MAX_TIME);
-            
-            if (Date.now() - startTime > this.MAX_TIME) {
-                break;
-            }
-            
-            if (move) {
-                bestMove = move;
-                bestScore = score;
+        for (let d = 2; d <= maxDepth; d += 2) {
+            let currentBestMove = null;
+            let currentBestScore = -Infinity;
+
+            for (const move of moves) {
+                board[move.r][move.c] = this.BOT;
+                const score = this.alphaBeta(board, d - 1, -Infinity, Infinity, false, startTime);
+                board[move.r][move.c] = this.EMPTY;
+
+                if (score > currentBestScore) {
+                    currentBestScore = score;
+                    currentBestMove = move;
+                }
+
+                if (Date.now() - startTime > this.MAX_TIME) break;
             }
 
-            if (score >= this.scores.FIVE) {
+            if (currentBestMove) {
+                bestMove = currentBestMove;
+                bestScore = currentBestScore;
+            }
+
+            if (bestScore >= this.patternScores.FIVE || Date.now() - startTime > this.MAX_TIME) {
                 break;
             }
         }
 
-        if (!bestMove) {
-            const moves = this.getValidMoves(internalBoard);
-            bestMove = moves[Math.floor(Math.random() * moves.length)];
+        if (!bestMove && moves.length > 0) {
+            bestMove = moves[0];
         }
-        
-        if (bestMove) {
-            return bestMove.r * game.size + bestMove.c;
-        } else {
-            return -1;
-        }
+
+        return bestMove ? bestMove.r * game.size + bestMove.c : -1;
     }
 };
 
@@ -549,7 +572,7 @@ export async function handleCaroCommand(api, message) {
         
         if (["hard", "fuckme"].includes(mode)) {
             playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
-          } else {
+        } else {
             playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
         }
     } else {
