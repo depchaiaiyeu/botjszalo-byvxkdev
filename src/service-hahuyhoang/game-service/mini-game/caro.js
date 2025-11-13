@@ -6,9 +6,6 @@ import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../c
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 let activeCaroGames = new Map();
 let turnTimers = new Map();
 
@@ -385,29 +382,37 @@ export async function handleCaroCommand(api, message) {
         return;
     }
     
+    // --- KHỐI SỬA LỖI WASM ---
     try {
-        // 1. Setup the Wasm Module configuration for Node.js path resolution
-        const wasmFilesPath = path.resolve(__dirname, 'brain');
+        // 1. Tính toán path của file hiện tại (caro.js) và thư mục 'brain'
+        const currentFileUrl = import.meta.url;
+        const currentDir = path.dirname(fileURLToPath(currentFileUrl));
+        const wasmFilesPath = path.resolve(currentDir, 'brain');
         
+        // 2. Thiết lập CJS Globals cho Wasm Wrapper (brain.js)
+        // Việc này giải quyết lỗi "ReferenceError: __filename is not defined"
+        global.__filename = fileURLToPath(currentFileUrl);
+        global.__dirname = currentDir;
+        
+        // 3. Thiết lập Module toàn cục để Wasm Engine tìm thấy các file phụ
         global.Module = {
-            // Tell Emscripten where to find the auxiliary files (wasm and worker)
-            locateFile: (path, prefix) => {
+            locateFile: (path) => {
+                // Đảm bảo Wasm Module tìm thấy brain.wasm và brain.worker.js
                 if (path === 'brain.wasm' || path === 'brain.worker.js') {
                     return path.join(wasmFilesPath, path);
                 }
                 return path;
             },
-            // Set the main script path for Worker Threads (Pthreads)
-            mainScriptUrlOrBlob: path.join(wasmFilesPath, 'brain.js'),
+            // Chỉ định đường dẫn của brain.js để Worker Threads có thể tải nó
+            mainScriptUrlOrBlob: fileURLToPath(path.join(wasmFilesPath, 'brain.js')),
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
         };
 
-        // 2. Dynamically import and execute the Wasm wrapper script
+        // 4. Import và khởi tạo Wasm Module
         await import("./brain/brain.js");
 
-        // 3. Extract the needed functions from the now-initialized global.Module
         const WasmModule = global.Module;
         
         const ksh_send_input_string = WasmModule.cwrap('ksh_send_input', null, ['string']);
@@ -422,9 +427,13 @@ export async function handleCaroCommand(api, message) {
         
     } catch (e) {
         console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
-        await sendMessageWarning(api, message, "🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm.", TTL_SHORT);
+        // Xóa globals để không ảnh hưởng đến các lần chạy sau
+        delete global.__filename;
+        delete global.__dirname;
+        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
+    // --- KẾT THÚC KHỐI SỬA LỖI WASM ---
 
     clearTurnTimer(threadId);
     let board = Array(size * size).fill(".");
