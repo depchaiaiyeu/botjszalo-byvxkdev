@@ -391,26 +391,39 @@ export async function handleCaroCommand(api, message) {
         const wasmFilesPath = path.resolve(currentDir, 'brain');
         const brainCjsPath = path.join(wasmFilesPath, 'brain.cjs');
         const brainWorkerCjsPath = path.join(wasmFilesPath, 'brain.worker.cjs');
-
+        
         global.__filename = fileURLToPath(currentFileUrl);
         global.__dirname = currentDir;
         
         global.Module = {
             locateFile: (filePath) => {
-                // Kiểm tra nếu Wasm Engine yêu cầu brain.worker.js, ta trả về đường dẫn CJS
                 if (filePath.endsWith('brain.worker.js')) {
                     return brainWorkerCjsPath;
                 }
-                // Nếu là brain.wasm (hoặc các file khác), sử dụng đường dẫn tuyệt đối
                 return path.join(wasmFilesPath, filePath);
             },
             mainScriptUrlOrBlob: pathToFileURL(brainCjsPath).href,
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
+            noInitialRun: true,
         };
 
         const WasmModule = require(brainCjsPath);
+        WasmModule.run();
+
+        await new Promise((resolve, reject) => {
+            const check = () => {
+                if (WasmModule._ksh_start) {
+                    resolve();
+                } else if (WasmModule.ABORT) {
+                    reject(new Error("WASM initialization aborted."));
+                } else {
+                    setTimeout(check, 50);
+                }
+            };
+            setTimeout(check, 0); 
+        });
 
         delete global.__filename;
         delete global.__dirname;
@@ -516,7 +529,7 @@ export async function handleCaroMessage(api, message) {
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
     } else if (game.moveCount === game.size * game.size) {
-        let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
+        let imageBuffer = await createCaroBoard(game.board, size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
         await fs.writeFile(imagePath, imageBuffer);
         
