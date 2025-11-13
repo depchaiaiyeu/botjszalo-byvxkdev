@@ -165,7 +165,7 @@ function checkWin(board, size = 16) {
                     const newCol = col + dc * step;
                     if (newRow < 0 || newRow >= size || newCol < 0 || newCol >= size) break;
                     const newIdx = newRow * size + newCol;
-                      if (board[newIdx] !== mark) break;
+                      if (board[newIdx] !== mark) break;
                     line.push(newIdx);
                     count++;
                 }
@@ -341,16 +341,16 @@ const AI_ENGINE = {
             let maxEval = -Infinity;
             for (const move of moves) {
                 board[move.r][move.c] = this.BOT;
-                const [_, eval] = this.minimax(board, depth - 1, alpha, beta, false, startTime, timeLimit);
+                const [_, score] = this.minimax(board, depth - 1, alpha, beta, false, startTime, timeLimit);
                 board[move.r][move.c] = this.EMPTY;
 
                 if (Date.now() - startTime > timeLimit) break;
 
-                if (eval > maxEval) {
-                    maxEval = eval;
+                if (score > maxEval) {
+                    maxEval = score;
                     bestMove = move;
                 }
-                alpha = Math.max(alpha, eval);
+                alpha = Math.max(alpha, score);
                 if (beta <= alpha) break;
             }
             this.transpositionTable.set(ttKey, [bestMove, maxEval]);
@@ -359,16 +359,16 @@ const AI_ENGINE = {
             let minEval = Infinity;
             for (const move of moves) {
                 board[move.r][move.c] = this.PLAYER;
-                const [_, eval] = this.minimax(board, depth - 1, alpha, beta, true, startTime, timeLimit);
+                const [_, score] = this.minimax(board, depth - 1, alpha, beta, true, startTime, timeLimit);
                 board[move.r][move.c] = this.EMPTY;
 
                 if (Date.now() - startTime > timeLimit) break;
 
-                if (eval < minEval) {
-                    minEval = eval;
+                if (score < minEval) {
+                    minEval = score;
                     bestMove = move;
                 }
-                beta = Math.min(beta, eval);
+                beta = Math.min(beta, score);
                 if (beta <= alpha) break;
             }
             this.transpositionTable.set(ttKey, [bestMove, minEval]);
@@ -398,11 +398,11 @@ const AI_ENGINE = {
 
         for (let d = 1; d <= maxDepth; d++) {
             const [move, score] = this.minimax(internalBoard.map(row => [...row]), d, -Infinity, Infinity, true, startTime, this.MAX_TIME);
-            
+            
             if (Date.now() - startTime > this.MAX_TIME) {
                 break;
             }
-            
+            
             if (move) {
                 bestMove = move;
                 bestScore = score;
@@ -417,7 +417,7 @@ const AI_ENGINE = {
             const moves = this.getValidMoves(internalBoard);
             bestMove = moves[Math.floor(Math.random() * moves.length)];
         }
-        
+        
         if (bestMove) {
             return bestMove.r * game.size + bestMove.c;
         } else {
@@ -538,7 +538,7 @@ export async function handleCaroCommand(api, message) {
         
         if (["hard", "fuckme"].includes(mode)) {
             playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
-          } else {
+          } else {
             playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
         }
     } else {
@@ -547,7 +547,7 @@ export async function handleCaroCommand(api, message) {
     }
     
     if (!["X", "O"].includes(playerMark)) {
-        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\Vui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
+        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\nVui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
         return;
     }
     
@@ -638,7 +638,7 @@ export async function handleCaroMessage(api, message) {
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
         clearTurnTimer(threadId);
-        try { await fs.unlink(imagePath); } catch (error) { }
+        try { await fs.unlink(imagePath); } catch (error) { }
         return;
     }
 
