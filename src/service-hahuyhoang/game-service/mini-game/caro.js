@@ -386,12 +386,33 @@ export async function handleCaroCommand(api, message) {
     }
     
     try {
-        const { Module } = await import("./brain/brain.js");
+        // 1. Setup the Wasm Module configuration for Node.js path resolution
+        const wasmFilesPath = path.resolve(__dirname, 'brain');
+        
+        global.Module = {
+            // Tell Emscripten where to find the auxiliary files (wasm and worker)
+            locateFile: (path, prefix) => {
+                if (path === 'brain.wasm' || path === 'brain.worker.js') {
+                    return path.join(wasmFilesPath, path);
+                }
+                return path;
+            },
+            // Set the main script path for Worker Threads (Pthreads)
+            mainScriptUrlOrBlob: path.join(wasmFilesPath, 'brain.js'),
+            print: () => {},
+            printErr: console.error,
+            noExitRuntime: true,
+        };
 
-        const WasmModule = Module;
-        WasmModule._ksh_start();
+        // 2. Dynamically import and execute the Wasm wrapper script
+        await import("./brain/brain.js");
+
+        // 3. Extract the needed functions from the now-initialized global.Module
+        const WasmModule = global.Module;
+        
         const ksh_send_input_string = WasmModule.cwrap('ksh_send_input', null, ['string']);
         const ksh_get_output_string = WasmModule.cwrap('ksh_get_output', 'string', null);
+        WasmModule._ksh_start();
         
         wasmInterfaces.set(threadId, { ksh_send_input_string, ksh_get_output_string });
 
