@@ -1,7 +1,7 @@
 import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
@@ -294,7 +294,7 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
     await fs.writeFile(imagePath, imageBuffer);
     
     let modeName;
-    if (game.mode === "fuckme") modeName = "cao thủ";
+    if (game.mode === "fuckme") modeName = "cực khó";
     else if (game.mode === "hard") modeName = "khó";
     else if (game.mode === "medium") modeName = "trung bình";
     else modeName = "thường";
@@ -382,35 +382,27 @@ export async function handleCaroCommand(api, message) {
         return;
     }
     
-    // --- KHỐI SỬA LỖI WASM ---
     try {
-        // 1. Tính toán path của file hiện tại (caro.js) và thư mục 'brain'
         const currentFileUrl = import.meta.url;
         const currentDir = path.dirname(fileURLToPath(currentFileUrl));
         const wasmFilesPath = path.resolve(currentDir, 'brain');
         
-        // 2. Thiết lập CJS Globals cho Wasm Wrapper (brain.js)
-        // Việc này giải quyết lỗi "ReferenceError: __filename is not defined"
         global.__filename = fileURLToPath(currentFileUrl);
         global.__dirname = currentDir;
         
-        // 3. Thiết lập Module toàn cục để Wasm Engine tìm thấy các file phụ
         global.Module = {
             locateFile: (path) => {
-                // Đảm bảo Wasm Module tìm thấy brain.wasm và brain.worker.js
                 if (path === 'brain.wasm' || path === 'brain.worker.js') {
                     return path.join(wasmFilesPath, path);
                 }
                 return path;
             },
-            // Chỉ định đường dẫn của brain.js để Worker Threads có thể tải nó
-            mainScriptUrlOrBlob: fileURLToPath(path.join(wasmFilesPath, 'brain.js')),
+            mainScriptUrlOrBlob: pathToFileURL(path.join(wasmFilesPath, 'brain.js')).href,
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
         };
 
-        // 4. Import và khởi tạo Wasm Module
         await import("./brain/brain.js");
 
         const WasmModule = global.Module;
@@ -427,13 +419,11 @@ export async function handleCaroCommand(api, message) {
         
     } catch (e) {
         console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
-        // Xóa globals để không ảnh hưởng đến các lần chạy sau
         delete global.__filename;
         delete global.__dirname;
         await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
-    // --- KẾT THÚC KHỐI SỬA LỖI WASM ---
 
     clearTurnTimer(threadId);
     let board = Array(size * size).fill(".");
@@ -456,7 +446,7 @@ export async function handleCaroCommand(api, message) {
         let imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
         await fs.writeFile(imagePath, imageBuffer);
-        let caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chìa khóa chiến thắng!`;
+        let caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chì là khóa chiến thắng!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_SHORT);
         startTurnTimer(api, message, threadId, true);
         try { await fs.unlink(imagePath); } catch (error) { }
