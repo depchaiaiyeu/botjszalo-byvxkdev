@@ -389,40 +389,54 @@ export async function handleCaroCommand(api, message) {
         const currentFileUrl = import.meta.url;
         const currentDir = path.dirname(fileURLToPath(currentFileUrl));
         const wasmFilesPath = path.resolve(currentDir, 'brain');
-        const brainCjsPath = path.join(wasmFilesPath, 'brain.cjs');
-        const brainWorkerCjsPath = path.join(wasmFilesPath, 'brain.worker.cjs');
+        const brainMainPath = path.join(wasmFilesPath, 'brain.js');
+        const brainWasmPath = path.join(wasmFilesPath, 'brain.wasm');
+        
+        try {
+            await fs.access(brainMainPath);
+            await fs.access(brainWasmPath);
+        } catch (error) {
+            throw new Error(`Không tìm thấy file WASM: ${brainMainPath} hoặc ${brainWasmPath}`);
+        }
         
         global.__filename = fileURLToPath(currentFileUrl);
         global.__dirname = currentDir;
         
         global.Module = {
             locateFile: (filePath) => {
-                if (filePath.endsWith('brain.worker.js')) {
-                    return brainWorkerCjsPath;
-                }
                 return path.join(wasmFilesPath, filePath);
             },
-            mainScriptUrlOrBlob: pathToFileURL(brainCjsPath).href,
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
-            noInitialRun: true,
+            noInitialRun: false,
         };
 
-        const WasmModule = require(brainCjsPath);
-        WasmModule.run();
-
+        const WasmModule = require(brainMainPath);
+        
         await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Timeout: WASM không khởi tạo trong 10 giây"));
+            }, 10000);
+            
             const check = () => {
-                if (WasmModule._ksh_start) {
+                if (WasmModule._ksh_start && WasmModule.cwrap) {
+                    clearTimeout(timeout);
                     resolve();
-                } else if (WasmModule.ABORT) {
-                    reject(new Error("WASM initialization aborted."));
+                } else if (WasmModule.calledRun || WasmModule.runtimeInitialized) {
+                    clearTimeout(timeout);
+                    setTimeout(() => {
+                        if (WasmModule._ksh_start) {
+                            resolve();
+                        } else {
+                            reject(new Error("WASM module không export hàm _ksh_start"));
+                        }
+                    }, 500);
                 } else {
-                    setTimeout(check, 50);
+                    setTimeout(check, 100);
                 }
             };
-            setTimeout(check, 0); 
+            check();
         });
 
         delete global.__filename;
@@ -443,7 +457,7 @@ export async function handleCaroCommand(api, message) {
         delete global.__filename;
         delete global.__dirname;
         delete global.Module;
-        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js/brain.cjs và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
+        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
 
@@ -476,8 +490,6 @@ export async function handleCaroCommand(api, message) {
         activeCaroGames.get(threadId).isProcessing = true;
         handleBotTurn(api, message, -1, true);
     }
-}
-
 export async function handleCaroMessage(api, message) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
