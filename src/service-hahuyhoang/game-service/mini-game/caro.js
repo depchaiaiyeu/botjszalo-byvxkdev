@@ -6,6 +6,7 @@ import { createRequire } from "module";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
+import { load } from "cheerio";
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
@@ -203,6 +204,67 @@ async function createCaroBoard(board, size, moveCount, playerSymbol, botSymbol, 
     return canvas.toBuffer("image/png");
 }
 
+async function getBotMoveFromWebsite(game) {
+    try {
+        let levelMap = {
+            'de': 'easy',
+            'kho': 'normal',
+            'caothu': 'hard'
+        };
+        let level = levelMap[game.mode] || 'normal';
+        
+        let first = game.playerSymbol === 'X' ? 'human' : 'ai';
+        
+        let moves = [];
+        for (let r = 0; r < game.size; r++) {
+            for (let c = 0; c < game.size; c++) {
+                if (game.board[r][c] !== null) {
+                    moves.push(r * game.size + c + 1);
+                }
+            }
+        }
+        
+        let url = `https://depchaiaiyeu.github.io/easycaro.github.io/?level=${level}&first=${first}&moves=${moves.join(',')}`;
+        
+        console.log(`Fetching: ${url}`);
+        
+        let response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        let html = await response.text();
+        let $ = load(html);
+        
+        let gameDataDiv = $('#game-data-crawler');
+        if (gameDataDiv.length === 0) {
+            throw new Error('Game data div not found');
+        }
+        
+        let gameDataText = gameDataDiv.text().trim();
+        if (!gameDataText) {
+            throw new Error('Game data is empty');
+        }
+        
+        let gameData = JSON.parse(gameDataText);
+        
+        if (!gameData.moves || gameData.moves.length === 0) {
+            throw new Error('No moves in game data');
+        }
+        
+        let lastMoveCell = gameData.moves[gameData.moves.length - 1];
+        let movePos = lastMoveCell - 1;
+        let row = Math.floor(movePos / game.size);
+        let col = movePos % game.size;
+        
+        return { row, col };
+        
+    } catch (error) {
+        console.error("Error fetching from website:", error);
+        throw error;
+    }
+}
+
 async function handleBotTurn(api, message) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
@@ -214,32 +276,12 @@ async function handleBotTurn(api, message) {
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
 
-    const api_url = "https://gomoku-game-api.vercel.app/api/move";
     let move = null;
 
     try {
-        const response = await fetch(api_url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                board: game.board,
-                aiMark: game.aiMark,
-                humanMark: game.humanMark,
-                mode: game.mode
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        move = data.move;
-
+        move = await getBotMoveFromWebsite(game);
     } catch (error) {
-        console.error("Lỗi gọi API AI:", error);
+        console.error("Lỗi crawl website:", error);
         clearTurnTimer(threadId);
         await sendMessageWarning(api, message, "🤖 Rất tiếc, AI đang gặp sự cố. Vui lòng thử lại sau.", TTL_SHORT);
         activeCaroGames.delete(threadId);
@@ -315,14 +357,14 @@ export async function handleCaroCommand(api, message) {
         await sendMessageComplete(api, message,
             `🎮 CỜ CARO - THỬ THÁCH TRÍ TUỆ\n\n` +
             `🌟 Cú pháp:\n` +
-            `${prefix}caro [de/kho/caothu] [o]\n\n` +
+            `${prefix}caro [de/kho/caothu] [x]\n\n` +
             `💡 Ví dụ:\n` +
-            `• ${prefix}caro de >> Luyện tay\n` +
-            `• ${prefix}caro kho >> Dành cho newbie\n` +
-            `• ${prefix}caro caothu >> Cao thủ\n` +
-            `• ${prefix}caro caothu o >> Bạn đi trước (Cầm X)\n\n` +
+            `• ${prefix}caro de >> Luyện tay (Bạn cầm O)\n` +
+            `• ${prefix}caro kho >> Dành cho newbie (Bạn cầm O)\n` +
+            `• ${prefix}caro caothu >> Cao thủ (Bạn cầm O)\n` +
+            `• ${prefix}caro caothu x >> Bạn cầm X đi trước\n\n` +
             `📜 Luật chơi:\n` +
-            `• Thêm 'o' vào cuối để BOT cầm O đi sau\n` +
+            `• Thêm 'x' vào cuối để cầm X đi trước\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Gõ số ô (1-256) để đánh quân\n` +
             `• Gõ "lose" để đầu hàng\n` +
@@ -347,10 +389,10 @@ export async function handleCaroCommand(api, message) {
         return;
     }
 
-    let botArg = args[2] ? args[2].toLowerCase() : '';
+    let playerArg = args[2] ? args[2].toLowerCase() : '';
     let playerSymbol, botSymbol, humanMark, aiMark, currentTurn;
 
-    if (botArg === 'o') {
+    if (playerArg === 'x') {
         playerSymbol = 'X';
         botSymbol = 'O';
         humanMark = BLACK_PLAYER; 
