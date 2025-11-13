@@ -294,7 +294,7 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
     await fs.writeFile(imagePath, imageBuffer);
     
     let modeName;
-    if (game.mode === "fuckme") modeName = "cực khó";
+    if (game.mode === "fuckme") modeName = "cao thủ";
     else if (game.mode === "hard") modeName = "khó";
     else if (game.mode === "medium") modeName = "trung bình";
     else modeName = "thường";
