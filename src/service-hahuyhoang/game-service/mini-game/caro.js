@@ -1,16 +1,12 @@
 import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { createRequire } from "module";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
-
-let wasmInterfaces = new Map();
 
 const TTL_LONG = 3600000;
 const TTL_SHORT = 60000;
@@ -28,8 +24,6 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     let timer = setTimeout(async () => {
         let game = activeCaroGames.get(threadId);
         if (!game) return;
-
-        wasmInterfaces.delete(threadId);
 
         if (isPlayerTurn) {
             let caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
@@ -61,7 +55,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     const O_COLOR = "#0077B6";
     const NUMBER_COLOR = "#888888";
     const BLACK_COLOR = "#000000";
-    ctx.font = "bold 24px 'BeVietnamPro'";
+    ctx.font = "bold 24px 'Be VietnamPro'";
     ctx.textAlign = "left";
     if (playerMark === "X") {
         ctx.fillStyle = X_COLOR;
@@ -91,8 +85,8 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.lineTo(padding + i * cellSize, boardTop + padding + size * cellSize);
         ctx.stroke();
     }
-    let numberFont = "18px 'BeVietnamPro'";
-    let markFont = "bold 36px 'BeVietnamPro'";
+    let numberFont = "18px 'Be VietnamPro'";
+    let markFont = "bold 36px 'Be VietnamPro'";
     let circleWidth = 4;
     let circleRadius = cellSize / 2.8;
     let winLineWidth = 6;
@@ -146,7 +140,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.lineTo(endX, endY);
         ctx.stroke();
     }
-    ctx.font = "bold 18px 'BeVietnamPro'";
+    ctx.font = "bold 18px 'Be VietnamPro'";
     ctx.textAlign = "center";
     ctx.fillStyle = BLACK_COLOR;
     ctx.fillText(`Nước đi: ${moveCount}/${size * size}`, width / 2, height - 25);
@@ -186,59 +180,6 @@ function getMoveCoordinates(pos, size) {
     return { r, c };
 }
 
-function parseWasmOutput(output) {
-    if (!output) return null;
-    const parts = output.split(' ');
-    if (parts[0] === 'AI' && parts.length === 3) {
-        return {
-            type: 'AI',
-            r: parseInt(parts[1]),
-            c: parseInt(parts[2])
-        };
-    } else if (parts[0] === 'WIN' && parts.length >= 11) {
-         const line = [];
-         for(let i = 1; i < 11; i += 2) {
-             const r = parseInt(parts[i]);
-             const c = parseInt(parts[i+1]);
-             line.push(r * 16 + c);
-         }
-         return { type: 'WIN', winner: parts[0], line: line };
-    }
-    return { type: parts[0], data: parts.slice(1).join(' ') };
-}
-
-function getAIMoveWasm(threadId, playerPos = -1) {
-    const { ksh_send_input_string, ksh_get_output_string } = wasmInterfaces.get(threadId);
-    const game = activeCaroGames.get(threadId);
-    
-    if (playerPos !== -1) {
-        const { r, c } = getMoveCoordinates(playerPos, game.size);
-        ksh_send_input_string(`HM ${r} ${c}`);
-    }
-
-    let maxTries = 100;
-    for (let i = 0; i < maxTries; i++) {
-        const output = ksh_get_output_string();
-        if (output.length > 0) {
-            const result = parseWasmOutput(output);
-
-            if (result.type === 'STT') {
-            } else if (result.type === 'L') {
-            } else if (result.type === 'WIN') {
-                 game.winResult = { winner: game.playerMark, line: result.line };
-                 return -1;
-            } else if (result.type === 'AI') {
-                const ai_r = result.r;
-                const ai_c = result.c;
-                return ai_r * game.size + ai_c;
-            }
-        }
-    }
-    
-    console.error(`Lỗi: AI Wasm không phản hồi AI move sau ${maxTries} lần thử.`);
-    return -1;
-}
-
 async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
@@ -248,10 +189,10 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
     
-    const pos = getAIMoveWasm(threadId, playerPos);
+    const pos = getBestMove(game.board.slice(), game.botMark, game.playerMark, levelMap[game.mode]);
     
     clearTurnTimer(threadId);
-    if (!activeCaroGames.has(threadId)) return;
+    if (!activeCaroGames.has(threadId) ) return;
 
     if (game.winResult && game.winResult.winner === game.playerMark) {
         const winningLine = game.winResult.line;
@@ -262,7 +203,6 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
         let caption = `👑 PLAYER WIN!\n\n👤 ${game.playerName} đánh ô số: ${playerPos + 1}\n🏆 Chúc mừng một chiến thắng xuất sắc!\n\n🌟 Bạn đã chơi rất hay trong ván cờ này.`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
     }
@@ -278,7 +218,6 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
         await api.addReaction("OK", message);
         try { await fs.unlink(imagePath); } catch (error) { }
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         return;
     }
 
@@ -306,7 +245,6 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
         let caption = `🏆 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và BOT đều chơi xuất sắc!`;
@@ -314,7 +252,6 @@ async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) 
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
     } else {
         let initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân ${game.botMark})` : "";
@@ -383,91 +320,7 @@ export async function handleCaroCommand(api, message) {
         return;
     }
     
-    try {
-        const currentFileUrl = import.meta.url;
-        const currentDir = path.dirname(fileURLToPath(currentFileUrl));
-        const wasmFilesPath = path.resolve(currentDir, 'brain');
-        const brainCjsPath = path.join(wasmFilesPath, 'brain.cjs');
-        const brainWasmPath = path.join(wasmFilesPath, 'brain.wasm');
-        
-        try {
-            await fs.access(brainCjsPath);
-            await fs.access(brainWasmPath);
-        } catch (error) {
-            throw new Error(`Không tìm thấy file: ${brainCjsPath} hoặc ${brainWasmPath}`);
-        }
-        
-        // SỬA LỖI TẢI WASM MODULE TẠI ĐÂY
-        const require = createRequire(currentFileUrl);
-        const WasmModule = require(brainCjsPath);
-        
-        if (typeof WasmModule !== 'function' && typeof WasmModule !== 'object') {
-            throw new Error('brain.cjs không export đúng định dạng');
-        }
-
-        let moduleInstance = WasmModule;
-        
-        if (typeof WasmModule === 'function') {
-            moduleInstance = WasmModule({
-                locateFile: (filePath) => {
-                    return path.join(wasmFilesPath, filePath);
-                },
-                print: () => {},
-                printErr: console.error,
-                noExitRuntime: true,
-            });
-        }
-        
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error("Timeout: WASM không khởi tạo trong 10 giây"));
-            }, 10000);
-            
-            const check = () => {
-                if (moduleInstance._ksh_start && moduleInstance.cwrap) {
-                    clearTimeout(timeout);
-                    resolve();
-                } else if (moduleInstance.then) {
-                    moduleInstance.then(instance => {
-                        if (instance._ksh_start && instance.cwrap) {
-                            moduleInstance = instance;
-                            clearTimeout(timeout);
-                            resolve();
-                        } else {
-                            reject(new Error("Module không có hàm _ksh_start"));
-                        }
-                    }).catch(reject);
-                } else if (moduleInstance.calledRun || moduleInstance.runtimeInitialized) {
-                    setTimeout(() => {
-                        if (moduleInstance._ksh_start) {
-                            clearTimeout(timeout);
-                            resolve();
-                        } else {
-                            reject(new Error("WASM module không export hàm _ksh_start"));
-                        }
-                    }, 500);
-                } else {
-                    setTimeout(check, 100);
-                }
-            };
-            check();
-        });
-        
-        const ksh_send_input_string = moduleInstance.cwrap('ksh_send_input', null, ['string']);
-        const ksh_get_output_string = moduleInstance.cwrap('ksh_get_output', 'string', null);
-        moduleInstance._ksh_start();
-        
-        wasmInterfaces.set(threadId, { ksh_send_input_string, ksh_get_output_string });
-
-        const level = levelMap[mode];
-        const pf = (playerMark === "X" ? 1 : 0);
-        ksh_send_input_string(`START 0 ${level} ${pf}`);
-        
-    } catch (e) {
-        console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
-        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Chi tiết: ${e.message}`, TTL_SHORT);
-        return;
-    }
+    initZobrist();
 
     clearTurnTimer(threadId);
     let board = Array(size * size).fill(".");
@@ -511,7 +364,6 @@ export async function handleCaroMessage(api, message) {
     if (message.data.mentions && message.data.mentions.length > 0) return;
     if (content.trim().toLowerCase() === "lose") {
         clearTurnTimer(threadId);
-        wasmInterfaces.delete(threadId);
         let caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 BOT đã dành chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
         await sendMessageTag(api, message, { caption }, TTL_LONG);
         activeCaroGames.delete(threadId);
@@ -546,7 +398,6 @@ export async function handleCaroMessage(api, message) {
         let caption = `👑 PLAYER WIN!\n\n👤 ${game.playerName} đánh ô số: ${pos + 1}\n🏆 Chúc mừng một chiến thắng xuất sắc!\n\n🌟 Bạn đã chơi rất hay trong ván cờ này.`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
@@ -558,7 +409,6 @@ export async function handleCaroMessage(api, message) {
         let caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
-        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
@@ -566,3 +416,243 @@ export async function handleCaroMessage(api, message) {
     
     handleBotTurn(api, message, pos);
 }
+
+const SIZE = 16;
+const WIN_LENGTH = 5;
+const DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+const SCORES = {
+  5: 1000000,
+  4: { open2: 100000, open1: 1000, open0: 0 },
+  3: { open2: 1000, open1: 100, open0: 0 },
+  2: { open2: 100, open1: 10, open0: 0 },
+  1: { open2: 10, open1: 1, open0: 0 },
+};
+
+let zobristTable = Array(2).fill(0).map(() => Array(SIZE * SIZE).fill(0n));
+
+function initZobrist() {
+  for (let p = 0; p < 2; p++) {
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      zobristTable[p][i] = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)) << 32n | BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+    }
+  }
+}
+
+let transTable = new Map();
+
+let killers = Array(20).fill(0).map(() => [-1, -1]);
+
+function evaluate(board, botMark, playerMark) {
+  let botScore = getPlayerScore(board, botMark);
+  let playerScore = getPlayerScore(board, playerMark);
+  return botScore - playerScore;
+}
+
+function getPlayerScore(board, mark) {
+  let score = 0;
+  score += evaluateLines(board, mark, 0, 1);
+  score += evaluateLines(board, mark, 1, 0);
+  score += evaluateLines(board, mark, 1, 1);
+  score += evaluateLines(board, mark, 1, -1);
+  return score;
+}
+
+function evaluateLines(board, mark, dr, dc) {
+  let score = 0;
+  let starts = [];
+  if (dr === 0 && dc === 1) {
+    for (let r = 0; r < SIZE; r++) {
+      starts.push({ r, c: 0 });
+    }
+  } else if (dr === 1 && dc === 0) {
+    for (let c = 0; c < SIZE; c++) {
+      starts.push({ r: 0, c });
+    }
+  } else if (dr === 1 && dc === 1) {
+    for (let k = 0; k < SIZE; k++) {
+      starts.push({ r: 0, c: k });
+      if (k > 0) starts.push({ r: k, c: 0 });
+    }
+  } else if (dr === 1 && dc === -1) {
+    for (let k = 0; k < SIZE; k++) {
+      starts.push({ r: 0, c: k });
+      if (k > 0) starts.push({ r: k, c: SIZE - 1 });
+    }
+  }
+  for (let start of starts) {
+    score += evaluateDirection(board, start.r, start.c, dr, dc, mark);
+  }
+  return score;
+}
+
+function evaluateDirection(board, startR, startC, dr, dc, mark) {
+  let score = 0;
+  let count = 0;
+  let isOpenStart = false;
+  let pos = 0;
+  while (true) {
+    let r = startR + pos * dr;
+    let c = startC + pos * dc;
+    if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) break;
+    let cell = board[r * SIZE + c];
+    if (cell === mark) {
+      if (count === 0) {
+        let prevR = r - dr;
+        let prevC = c - dc;
+        isOpenStart = (prevR >= 0 && prevR < SIZE && prevC >= 0 && prevC < SIZE && board[prevR * SIZE + prevC] === '.');
+      }
+      count++;
+    } else {
+      if (count > 0) {
+        let isOpenEnd = cell === '.';
+        let opens = (isOpenStart ? 1 : 0) + (isOpenEnd ? 1 : 0);
+        score += getSequenceScore(count, opens);
+        count = 0;
+      }
+    }
+    pos++;
+  }
+  if (count > 0) {
+    let nextR = startR + pos * dr;
+    let nextC = startC + pos * dc;
+    let isOpenEnd = (nextR >= 0 && nextR < SIZE && nextC >= 0 && nextC < SIZE && board[nextR * SIZE + nextC] === '.');
+    let opens = (isOpenStart ? 1 : 0) + (isOpenEnd ? 1 : 0);
+    score += getSequenceScore(count, opens);
+  }
+  return score;
+}
+
+function getSequenceScore(count, opens) {
+  if (count >= 5) return SCORES[5];
+  if (count in SCORES) {
+    return SCORES[count][`open${opens}`] || 0;
+  }
+  return 0;
+}
+
+function isTerminal(board) {
+  return checkWin(board) !== null || getLegalMoves(board).length === 0;
+}
+
+function getLegalMoves(board) {
+  let moves = [];
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    if (board[i] === '.') {
+      let r = Math.floor(i / SIZE);
+      let c = i % SIZE;
+      if (hasNeighbor(board, r, c)) moves.push(i);
+    }
+  }
+  if (moves.length === 0) {
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      if (board[i] === '.') moves.push(i);
+    }
+  }
+  return moves;
+}
+
+function hasNeighbor(board, r, c) {
+  for (let dr = -2; dr <= 2; dr++) {
+    for (let dc = -2; dc <= 2; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      let nr = r + dr;
+      let nc = c + dc;
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr * SIZE + nc] !== '.') return true;
+    }
+  }
+  return false;
+}
+
+function getHash(board, currentMark) {
+  let hash = 0n;
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    let p = board[i];
+    if (p !== '.') {
+      let playerIndex = p === currentMark ? 0 : 1;
+      hash ^= zobristTable[playerIndex][i];
+    }
+  }
+  return hash;
+}
+
+function negamax(board, depth, alpha, beta, color, currentMark, opponentMark) {
+  let originalAlpha = alpha;
+  let hash = getHash(board, currentMark);
+  let entry = transTable.get(hash);
+  if (entry && entry.depth >= depth) {
+    if (entry.flag === 'exact') return entry.value;
+    if (entry.flag === 'lower') alpha = Math.max(alpha, entry.value);
+    if (entry.flag === 'upper') beta = Math.min(beta, entry.value);
+    if (alpha >= beta) return entry.value;
+  }
+  if (depth === 0 || isTerminal(board)) {
+    return color * evaluate(board, currentMark, opponentMark);
+  }
+  let bestValue = -Infinity;
+  let moves = getLegalMoves(board);
+  let depthIndex = 20 - depth;
+  let killer1 = killers[depthIndex][0];
+  let killer2 = killers[depthIndex][1];
+  if (killer1 !== -1 && board[killer1] === '.') {
+    moves = [killer1, ...moves.filter(m => m !== killer1)];
+  }
+  if (killer2 !== -1 && board[killer2] === '.') {
+    moves = [killer2, ...moves.filter(m => m !== killer2)];
+  }
+  moves.sort((a, b) => distanceToCenter(b) - distanceToCenter(a));
+  for (let move of moves) {
+    board[move] = currentMark;
+    let val = -negamax(board, depth - 1, -beta, -alpha, -color, opponentMark, currentMark);
+    board[move] = '.';
+    bestValue = Math.max(bestValue, val);
+    alpha = Math.max(alpha, val);
+    if (alpha >= beta) {
+      killers[depthIndex][1] = killers[depthIndex][0];
+      killers[depthIndex][0] = move;
+      break;
+    }
+  }
+  let flag = 'exact';
+  if (bestValue <= originalAlpha) flag = 'upper';
+  else if (bestValue >= beta) flag = 'lower';
+  transTable.set(hash, { value: bestValue, depth, flag });
+  return bestValue;
+}
+
+function distanceToCenter(i) {
+  let r = Math.floor(i / SIZE);
+  let c = i % SIZE;
+  let center = SIZE / 2;
+  return -(Math.abs(r - center) + Math.abs(c - center));
+}
+
+function getBestMove(board, botMark, playerMark, level) {
+  transTable = new Map();
+  killers = Array(20).fill(0).map(() => [-1, -1]);
+  let maxDepth = level * 2 + 4;
+  let bestMove = -1;
+  let bestValue = -Infinity;
+  let startTime = Date.now();
+  for (let depth = 1; depth <= maxDepth && Date.now() - startTime < 2800; depth++) {
+    let alpha = -Infinity;
+    let beta = Infinity;
+    let moves = getLegalMoves(board);
+    let newBestValue = -Infinity;
+    let newBestMove = -1;
+    for (let move of moves) {
+      board[move] = botMark;
+      let val = -negamax(board, depth - 1, -beta, -alpha, -1, playerMark, botMark);
+      board[move] = '.';
+      if (val > newBestValue) {
+        newBestValue = val;
+        newBestMove = move;
+      }
+    }
+    bestValue = newBestValue;
+    bestMove = newBestMove;
+  }
+  return bestMove;
+}
+
+const levelMap = { "normal": 2, "medium": 3, "hard": 4, "fuckme": 5 };
