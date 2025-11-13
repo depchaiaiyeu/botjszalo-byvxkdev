@@ -384,35 +384,38 @@ export async function handleCaroCommand(api, message) {
     }
     
     try {
-        const require = createRequire(import.meta.url);
-        
         const currentFileUrl = import.meta.url;
         const currentDir = path.dirname(fileURLToPath(currentFileUrl));
         const wasmFilesPath = path.resolve(currentDir, 'brain');
-        const brainMainPath = path.join(wasmFilesPath, 'brain.js');
+        const brainCjsPath = path.join(wasmFilesPath, 'brain.cjs');
         const brainWasmPath = path.join(wasmFilesPath, 'brain.wasm');
         
         try {
-            await fs.access(brainMainPath);
+            await fs.access(brainCjsPath);
             await fs.access(brainWasmPath);
         } catch (error) {
-            throw new Error(`Không tìm thấy file WASM: ${brainMainPath} hoặc ${brainWasmPath}`);
+            throw new Error(`Không tìm thấy file: ${brainCjsPath} hoặc ${brainWasmPath}`);
         }
         
-        global.__filename = fileURLToPath(currentFileUrl);
-        global.__dirname = currentDir;
+        const brainModule = await import(pathToFileURL(brainCjsPath).href);
+        const WasmModule = brainModule.default || brainModule;
         
-        global.Module = {
-            locateFile: (filePath) => {
-                return path.join(wasmFilesPath, filePath);
-            },
-            print: () => {},
-            printErr: console.error,
-            noExitRuntime: true,
-            noInitialRun: false,
-        };
+        if (typeof WasmModule !== 'function' && typeof WasmModule !== 'object') {
+            throw new Error('brain.cjs không export đúng định dạng');
+        }
 
-        const WasmModule = require(brainMainPath);
+        let moduleInstance = WasmModule;
+        
+        if (typeof WasmModule === 'function') {
+            moduleInstance = WasmModule({
+                locateFile: (filePath) => {
+                    return path.join(wasmFilesPath, filePath);
+                },
+                print: () => {},
+                printErr: console.error,
+                noExitRuntime: true,
+            });
+        }
         
         await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
@@ -420,13 +423,23 @@ export async function handleCaroCommand(api, message) {
             }, 10000);
             
             const check = () => {
-                if (WasmModule._ksh_start && WasmModule.cwrap) {
+                if (moduleInstance._ksh_start && moduleInstance.cwrap) {
                     clearTimeout(timeout);
                     resolve();
-                } else if (WasmModule.calledRun || WasmModule.runtimeInitialized) {
-                    clearTimeout(timeout);
+                } else if (moduleInstance.then) {
+                    moduleInstance.then(instance => {
+                        if (instance._ksh_start && instance.cwrap) {
+                            moduleInstance = instance;
+                            clearTimeout(timeout);
+                            resolve();
+                        } else {
+                            reject(new Error("Module không có hàm _ksh_start"));
+                        }
+                    }).catch(reject);
+                } else if (moduleInstance.calledRun || moduleInstance.runtimeInitialized) {
                     setTimeout(() => {
-                        if (WasmModule._ksh_start) {
+                        if (moduleInstance._ksh_start) {
+                            clearTimeout(timeout);
                             resolve();
                         } else {
                             reject(new Error("WASM module không export hàm _ksh_start"));
@@ -438,13 +451,10 @@ export async function handleCaroCommand(api, message) {
             };
             check();
         });
-
-        delete global.__filename;
-        delete global.__dirname;
         
-        const ksh_send_input_string = WasmModule.cwrap('ksh_send_input', null, ['string']);
-        const ksh_get_output_string = WasmModule.cwrap('ksh_get_output', 'string', null);
-        WasmModule._ksh_start();
+        const ksh_send_input_string = moduleInstance.cwrap('ksh_send_input', null, ['string']);
+        const ksh_get_output_string = moduleInstance.cwrap('ksh_get_output', 'string', null);
+        moduleInstance._ksh_start();
         
         wasmInterfaces.set(threadId, { ksh_send_input_string, ksh_get_output_string });
 
@@ -454,9 +464,6 @@ export async function handleCaroCommand(api, message) {
         
     } catch (e) {
         console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
-        delete global.__filename;
-        delete global.__dirname;
-        delete global.Module;
         await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
@@ -482,7 +489,7 @@ export async function handleCaroCommand(api, message) {
         let imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
         await fs.writeFile(imagePath, imageBuffer);
-        let caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chì là khóa chiến thắng!`;
+        let caption = `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${mode.toUpperCase()}\n\n🎯 Lượt của ${message.data.dName} (Quân ${playerMark})\n\n👉 Gõ số ô (1-${size * size}) để đánh\n⏱️ Thời gian: 60 giây\n\n💡 Mẹo: Kiểm soát trung tâm là chìa khóa chiến thắng!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_SHORT);
         startTurnTimer(api, message, threadId, true);
         try { await fs.unlink(imagePath); } catch (error) { }
@@ -491,6 +498,7 @@ export async function handleCaroCommand(api, message) {
         handleBotTurn(api, message, -1, true);
     }
 }
+
 export async function handleCaroMessage(api, message) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
