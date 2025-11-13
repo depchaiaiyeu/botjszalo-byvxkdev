@@ -44,597 +44,205 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     turnTimers.set(threadId, timer);
 }
 
-function flatIndexToSquare(flatIndex, size = GOMOKU_SIZE) {
-    const row = Math.floor(flatIndex / size);
-    const col = flatIndex % size;
-    return (row << 4) | col;
-}
-
-function squareToFlatIndex(square, size = GOMOKU_SIZE) {
-    const row = square >> 4;
-    const col = square & 0xf;
-    return row * size + col;
-}
-
-function Pattern(type, template, rating) {
-    this.type = type;
-    this.rating = rating;
-
-    var s = 0;
-    var length = this.length = template.length;
-    this.mask = (1 << (length << 1)) - 1;
-
-    for (var i = length - 1; i >= 0; --i) {
-        if (template.charAt(i) === 'x') {
-            s = s | 1;
-        }
-        s = s << 2;
-    }
-    s = s >> 2;
-
-    this.white = s;
-    this.black = s << 1;
-
-    var moves = [];
-    var gains = [];
-    var downs = [];
-    var rifts = [];
-    for (var i = 0; i < length; i++) {
-        var ch = template.charAt(i);
-        switch (ch) {
-            case 'x':
-                moves.push(i);
-                break;
-            case '-':
-                gains.push(i);
-                rifts.push(i);
-                break;
-            case '+':
-                gains.push(i);
-                downs.push(i);
-                rifts.push(i);
-                break;
-            case '!':
-                downs.push(i);
-                rifts.push(i);
-                break;
-            default:
-                rifts.push(i);
-                break;
-        }
-    }
-
-    this.moves = moves;
-    this.move = moves[0];
-    this.gains = gains;
-    this.downs = downs;
-    this.rifts = rifts;
-}
-
-Pattern.FIVE = 0;
-Pattern.OPEN_FOUR = 3;
-Pattern.FOUR = 4;
-Pattern.OPEN_THREE = 7;
-Pattern.THREE = 10;
-Pattern.OPEN_TWO = 11;
-Pattern.TWO = 14;
-Pattern.ONE = 15;
-
-Pattern.SOLVER_PATTERNS = [
-    [
-        new Pattern(Pattern.FIVE, "xxxxx", 100000000)
-    ], [
-        new Pattern(Pattern.OPEN_FOUR, "+xxxx+", 50000000),
-        new Pattern(Pattern.FOUR, "xxxx+", 100000),
-        new Pattern(Pattern.FOUR, "+xxxx", 100000),
-        new Pattern(Pattern.FOUR, "xxx+x", 100000),
-        new Pattern(Pattern.FOUR, "x+xxx", 100000),
-        new Pattern(Pattern.FOUR, "xx+xx", 100000)
-    ], [
-        new Pattern(Pattern.OPEN_THREE, ".+xxx+.", 10000),
-        new Pattern(Pattern.OPEN_THREE, "!xxx+!", 8000),
-        new Pattern(Pattern.OPEN_THREE, "!+xxx!", 8000),
-        new Pattern(Pattern.OPEN_THREE, "!xx+x!", 6000),
-        new Pattern(Pattern.OPEN_THREE, "!x+xx!", 6000),
-        new Pattern(Pattern.THREE, "xxx++", 1000),
-        new Pattern(Pattern.THREE, "++xxx", 1000),
-        new Pattern(Pattern.THREE, "+xxx+", 1000),
-        new Pattern(Pattern.THREE, "x+xx+", 1000),
-        new Pattern(Pattern.THREE, "+xx+x", 1000),
-        new Pattern(Pattern.THREE, "xx+x+", 1000),
-        new Pattern(Pattern.THREE, "+x+xx", 1000),
-        new Pattern(Pattern.THREE, "xx++x", 1000),
-        new Pattern(Pattern.THREE, "x++xx", 1000),
-        new Pattern(Pattern.THREE, "x+x+x", 1000)
-    ], [
-        new Pattern(Pattern.OPEN_TWO, ".-+xx+-.", 100),
-        new Pattern(Pattern.OPEN_TWO, ".+xx+-.", 100),
-        new Pattern(Pattern.OPEN_TWO, ".-+xx+.", 100),
-        new Pattern(Pattern.OPEN_TWO, ".+xx+.", 100),
-        new Pattern(Pattern.OPEN_TWO, "!xx+-.", 100),
-        new Pattern(Pattern.OPEN_TWO, ".-+xx!", 100),
-        new Pattern(Pattern.OPEN_TWO, ".+x+x+.", 50),
-        new Pattern(Pattern.OPEN_TWO, "!x+x+.", 50),
-        new Pattern(Pattern.OPEN_TWO, ".+x+x!", 50),
-        new Pattern(Pattern.OPEN_TWO, "!x++x!", 50),
-        new Pattern(Pattern.TWO, "xx+--", 10),
-        new Pattern(Pattern.TWO, "--+xx", 10),
-        new Pattern(Pattern.TWO, "+xx+-", 10),
-        new Pattern(Pattern.TWO, "-+xx+", 10),
-    ], [
-        new Pattern(Pattern.ONE, "..--x--..", 1)
-    ]
-];
-
-function Figure(number, offset, hand, pattern) {
-    this.number = number;
-    this.offset = offset;
-    this.hand = hand;
-    this.pattern = pattern;
-}
-
-Figure.Comparator = function (hand) {
-    return function (f1, f2) {
-        var type1 = f1.hand === hand ? f1.pattern.type : (f1.pattern.type + 2);
-        var type2 = f2.hand === hand ? f2.pattern.type : (f2.pattern.type + 2);
-        return type1 - type2;
-    };
-};
-
-Figure.prototype.moves = function (cols) {
-    var r = [];
-    cols = cols || this.pattern.moves;
-    for (var i = 0; i < cols.length; i++) {
-        r.push(Line.posSquare(this.number, this.offset + cols[i]));
-    }
-    return r;
-};
-
-Figure.prototype.gains = function () {
-    return this.moves(this.pattern.gains);
-};
-
-Figure.prototype.downs = function () {
-    return this.moves(this.pattern.downs);
-};
-
-Figure.prototype.onSameLine = function (square) {
-    return Line.onSameLine(this.number, square);
-};
-
-function Line(number, blen, wlen, stroke, inverse) {
-    this.number = number;
-    this.blen = blen || 0;
-    this.wlen = wlen || 0;
-    this.stroke = stroke || 0;
-    this.inverse = inverse || 0;
-
-    if (typeof stroke === 'undefined' && typeof inverse === 'undefined' &&
-        typeof blen !== 'undefined' && typeof wlen !== 'undefined') {
-        var offset = blen;
-        var hand = wlen;
-        if (hand === LAYOUT_BLACK) {
-            this.blen = 1;
-            this.wlen = 0;
-        } else {
-            this.blen = 0;
-            this.wlen = 1;
-        }
-        var shift = offset << 1;
-        this.stroke = 1 << (shift + hand);
-        var right = (Line.lineLength(number) - 1) << 1;
-        this.inverse = 1 << (right - shift + hand);
-    }
-}
-
-Line.LEFT_RIGTH = 0;
-Line.TOP_DOWN = 1;
-Line.LTOP_RDOWN = 2;
-Line.RTOP_LDOWN = 3;
-
-Line.lineNumber = function (direction, square) {
-    var row = square >> 4;
-    var col = square & 0xf;
-    switch (direction) {
-        case Line.LEFT_RIGTH:
-            return (direction << 5) | row;
-        case Line.TOP_DOWN:
-            return (direction << 5) | col;
-        case Line.LTOP_RDOWN:
-            return (direction << 5) | (col - row + 15);
-        case Line.RTOP_LDOWN:
-            return (direction << 5) | (col + row);
-        default:
-            return 0;
-    }
-};
-
-Line.onSameLine = function (number, square) {
-    return number === Line.lineNumber(number >> 5, square);
-};
-
-Line.lineLength = function (number) {
-    var direction = number >> 5;
-    if (direction === Line.LEFT_RIGTH || direction === Line.TOP_DOWN) {
-        return GOMOKU_SIZE;
-    } else {
-        var i = number & 0x1f;
-        return i > 15 ? 31 - i : i + 1;
-    }
-};
-
-Line.lineOffset = function (direction, square) {
-    var col = square & 0xf;
-    var row = square >> 4;
-    switch (direction) {
-        case Line.LEFT_RIGTH:
-            return col;
-        case Line.TOP_DOWN:
-            return row;
-        case Line.LTOP_RDOWN:
-            var number = Line.lineNumber(direction, square) & 0x1f;
-            return Math.min(row, col) - Math.max(0, number - 15);
-        case Line.RTOP_LDOWN:
-            var number = Line.lineNumber(direction, square) & 0x1f;
-            return Math.min(row, 15 - col);
-        default:
-            return 0;
-    }
-};
-
-Line.posSquare = function (number, offset) {
-    var direction = number >> 5;
-    var n = number & 0x1f;
-    switch (direction) {
-        case Line.LEFT_RIGTH:
-            return (n << 4) | offset;
-        case Line.TOP_DOWN:
-            return (offset << 4) | n;
-        case Line.LTOP_RDOWN:
-            if (n <= 15) {
-                var row = offset + 15 - n;
-                var col = offset;
-                return (row << 4) | col;
-            } else {
-                var row = offset;
-                var col = offset + n - 15;
-                return (row << 4) | col;
-            }
-        case Line.RTOP_LDOWN:
-            if (n <= 15) {
-                var row = offset;
-                var col = n - offset;
-                return (row << 4) | col;
-            } else {
-                var row = n - 15 + offset;
-                var col = 15 - offset;
-                return (row << 4) | col;
-            }
-        default:
-            return 0;
-    }
-};
-
-Line.prototype.putStone = function (offset, hand) {
-    var shift = offset << 1;
-    var str = (this.stroke & (~(3 << shift))) | (1 << (shift + hand));
-    var right = (Line.lineLength(this.number) - 1) << 1;
-    var inv = (this.inverse & (~(3 << (right - shift)))) | (1 << (right - shift + hand));
-    return hand === LAYOUT_BLACK
-        ? new Line(this.number, this.blen + 1, this.wlen, str, inv)
-        : new Line(this.number, this.blen, this.wlen + 1, str, inv);
-};
-
-Line.prototype.getStone = function (offset) {
-    var shift = offset << 1;
-    if ((this.stroke & (1 << shift)) > 0) {
-        return LAYOUT_WHITE;
-    }
-    if ((this.stroke & (1 << (shift + 1))) > 0) {
-        return LAYOUT_BLACK;
-    }
-    return -1;
-};
-
-Line.prototype.findFigures = function (figures, type) {
-    type = type || Pattern.ONE;
-    var len = Line.lineLength(this.number);
-    var stroke = this.stroke;
-    var bl = this.blen;
-    var wl = this.wlen;
-    var probe = stroke;
-    var move = 0;
-    while (probe > 0) {
-
-        if ((probe & 2) > 0) {
-            Pattern.SOLVER_PATTERNS.forEach(function (patterns) {
-                patterns.some(function (pattern) {
-                    var offset = move - pattern.move;
-                    if (pattern.type <= type
-                        && bl >= pattern.moves.length
-                        && offset >= 0 && offset + pattern.length <= len
-                        && (offset > 0 ? (stroke >> ((offset - 1) << 1)) & 2 : 0) === 0
-                        && ((stroke >> ((offset + pattern.length) << 1)) & 2) === 0
-                        && ((stroke >> (offset << 1)) & pattern.mask) === pattern.black) {
-                        figures.push(new Figure(this.number, offset, LAYOUT_BLACK, pattern));
-                        return true;
-                    }
-                }, this);
-            }, this);
-            bl--;
-        }
-
-        if ((probe & 1) > 0) {
-            Pattern.SOLVER_PATTERNS.forEach(function (patterns) {
-                patterns.some(function (pattern) {
-                    var offset = move - pattern.move;
-                    if (pattern.type <= type
-                        && wl >= pattern.moves.length
-                        && offset >= 0 && offset + pattern.length <= len
-                        && (offset > 0 ? (stroke >> ((offset - 1) << 1)) & 1 : 0) === 0
-                        && ((stroke >> ((offset + pattern.length) << 1)) & 1) === 0
-                        && ((stroke >> (offset << 1)) & pattern.mask) === pattern.white) {
-                        figures.push(new Figure(this.number, offset, LAYOUT_WHITE, pattern));
-                        return true;
-                    }
-                }, this);
-            }, this);
-            wl--;
-        }
-
-        probe >>= 2;
-        move++;
-    }
-};
-
-Line.Comparator = function (line1, line2) {
-    return line1.number < line2.number ? -1 : line1.number > line2.number ? 1
-        : line1.stroke < line2.stroke ? -1 : line1.stroke > line2.stroke ? 1 : 0;
-};
-
-function Layout(lines, hand, figures, type, count) {
-
-    if (typeof lines === 'object' && Array.isArray(lines) && !lines.length) {
-        this.type = type || Pattern.ONE;
-        this.count = 0;
-        this.lines = [];
-        this.figures = [];
-        this.hand = LAYOUT_BLACK;
-        return;
-    }
-
-    if (typeof lines === 'object' && Array.isArray(lines) && typeof figures === 'object') {
-        this.lines = lines;
-        this.hand = hand;
-        this.figures = figures;
-        this.type = type;
-        this.count = count;
-    } else if (typeof lines === 'object' && Array.isArray(lines)) {
-        var moves = lines;
-        this.type = hand || Pattern.ONE;
-
-        if (moves && moves.length > 0) {
-            this.count = moves.length;
-            var h = LAYOUT_BLACK;
-            var ls = [];
-            moves.forEach(function (move) {
-                Layout.putStone(ls, move, h);
-                h = h === LAYOUT_BLACK ? LAYOUT_WHITE : LAYOUT_BLACK;
-            }, this);
-            ls.sort(Line.Comparator);
-            this.lines = ls;
-            this.hand = h;
-            var fs = [];
-            this.lines.forEach(function (line) {
-                line.findFigures(fs, this.type);
-            }, this);
-            fs.sort(Figure.Comparator(this.hand));
-            this.figures = fs;
-        } else {
-            this.count = 0;
-            this.lines = [];
-            this.figures = [];
-            this.hand = LAYOUT_BLACK;
-        }
-    } else {
-        this.type = type || Pattern.ONE;
-        this.count = 0;
-        this.lines = [];
-        this.figures = [];
-        this.hand = LAYOUT_BLACK;
-    }
-}
-
-Layout.putStone = function (lines, square, hand) {
-    for (var direction = 0; direction < 4; direction++) {
-        var number = Line.lineNumber(direction, square);
-        var offset = Line.lineOffset(direction, square);
-        var i = 0;
-        var found = false;
-        while (i < lines.length) {
-            var line = lines[i];
-            if (line.number === number) {
-                lines[i] = line.putStone(offset, hand);
-                found = true;
-                break;
-            }
-            i++;
-        }
-        if (!found) {
-            lines.push(new Line(number, offset, hand));
-        }
-    }
-};
-
-Layout.prototype.makeMove = function (square) {
-    var fs = [];
-    this.figures.forEach(function (figure) {
-        if (!figure.onSameLine(square)) {
-            fs.push(figure);
-        }
-    }, this);
-    var ls = this.addStone(square);
-    var h = this.hand === LAYOUT_BLACK ? LAYOUT_WHITE : LAYOUT_BLACK;
-    ls.forEach(function (line) {
-        if (Line.onSameLine(line.number, square)) {
-            line.findFigures(fs, this.type);
-        }
-    }, this);
-    fs.sort(Figure.Comparator(h));
-    return new Layout(ls, h, fs, this.type, this.count + 1);
-};
-
-Layout.prototype.addStone = function (square) {
-    var ls = this.lines.slice(0);
-    Layout.putStone(ls, square, this.hand);
-    ls.sort(Line.Comparator);
-    return ls;
-};
-
-Layout.prototype.top = function () {
-    if (this.figures.length > 0) {
-        return this.figures[0];
-    } else {
-        return null;
-    }
-};
-
-Layout.prototype.rate = function () {
-    var rating = 0;
-    this.figures.forEach(function (figure) {
-        if (figure.hand === this.hand) {
-            rating = rating + figure.pattern.rating;
-        } else {
-            rating = rating - figure.pattern.rating;
-        }
-    }, this);
-    return rating;
-};
-
-Layout.prototype.gains = function (type) {
-    var r = [];
-    this.figures.forEach(function (figure) {
-        if (figure.hand === this.hand && figure.pattern.type <= type) {
-            figure.gains().forEach(function (square) {
-                if (r.indexOf(square) === -1)
-                    r.push(square);
-            });
-        }
-    }, this);
-    return r;
-};
-
-Layout.prototype.downs = function (type) {
-    var r = [];
-    this.figures.forEach(function (figure) {
-        if (figure.hand !== this.hand && figure.pattern.type <= type) {
-            figure.downs().forEach(function (square) {
-                if (r.indexOf(square) === -1)
-                    r.push(square);
-            });
-        }
-    }, this);
-    return r;
-};
-
-Layout.prototype.getStone = function (square) {
-    var r = -1;
-    if (this.lines.length > 0) {
-        var number = square >> 4;
-        var i = 0;
-        var line = this.lines[0];
-        while (line && line.number < 0x20) {
-            if (line.number === number) {
-                var offset = square & 0xf;
-                return line.getStone(offset);
-            }
-            i++;
-            line = this.lines[i];
-        }
-    }
-    return r;
-};
-
 const GOMOKU_AI = {
     findBestMove: function(game) {
-        const botHand = game.botMark === "X" ? LAYOUT_BLACK : LAYOUT_WHITE;
-        const playerHand = game.playerMark === "X" ? LAYOUT_BLACK : LAYOUT_WHITE;
-        
-        const moves = [];
-        for (let i = 0; i < game.board.length; i++) {
-            if (game.board[i] !== '.') {
-                const hand = game.board[i] === 'X' ? LAYOUT_BLACK : LAYOUT_WHITE;
-                moves.push(flatIndexToSquare(i, game.size));
+        const { board, size, mode, botMark, playerMark } = game;
+        const bot = botMark;
+        const opp = playerMark;
+        const WIN_COUNT = 5;
+
+        const idx = (r, c) => r * size + c;
+        const isValid = (r, c) => r >= 0 && r < size && c >= 0 && c < size;
+        const isFull = (b) => !b.includes('.');
+
+        function getEmpty(b) {
+            let empty = [];
+            for (let i = 0; i < b.length; i++) {
+                if (b[i] === '.') empty.push(i);
             }
+            return empty;
         }
 
-        if (moves.length === 0) {
-            return squareToFlatIndex(flatIndexToSquare(Math.floor(GOMOKU_SIZE / 2) * GOMOKU_SIZE + Math.floor(GOMOKU_SIZE / 2)));
-        }
-
-        const layout = new Layout(moves);
-
-        const winPatternType = Pattern.FIVE;
-        const criticalPatternType = Pattern.OPEN_FOUR;
-        const highPriorityPatternType = Pattern.OPEN_THREE;
-
-        let candidateSquares = new Set();
-        let immediateWin = false;
-        let immediateDefense = false;
-
-        layout.gains(winPatternType).forEach(sq => { candidateSquares.add(sq); immediateWin = true; });
-        if (immediateWin) {
-            let winMove = candidateSquares.values().next().value;
-            return squareToFlatIndex(winMove, game.size);
-        }
-
-        layout.downs(winPatternType).forEach(sq => { candidateSquares.add(sq); immediateDefense = true; });
-
-        if (immediateDefense) {
-            layout.downs(criticalPatternType).forEach(sq => candidateSquares.add(sq));
-        }
-
-        if (candidateSquares.size === 0) {
-            layout.gains(highPriorityPatternType).forEach(sq => candidateSquares.add(sq));
-            layout.downs(highPriorityPatternType).forEach(sq => candidateSquares.add(sq));
-        }
-
-        if (candidateSquares.size === 0) {
-             for (let i = 0; i < GOMOKU_SIZE * GOMOKU_SIZE; i++) {
-                if (game.board[i] === '.') {
-                    candidateSquares.add(flatIndexToSquare(i, game.size));
+        function checkWinAI(b, s, symbol) {
+            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            for (let r = 0; r < s; r++) {
+                for (let c = 0; c < s; c++) {
+                    if (b[idx(r, c)] !== symbol) continue;
+                    for (const [dr, dc] of directions) {
+                        let count = 1;
+                        for (let step = 1; step < WIN_COUNT; step++) {
+                            const newRow = r + dr * step;
+                            const newCol = c + dc * step;
+                            if (!isValid(newRow, newCol) || b[idx(newRow, newCol)] !== symbol) break;
+                            count++;
+                        }
+                        if (count >= WIN_COUNT) return true;
+                    }
                 }
             }
+            return false;
         }
 
-        let bestScore = -Infinity;
-        let bestMoveFlatIndex = -1;
-        
-        const sortedCandidates = Array.from(candidateSquares).sort((a, b) => {
-            let rA = layout.getStone(a);
-            let rB = layout.getStone(b);
-            if (rA !== -1 || rB !== -1) return 0;
-            return Math.abs((a >> 4) - 7.5) + Math.abs((a & 0xf) - 7.5) - (Math.abs((b >> 4) - 7.5) + Math.abs((b & 0xf) - 7.5));
-        });
-
-        for (const square of sortedCandidates) {
-            if (layout.getStone(square) !== -1) continue;
-            
-            const simulatedLayout = layout.makeMove(square);
-            const score = simulatedLayout.rate();
-            
-            if (score > bestScore) {
-                bestScore = score;
-                bestMoveFlatIndex = squareToFlatIndex(square, game.size);
-            }
-
-            const topFigure = simulatedLayout.top();
-            if (topFigure && topFigure.pattern.type === Pattern.FIVE && topFigure.hand === botHand) {
-                return squareToFlatIndex(square, game.size);
-            }
+        function centerBonus(r, c, s) {
+            let center = s / 2;
+            return -Math.abs(r - center) - Math.abs(c - center);
         }
 
-        return bestMoveFlatIndex;
+        function evaluate(b, s, sym) {
+            let score = 0;
+            const opp = (sym === 'X') ? 'O' : 'X';
+
+            function scoreLine(line) {
+                let symCount = line.filter(c => c === sym).length;
+                let oppCount = line.filter(c => c === opp).length;
+                if (symCount > 0 && oppCount > 0) return 0;
+                if (oppCount > 0) return 0;
+                if (symCount === 0) return 0;
+                return Math.pow(10, symCount);
+            }
+
+            for (let i = 0; i < s; ++i) {
+                for (let j = 0; j <= s - WIN_COUNT; ++j) {
+                    let lineH = [];
+                    for (let k = 0; k < WIN_COUNT; ++k) lineH.push(b[idx(i, j + k)]);
+                    score += scoreLine(lineH);
+
+                    let lineV = [];
+                    for (let k = 0; k < WIN_COUNT; ++k) lineV.push(b[idx(j + k, i)]);
+                    score += scoreLine(lineV);
+                }
+            }
+
+            for (let i = 0; i <= s - WIN_COUNT; ++i) {
+                for (let j = 0; j <= s - WIN_COUNT; ++j) {
+                    let lineD1 = [];
+                    for (let k = 0; k < WIN_COUNT; ++k) lineD1.push(b[idx(i + k, j + k)]);
+                    score += scoreLine(lineD1);
+
+                    let lineD2 = [];
+                    for (let k = 0; k < WIN_COUNT; ++k) lineD2.push(b[idx(i + k, j + WIN_COUNT - 1 - k)]);
+                    score += scoreLine(lineD2);
+                }
+            }
+            return score;
+        }
+
+        function minimax(b, s, depth, alpha, beta, isBot, botSym, oppSym) {
+            if (checkWinAI(b, s, oppSym)) return [-100000 - depth, null];
+            if (checkWinAI(b, s, botSym)) return [100000 + depth, null];
+            if (isFull(b) || depth === 0) return [evaluate(b, s, botSym) - evaluate(b, s, oppSym), null];
+
+            let moves = [];
+            let close = {};
+            const dirs = [[1, 0], [0, 1], [1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1], [-1, 1]];
+            for (let i = 0; i < s; ++i) {
+                for (let j = 0; j < s; ++j) {
+                    if (b[idx(i, j)] !== '.') {
+                        for (let [di, dj] of dirs) {
+                            for (let d = -1; d <= 1; ++d) {
+                                if (d === 0) continue;
+                                let ni = i + di * d;
+                                let nj = j + dj * d;
+                                if (isValid(ni, nj) && b[idx(ni, nj)] === '.') {
+                                    close[idx(ni, nj)] = idx(ni, nj);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            let closeMoves = Object.values(close);
+            moves = closeMoves.length ? closeMoves : getEmpty(b);
+            
+            if (moves.length === 0 && closeMoves.length === 0) {
+                 moves = getEmpty(b);
+            }
+            if (moves.length === s*s) {
+                return [0, Math.floor(s*s / 2)];
+            }
+
+            let bestScore = isBot ? -Infinity : Infinity;
+            let bestMove = null;
+
+            for (const moveIndex of moves) {
+                b[moveIndex] = isBot ? botSym : oppSym;
+                let [score] = minimax(b, s, depth - 1, alpha, beta, !isBot, botSym, oppSym);
+                b[moveIndex] = '.';
+
+                if (isBot) {
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = moveIndex;
+                    }
+                    alpha = Math.max(alpha, score);
+                } else {
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestMove = moveIndex;
+                    }
+                    beta = Math.min(beta, score);
+                }
+                if (beta <= alpha) break;
+            }
+            return [bestScore, bestMove];
+        }
+
+        const emptyMoves = getEmpty(board);
+        if (emptyMoves.length === 0) return -1;
+
+        if (emptyMoves.length === size * size) {
+            return Math.floor(size / 2) * size + Math.floor(size / 2);
+        }
+
+        if (mode === 'de') {
+            return emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
+        }
+
+        if (mode === 'kho') {
+            for (const move of emptyMoves) {
+                board[move] = bot;
+                if (checkWinAI(board, size, bot)) {
+                    board[move] = '.';
+                    return move;
+                }
+                board[move] = '.';
+            }
+            for (const move of emptyMoves) {
+                board[move] = opp;
+                if (checkWinAI(board, size, opp)) {
+                    board[move] = '.';
+                    return move;
+                }
+                board[move] = '.';
+            }
+
+            let bestScore = -Infinity;
+            let candidates = [];
+            for (const move of emptyMoves) {
+                let r = Math.floor(move / size);
+                let c = move % size;
+                board[move] = bot;
+                let s = evaluate(board, size, bot) - evaluate(board, size, opp) + centerBonus(r, c, size);
+                board[move] = '.';
+
+                if (s > bestScore) {
+                    bestScore = s;
+                    candidates = [move];
+                } else if (s === bestScore) {
+                    candidates.push(move);
+                }
+            }
+            return candidates[Math.floor(Math.random() * candidates.length)];
+        }
+
+        if (mode === 'caothu') {
+            let depth = 2;
+            let [score, move] = minimax(board, size, depth, -Infinity, Infinity, true, bot, opp);
+            return move !== null ? move : emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
+        }
+
+        return emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
     }
 };
 
@@ -814,10 +422,9 @@ async function handleBotTurn(api, message, initialTurn = false) {
     await fs.writeFile(imagePath, imageBuffer);
 
     let modeName;
-    if (game.mode === "fuckme") modeName = "cực khó";
-    else if (game.mode === "hard") modeName = "khó";
-    else if (game.mode === "medium") modeName = "trung bình";
-    else modeName = "thường";
+    if (game.mode === "caothu") modeName = "Cao Thủ";
+    else if (game.mode === "kho") modeName = "Khó";
+    else modeName = "Dễ";
 
     if (winResult) {
         let caption = `🤖 BOT WIN!\n\n🎮 BOT đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Hãy rút kinh nghiệm và thử lại lần sau nhé!`;
@@ -855,12 +462,11 @@ export async function handleCaroCommand(api, message) {
         await sendMessageComplete(api, message,
             `🎮 CỜ CARO - THỬ THÁCH TRÍ TUỆ\n\n` +
             `🌟 Cú pháp:\n` +
-            `${prefix}caro [normal/medium/hard/fuckme] [x/o]\n\n` +
+            `${prefix}caro [de/kho/caothu] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
-            `• ${prefix}caro normal >> Chế độ Thường\n` +
-            `• ${prefix}caro medium x >> Chế độ Trung bình, bạn cầm X\n` +
-            `• ${prefix}caro hard o >> Chế độ Khó, bạn cầm O (mặc định)\n` +
-            `• ${prefix}caro fuckme >> Chế độ Cực khó (mặc định bạn cầm O)\n\n` +
+            `• ${prefix}caro de >> Chế độ Dễ (BOT đánh ngẫu nhiên)\n` +
+            `• ${prefix}caro kho x >> Chế độ Khó, bạn cầm X\n` +
+            `• ${prefix}caro caothu o >> Chế độ Cao Thủ, bạn cầm O (mặc định)\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -879,26 +485,26 @@ export async function handleCaroCommand(api, message) {
     let mode = "";
     let size = GOMOKU_SIZE;
     let playerMark = "";
-    const allowedModes = ["normal", "medium", "hard", "fuckme"];
-    
+    const allowedModes = ["de", "kho", "caothu"];
+
     if (allowedModes.includes(inputMode)) {
         mode = inputMode;
-        
-        if (["hard", "fuckme"].includes(mode)) {
+
+        if (["caothu"].includes(mode)) {
             playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
         } else {
             playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
         }
     } else {
-        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn một trong các chế độ sau:\n• normal\n• medium\n• hard\n• fuckme", TTL_SHORT);
+        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn một trong các chế độ sau:\n• de\n• kho\n• caothu", TTL_SHORT);
         return;
     }
-    
+
     if (!["X", "O"].includes(playerMark)) {
-        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\nVui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
+        await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\Vui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
         return;
     }
-    
+
     clearTurnTimer(threadId);
     let board = Array(size * size).fill(".");
     activeCaroGames.set(threadId, {
@@ -915,7 +521,7 @@ export async function handleCaroCommand(api, message) {
         isProcessing: false,
         winResult: null
     });
-    
+
     if (playerMark === "X") {
         let imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
