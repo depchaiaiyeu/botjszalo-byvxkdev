@@ -389,25 +389,28 @@ export async function handleCaroCommand(api, message) {
         const currentFileUrl = import.meta.url;
         const currentDir = path.dirname(fileURLToPath(currentFileUrl));
         const wasmFilesPath = path.resolve(currentDir, 'brain');
-        const brainJsPath = path.join(wasmFilesPath, 'brain.js');
+        const brainCjsPath = path.join(wasmFilesPath, 'brain.cjs');
+        const brainWorkerCjsPath = path.join(wasmFilesPath, 'brain.worker.cjs');
 
         global.__filename = fileURLToPath(currentFileUrl);
         global.__dirname = currentDir;
         
         global.Module = {
             locateFile: (filePath) => {
-                if (filePath === 'brain.wasm' || filePath === 'brain.worker.js') {
-                    return path.join(wasmFilesPath, filePath);
+                // Kiểm tra nếu Wasm Engine yêu cầu brain.worker.js, ta trả về đường dẫn CJS
+                if (filePath.endsWith('brain.worker.js')) {
+                    return brainWorkerCjsPath;
                 }
-                return filePath;
+                // Nếu là brain.wasm (hoặc các file khác), sử dụng đường dẫn tuyệt đối
+                return path.join(wasmFilesPath, filePath);
             },
-            mainScriptUrlOrBlob: pathToFileURL(brainJsPath).href,
+            mainScriptUrlOrBlob: pathToFileURL(brainCjsPath).href,
             print: () => {},
             printErr: console.error,
             noExitRuntime: true,
         };
 
-        const WasmModule = require(brainJsPath);
+        const WasmModule = require(brainCjsPath);
 
         delete global.__filename;
         delete global.__dirname;
@@ -427,7 +430,7 @@ export async function handleCaroCommand(api, message) {
         delete global.__filename;
         delete global.__dirname;
         delete global.Module;
-        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
+        await sendMessageWarning(api, message, `🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js/brain.cjs và Wasm. Chi tiết: ${e.message}`, TTL_SHORT);
         return;
     }
 
