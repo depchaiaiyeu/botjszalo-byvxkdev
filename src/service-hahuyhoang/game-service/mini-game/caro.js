@@ -12,6 +12,8 @@ const __dirname = path.dirname(__filename);
 let activeCaroGames = new Map();
 let turnTimers = new Map();
 
+let wasmInterfaces = new Map();
+
 const TTL_LONG = 3600000;
 const TTL_SHORT = 60000;
 
@@ -28,6 +30,9 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     let timer = setTimeout(async () => {
         let game = activeCaroGames.get(threadId);
         if (!game) return;
+
+        wasmInterfaces.delete(threadId);
+
         if (isPlayerTurn) {
             let caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
             await sendMessageTag(api, message, { caption }, TTL_LONG);
@@ -41,7 +46,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
     turnTimers.set(threadId, timer);
 }
 
-async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = [], mode = "Easy") {
+async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X", botMark = "O", playerName = "Player", lastBotMove = -1, currentTurn = "X", winningLine = [], mode = "normal") {
     let cellSize = 50;
     let padding = 40;
     let headerHeight = 50;
@@ -177,158 +182,141 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function countLine(board, row, col, dx, dy, mark, size) {
-    let count = 0;
-    let open = 0;
-    let blocked = 0;
-    
-    for (let step = -4; step <= 4; step++) {
-        if (step === 0) continue;
-        let r = row + dx * step;
-        let c = col + dy * step;
-        if (r < 0 || r >= size || c < 0 || c >= size) {
-            blocked++;
-            break;
-        }
-        let idx = r * size + c;
-        if (board[idx] === mark) count++;
-        else if (board[idx] === '.') open++;
-        else {
-            blocked++;
-            break;
-        }
-    }
-    return { count, open, blocked };
+function getMoveCoordinates(pos, size) {
+    const r = Math.floor(pos / size);
+    const c = pos % size;
+    return { r, c };
 }
 
-function evaluateMove(board, pos, aiMark, oppMark, size) {
-    let row = Math.floor(pos / size);
-    let col = pos % size;
-    let score = 0;
-    
-    const dirs = [[1,1], [1,-1], [1,0], [0,1]];
-    
-    for (let [dx, dy] of dirs) {
-        let aiLine = countLine(board, row, col, dx, dy, aiMark, size);
-        let oppLine = countLine(board, row, col, dx, dy, oppMark, size);
-        
-        if (aiLine.count >= 4) score += 100000;
-        else if (aiLine.count === 3 && aiLine.open >= 2) score += 50000;
-        else if (aiLine.count === 3 && aiLine.open === 1) score += 5000;
-        else if (aiLine.count === 2 && aiLine.open >= 2) score += 500;
-        else if (aiLine.count === 2) score += 50;
-        
-        if (oppLine.count >= 4) score += 90000;
-        else if (oppLine.count === 3 && oppLine.open >= 2) score += 40000;
-        else if (oppLine.count === 3) score += 4000;
-        else if (oppLine.count === 2 && oppLine.open >= 2) score += 400;
-        
-        if (dx === 1 && (dy === 1 || dy === -1)) {
-            score *= 1.3;
-        }
+function parseWasmOutput(output) {
+    if (!output) return null;
+    const parts = output.split(' ');
+    if (parts[0] === 'AI' && parts.length === 3) {
+        return {
+            type: 'AI',
+            r: parseInt(parts[1]),
+            c: parseInt(parts[2])
+        };
+    } else if (parts[0] === 'WIN' && parts.length >= 11) {
+         const line = [];
+         for(let i = 1; i < 11; i += 2) {
+             const r = parseInt(parts[i]);
+             const c = parseInt(parts[i+1]);
+             line.push(r * 16 + c);
+         }
+         return { type: 'WIN', winner: parts[0], line: line };
     }
-    
-    let centerRow = Math.floor(size / 2);
-    let centerCol = Math.floor(size / 2);
-    let distToCenter = Math.abs(row - centerRow) + Math.abs(col - centerCol);
-    score += Math.max(0, 50 - distToCenter * 2);
-    
-    return score;
+    return { type: parts[0], data: parts.slice(1).join(' ') };
 }
 
-function getCandidates(board, size) {
-    let occupied = [];
-    for (let i = 0; i < size * size; i++) {
-        if (board[i] !== '.') occupied.push(i);
-    }
+function getAIMoveWasm(threadId, playerPos = -1) {
+    const { ksh_send_input_string, ksh_get_output_string } = wasmInterfaces.get(threadId);
+    const game = activeCaroGames.get(threadId);
     
-    if (occupied.length === 0) {
-        let center = Math.floor(size / 2);
-        return [center * size + center];
+    if (playerPos !== -1) {
+        const { r, c } = getMoveCoordinates(playerPos, game.size);
+        ksh_send_input_string(`HM ${r} ${c}`);
     }
-    
-    let candidates = new Set();
-    for (let pos of occupied) {
-        let r = Math.floor(pos / size);
-        let c = pos % size;
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                let nr = r + dr;
-                let nc = c + dc;
-                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-                    let idx = nr * size + nc;
-                    if (board[idx] === '.') candidates.add(idx);
-                }
+
+    let maxTries = 100;
+    for (let i = 0; i < maxTries; i++) {
+        const output = ksh_get_output_string();
+        if (output.length > 0) {
+            const result = parseWasmOutput(output);
+
+            if (result.type === 'STT') {
+            } else if (result.type === 'L') {
+            } else if (result.type === 'WIN') {
+                 game.winResult = { winner: game.playerMark, line: result.line };
+                 return -1;
+            } else if (result.type === 'AI') {
+                const ai_r = result.r;
+                const ai_c = result.c;
+                return ai_r * game.size + ai_c;
             }
         }
     }
-    return Array.from(candidates);
+    
+    console.error(`Lỗi: AI Wasm không phản hồi AI move sau ${maxTries} lần thử.`);
+    return -1;
 }
 
-function getAIMove(game) {
-    const { board, botMark, playerMark, size } = game;
-    let candidates = getCandidates(board, size);
-    if (candidates.length === 0) return -1;
-    
-    let bestScore = -Infinity;
-    let bestMove = candidates[0];
-    
-    for (let pos of candidates) {
-        let score = evaluateMove(board, pos, botMark, playerMark, size);
-        if (score > bestScore) {
-            bestScore = score;
-            bestMove = pos;
-        }
-    }
-    
-    return bestMove;
-}
-
-async function handleBotTurn(api, message, initialTurn = false) {
+async function handleBotTurn(api, message, playerPos = -1, initialTurn = false) {
     let threadId = message.threadId;
     let game = activeCaroGames.get(threadId);
     if (!game) return;
+
     await api.addReaction("FLASH", message);
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
-    let pos = getAIMove(game);
+    
+    const pos = getAIMoveWasm(threadId, playerPos);
+    
     clearTurnTimer(threadId);
     if (!activeCaroGames.has(threadId)) return;
+
+    if (game.winResult && game.winResult.winner === game.playerMark) {
+        const winningLine = game.winResult.line;
+        let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, playerPos, game.botMark, winningLine, game.mode);
+        let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+
+        let caption = `👑 PLAYER WIN!\n\n👤 ${game.playerName} đánh ô số: ${playerPos + 1}\n🏆 Chúc mừng một chiến thắng xuất sắc!\n\n🌟 Bạn đã chơi rất hay trong ván cờ này.`;
+        await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
+        activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
+        try { await fs.unlink(imagePath); } catch (error) { }
+        return;
+    }
+
+
     if (pos < 0 || game.moveCount >= game.size * game.size) {
         let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.currentTurn, [], game.mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}_draw.png`);
         await fs.writeFile(imagePath, imageBuffer);
         let caption = `🏆 HÒA CỜ!\n\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n💭 Đôi khi hòa cũng là một kết quả tốt.\n\n🎯 Thử lại lần nữa để phân định thắng bại nhé!`;
-        await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
+        await sendMessageTag(api, message, { caption }, TTL_LONG);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         try { await fs.unlink(imagePath); } catch (error) { }
         activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
         return;
     }
+
     game.board[pos] = game.botMark;
     game.currentTurn = game.playerMark;
     game.moveCount++;
     game.lastBotMove = pos;
+
     let winResult = checkWin(game.board, game.size);
     let winningLine = winResult ? winResult.line : [];
+    
     let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, pos, game.playerMark, winningLine, game.mode);
     let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
     await fs.writeFile(imagePath, imageBuffer);
-    let modeName = game.mode === "master" ? "cao thủ" : game.mode === "hard" ? "khó" : "dễ";
+    
+    let modeName;
+    if (game.mode === "fuckme") modeName = "cực khó";
+    else if (game.mode === "hard") modeName = "khó";
+    else if (game.mode === "medium") modeName = "trung bình";
+    else modeName = "thường";
+
     if (winResult) {
         let caption = `🤖 BOT WIN!\n\n🎮 BOT đánh ô số: ${pos + 1}\n🏆 BOT ${modeName} đã dành chiến thắng xuất sắc\n\n👤 ${game.playerName} đã thua tâm phục khẩu phục\n💪 Hãy rút kinh nghiệm và thử lại lần sau nhé!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
     } else if (game.moveCount === game.size * game.size) {
-        let caption = `🏆 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và BOT đều chơi xuất sắc!`;
+        let caption = `🏆 HÒA CỜ!\n\n🎮 BOT đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * size}\n\n💭 Trận đấu cân não đỉnh cao!\n🎯 Cả bạn và BOT đều chơi xuất sắc!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         await api.addReaction("UNDO", message);
         await api.addReaction("OK", message);
         activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
     } else {
         let initialMessage = initialTurn ? `🎮 BẮT ĐẦU TRẬN ĐẤU - CHẾ ĐỘ ${game.mode.toUpperCase()}\n\n🤖 BOT đi trước (Quân ${game.botMark})` : "";
@@ -352,11 +340,12 @@ export async function handleCaroCommand(api, message) {
         await sendMessageComplete(api, message,
             `🎮 CỜ CARO - THỬ THÁCH TRÍ TUỆ\n\n` +
             `🌟 Cú pháp:\n` +
-            `${prefix}caro [easy/hard/master] [x/o]\n\n` +
+            `${prefix}caro [normal/medium/hard/fuckme] [x/o]\n\n` +
             `💡 Ví dụ:\n` +
-            `• ${prefix}caro easy >> Dễ\n` +
-            `• ${prefix}caro hard x >> Khó\n` +
-            `• ${prefix}caro master >> Cao thủ\n\n` +
+            `• ${prefix}caro normal >> Chế độ Thường\n` +
+            `• ${prefix}caro medium x >> Chế độ Trung bình, bạn cầm X\n` +
+            `• ${prefix}caro hard o >> Chế độ Khó, bạn cầm O (mặc định)\n` +
+            `• ${prefix}caro fuckme >> Chế độ Cực khó (mặc định bạn cầm O)\n\n` +
             `📜 Luật chơi:\n` +
             `• Bàn cờ 16x16, thắng khi ghép 5 quân liên tiếp\n` +
             `• Quân X luôn đi trước\n` +
@@ -370,25 +359,52 @@ export async function handleCaroCommand(api, message) {
         await sendMessageWarning(api, message, `⚠️ Đang có trận đấu đang diễn ra!\nVui lòng hoàn thành trận này trước khi bắt đầu trận mới.`, TTL_SHORT);
         return;
     }
+    
     let inputMode = args[1].toLowerCase();
     let mode = "";
     let size = 16;
     let playerMark = "";
-    if (["easy", "hard", "master"].includes(inputMode)) {
+    const allowedModes = ["normal", "medium", "hard", "fuckme"];
+    let levelMap = { "normal": 2, "medium": 3, "hard": 4, "fuckme": 5 }; 
+    
+    if (allowedModes.includes(inputMode)) {
         mode = inputMode;
-        if (mode === "master") {
-            playerMark = args.length > 2 ? args[2].toUpperCase() : "O";
-        } else {
+        
+        if (["hard", "fuckme"].includes(mode)) {
+            playerMark = args.length > 2 ? args[2].toUpperCase() : "O"; 
+        } else { 
             playerMark = args.length > 2 ? args[2].toUpperCase() : (Math.random() > 0.5 ? "X" : "O");
         }
     } else {
-        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn:\n• easy - Dễ\n• hard - Khó\n• master - Cao thủ", TTL_SHORT);
+        await sendMessageWarning(api, message, "🎯 Chế độ không hợp lệ!\n\nVui lòng chọn một trong các chế độ sau:\n• normal\n• medium\n• hard\n• fuckme", TTL_SHORT);
         return;
     }
+    
     if (!["X", "O"].includes(playerMark)) {
         await sendMessageWarning(api, message, "🚫 Quân cờ không hợp lệ!\n\Vui lòng chọn X hoặc O\n(Lưu ý: X luôn đi trước)", TTL_SHORT);
         return;
     }
+    
+    try {
+        const { Module } = await import("./brain/brain.js");
+
+        const WasmModule = Module;
+        WasmModule._ksh_start();
+        const ksh_send_input_string = WasmModule.cwrap('ksh_send_input', null, ['string']);
+        const ksh_get_output_string = WasmModule.cwrap('ksh_get_output', 'string', null);
+        
+        wasmInterfaces.set(threadId, { ksh_send_input_string, ksh_get_output_string });
+
+        const level = levelMap[mode];
+        const pf = (playerMark === "X" ? 1 : 0);
+        ksh_send_input_string(`START 0 ${level} ${pf}`);
+        
+    } catch (e) {
+        console.error("Lỗi khi tải hoặc khởi tạo WASM AI Engine:", e);
+        await sendMessageWarning(api, message, "🚫 Lỗi hệ thống: Không thể khởi động AI Engine. Vui lòng kiểm tra file brain.js và Wasm.", TTL_SHORT);
+        return;
+    }
+
     clearTurnTimer(threadId);
     let board = Array(size * size).fill(".");
     activeCaroGames.set(threadId, {
@@ -402,8 +418,10 @@ export async function handleCaroCommand(api, message) {
         size,
         moveCount: 0,
         lastBotMove: -1,
-        isProcessing: false
+        isProcessing: false,
+        winResult: null
     });
+    
     if (playerMark === "X") {
         let imageBuffer = await createCaroBoard(board, size, 0, playerMark, playerMark === "X" ? "O" : "X", message.data.dName, -1, "X", [], mode);
         let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
@@ -414,7 +432,7 @@ export async function handleCaroCommand(api, message) {
         try { await fs.unlink(imagePath); } catch (error) { }
     } else {
         activeCaroGames.get(threadId).isProcessing = true;
-        handleBotTurn(api, message, true);
+        handleBotTurn(api, message, -1, true);
     }
 }
 
@@ -429,6 +447,7 @@ export async function handleCaroMessage(api, message) {
     if (message.data.mentions && message.data.mentions.length > 0) return;
     if (content.trim().toLowerCase() === "lose") {
         clearTurnTimer(threadId);
+        wasmInterfaces.delete(threadId);
         let caption = `🏳️ ĐẦU HÀNG!\n\n👤 ${game.playerName} đã chọn đầu hàng\n🏆 BOT đã dành chiến thắng\n\n🎯 Đừng bỏ cuộc những lần sau nhé!`;
         await sendMessageTag(api, message, { caption }, TTL_LONG);
         activeCaroGames.delete(threadId);
@@ -451,26 +470,35 @@ export async function handleCaroMessage(api, message) {
     game.board[pos] = game.playerMark;
     game.currentTurn = game.botMark;
     game.moveCount++;
+    
     let winResult = checkWin(game.board, game.size);
     let winningLine = winResult ? winResult.line : [];
-    let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
-    let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
-    await fs.writeFile(imagePath, imageBuffer);
+    
     if (winResult) {
+        let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
+        let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+
         let caption = `👑 PLAYER WIN!\n\n👤 ${game.playerName} đánh ô số: ${pos + 1}\n🏆 Chúc mừng một chiến thắng xuất sắc!\n\n🌟 Bạn đã chơi rất hay trong ván cờ này.`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
     } else if (game.moveCount === game.size * game.size) {
+        let imageBuffer = await createCaroBoard(game.board, game.size, game.moveCount, game.playerMark, game.botMark, game.playerName, game.lastBotMove, game.botMark, winningLine, game.mode);
+        let imagePath = path.resolve(process.cwd(), "assets", "temp", `caro_${threadId}.png`);
+        await fs.writeFile(imagePath, imageBuffer);
+        
         let caption = `🏆 HÒA CỜ!\n\n👤 Bạn đánh ô số: ${pos + 1}\n📊 Nước đi: ${game.moveCount}/${game.size * game.size}\n\n💭 Hòa do không còn nước đi.\n🎯 Cả bạn và BOT đều chơi rất xuất sắc!`;
         await sendMessageTag(api, message, { caption, imagePath }, TTL_LONG);
         activeCaroGames.delete(threadId);
+        wasmInterfaces.delete(threadId);
         clearTurnTimer(threadId);
         try { await fs.unlink(imagePath); } catch (error) { }
         return;
     }
-    try { await fs.unlink(imagePath); } catch (error) { }
-    handleBotTurn(api, message);
+    
+    handleBotTurn(api, message, pos);
 }
