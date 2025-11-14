@@ -1,63 +1,68 @@
-import dns from 'node:dns';
-import whois from 'whois-json';
 import fetch from 'node-fetch';
-import { removeMention } from "../../utils/format-util.js";
-import { sendMessageWarningRequest, sendMessageCompleteRequest } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
-import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
+import { sendMessageFactory } from '../../api-zalo/apis/sendMessage.js';
+import { getGlobalPrefix } from '../../service-hahuyhoang/service.js';
 
-const IP_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-export async function handleCheckDomainCommand(api, message, aliasCommand) {
+export async function handleCheckdomainCommand(api, message) {
+  const threadId = message.threadId;
+  const uid = message.data.uidFrom;
+  const sendMessage = sendMessageFactory(api);
+  const rawContent = message?.data?.content;
+  const content = (rawContent || '').toString().trim();
+  const currentPrefix = getGlobalPrefix();
+  if (!content.startsWith(`${currentPrefix}checkdomain`)) return false;
+  const args = content.slice(currentPrefix.length + 'checkdomain'.length).trim();
+  const parts = args.split(/\s+/);
+  // ✅ Lọc domain: chỉ giữ lại ký tự hợp lệ
+  let domain = parts[0] || '';
+  domain = domain.replace(/[^a-zA-Z0-9.-]/g, '').toLowerCase();
+  if (!domain) {
+    return sendMessage({
+      msg: `❌ Vui lòng nhập tên miền. Cú pháp: ${currentPrefix}checkdomain <domain>`,
+      ttl: 60000,
+    }, threadId, threadId !== uid ? 1 : 0);
+  }
+  const isDotVN = domain.endsWith('.vn');
+  const apiUrl = `https://whois.inet.vn/api/whois/domainspecify/${encodeURIComponent(domain)}`;
   try {
-    const prefix = getGlobalPrefix();
-    const inputRaw = removeMention(message).replace(`${prefix}${aliasCommand}`, "").trim();
-    const input = inputRaw.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    if (!input) {
-      await sendMessageWarningRequest(api, message, { caption: "Vui lòng nhập domain hoặc IP để kiểm tra." }, 30000);
-      return;
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    // 👉 Domain chưa đăng ký
+    if (data?.code === '1' || data.message?.toLowerCase().includes('does not exist')) {
+      const fee = data.fee || 'Không rõ';
+      const reg = data.reg || 'Không rõ';
+      const ren = data.ren || 'Không rõ';
+      const feeMsg =
+        `🔍 Thông Tin Tên Miền: ${domain}\n` +
+        `⚠️ Tên miền chưa được đăng ký.\n\n` +
+        `💰 Phí đăng ký: ${reg.toLocaleString()}đ\n` +
+        `♻️ Phí gia hạn: ${ren.toLocaleString()}đ\n` +
+        `🛒 Tổng giá (năm đầu): ${fee.toLocaleString()}đ\n` +
+        `🔗 Đăng ký tại: https://inet.vn\n\n` +
+        `👤 Founder: HÀ HUY HOÀNG`;
+      return await sendMessage({ msg: feeMsg, ttl: 86400000 }, threadId, threadId !== uid ? 1 : 0);
     }
-    const isIP = IP_REGEX.test(input);
-    let ip = input;
-    let domain = null;
-    if (!isIP) {
-      domain = input;
-      try {
-        const result = await dns.promises.lookup(domain);
-        ip = result.address;
-      } catch {
-        await sendMessageWarningRequest(api, message, { caption: `Không thể lấy IP từ domain: ${domain}` }, 30000);
-        return;
-      }
+    if (data?.code !== '0') {
+      throw new Error(data.message || 'Không thể lấy thông tin domain.');
     }
-    let ipInfo = null;
-    try {
-      const res = await fetch(`https://ipwho.is/${ip}`);
-      ipInfo = await res.json();
-      if (!ipInfo.success) throw new Error();
-    } catch {
-      ipInfo = null;
-    }
-    let whoisData = null;
-    try {
-      whoisData = await whois(domain || ip);
-    } catch {
-      whoisData = null;
-    }
-    let caption = `🔍 Kết quả kiểm tra ${isIP ? `IP: \`${ip}\`` : `Domain: \`${domain}\``}\n\n`;
-    caption += `🌐 IP: ${ip || "Không xác định"}\n`;
-    caption += `📍 Quốc gia: ${ipInfo?.country || "?"} (${ipInfo?.country_code || "?"})\n`;
-    caption += `🏙️ Thành phố: ${ipInfo?.city || "?"}\n`;
-    caption += `🌐 ISP: ${ipInfo?.connection?.isp || "?"}\n`;
-    caption += `🏢 Tổ chức: ${ipInfo?.connection?.org || "?"}\n`;
-    caption += `🕒 Múi giờ: ${ipInfo?.timezone?.id || "?"}\n\n`;
-    if (whoisData) {
-      caption += `📅 Ngày đăng ký: ${whoisData.creationDate || "Không rõ"}\n`;
-      caption += `📅 Ngày hết hạn: ${whoisData.registrarRegistrationExpirationDate || "Không rõ"}\n`;
-      caption += `🏢 Registrar: ${whoisData.registrar || "Không rõ"}\n`;
-      caption += `👤 Chủ sở hữu: ${whoisData.registrantName || whoisData.owner || "Không công khai"}\n`;
-    }
-    await sendMessageCompleteRequest(api, message, { caption }, 600000);
-  } catch {
-    await sendMessageWarningRequest(api, message, { caption: "❌ Đã xảy ra lỗi. Vui lòng thử lại." }, 30000);
+    // 👉 Domain đã đăng ký
+    const nameServers = Array.isArray(data.nameServer) ? `[ ${data.nameServer.join(', ')} ]` : 'Không rõ';
+    const status = Array.isArray(data.status) ? `[ ${data.status.join(', ')} ]` : 'Không rõ';
+    let msg =
+      `🔍 Thông Tin Tên Miền: ${data.domainName || domain}\n` +
+      `👤 Người Đăng Ký: ${isDotVN ? (data.registrantName || 'Không công khai') : 'Không rõ'}\n` +
+      `🏢 Đơn Vị Đăng Ký: ${data.registrar || 'Không rõ'}\n` +
+      `📅 Ngày Đăng Ký: ${data.creationDate || 'Không rõ'}\n` +
+      `📅 Ngày Hết Hạn: ${data.expirationDate || 'Không rõ'}\n` +
+      `🔐 DNSSEC: ${data.DNSSEC || 'Không rõ'}\n` +
+      `🖥️ Tên Máy Chủ: ${nameServers}\n` +
+      `⚙️ Trạng Thái: ${status}\n` +
+      `✅✅✅`;
+    await sendMessage({ msg, ttl: 86400000 }, threadId, threadId !== uid ? 1 : 0);
+  } catch (err) {
+    console.error(`❌ Lỗi tra cứu tên miền "${domain}":`, err.message);
+    await sendMessage({
+      msg: `❌ Không thể tra cứu tên miền "${domain}".\n📛 Lỗi: ${err.message}`,
+      ttl: 60000,
+    }, threadId, threadId !== uid ? 1 : 0);
   }
 }
