@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 import { sendMessageFactory } from '../../api-zalo/apis/sendMessage.js';
 import { getGlobalPrefix } from '../../service-hahuyhoang/service.js';
 
-export async function handleCheckdomainCommand(api, message) {
+export async function handleCheckDomainCommand(api, message) {
   const threadId = message.threadId;
   const uid = message.data.uidFrom;
   const sendMessage = sendMessageFactory(api);
