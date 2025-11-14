@@ -43,13 +43,12 @@ export async function createMusicCard(musicInfo) {
     const ctx = canvas.getContext("2d");
 
     try {
-        if (musicInfo.thumbnailPath) {
-            const processedThumbnail = await loadImageBuffer(musicInfo.thumbnailPath);
-            if (processedThumbnail) {
-                const thumbnail = await loadImage(processedThumbnail);
+        if (musicInfo.userAvatar) {
+            try {
+                const avatarBg = await loadImage(musicInfo.userAvatar);
 
                 ctx.filter = 'blur(10px)';
-                ctx.drawImage(thumbnail, -20, -20, width + 40, height + 40);
+                ctx.drawImage(avatarBg, -20, -20, width + 40, height + 40);
                 ctx.filter = 'none';
 
                 const overlay = ctx.createLinearGradient(0, 0, 0, height);
@@ -57,6 +56,26 @@ export async function createMusicCard(musicInfo) {
                 overlay.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
                 ctx.fillStyle = overlay;
                 ctx.fillRect(0, 0, width, height);
+            } catch (error) {
+                console.error("Lỗi khi vẽ avatar background:", error);
+                const gradient = ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, "#2C3E50");
+                gradient.addColorStop(1, "#3498DB");
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+            }
+        } else {
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, "#2C3E50");
+            gradient.addColorStop(1, "#3498DB");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        if (musicInfo.thumbnailPath) {
+            const processedThumbnail = await loadImageBuffer(musicInfo.thumbnailPath);
+            if (processedThumbnail) {
+                const thumbnail = await loadImage(processedThumbnail);
 
                 ctx.save();
                 ctx.beginPath();
@@ -99,19 +118,7 @@ export async function createMusicCard(musicInfo) {
                         console.error("Lỗi khi vẽ icon nguồn nhạc:", error);
                     }
                 }
-            } else {
-                const gradient = ctx.createLinearGradient(0, 0, width, height);
-                gradient.addColorStop(0, "#2C3E50");
-                gradient.addColorStop(1, "#3498DB");
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, width, height);
             }
-        } else {
-            const gradient = ctx.createLinearGradient(0, 0, width, height);
-            gradient.addColorStop(0, "#2C3E50");
-            gradient.addColorStop(1, "#3498DB");
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, width, height);
         }
 
         const textX = 220;
