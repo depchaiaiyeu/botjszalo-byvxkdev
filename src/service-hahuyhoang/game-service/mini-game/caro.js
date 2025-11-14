@@ -6,10 +6,11 @@ import { createRequire } from "module";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
-import { load } from "cheerio";
+import puppeteer from "puppeteer";
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
+let browser = null;
 
 const TTL_LONG = 3600000;
 const TTL_SHORT = 60000;
@@ -17,6 +18,22 @@ const TTL_SHORT = 60000;
 const BOARD_SIZE = 16;
 const BLACK_PLAYER = 'black';
 const WHITE_PLAYER = 'white';
+
+async function initBrowser() {
+    if (!browser) {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu'
+            ]
+        });
+    }
+    return browser;
+}
 
 function clearTurnTimer(threadId) {
     let timer = turnTimers.get(threadId);
@@ -205,6 +222,9 @@ async function createCaroBoard(board, size, moveCount, playerSymbol, botSymbol, 
 }
 
 async function getBotMoveFromWebsite(game) {
+    const br = await initBrowser();
+    let page = null;
+    
     try {
         let levelMap = {
             'de': 'easy',
@@ -226,29 +246,36 @@ async function getBotMoveFromWebsite(game) {
         
         let url = `https://depchaiaiyeu.github.io/easycaro.github.io/?level=${level}&first=${first}&moves=${moves.join(',')}`;
         
-        console.log(`Fetching: ${url}`);
+        console.log(`Opening: ${url}`);
         
-        let response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        page = await br.newPage();
         
-        let html = await response.text();
-        let $ = load(html);
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
         
-        let gameDataDiv = $('#game-data-crawler');
-        if (gameDataDiv.length === 0) {
-            throw new Error('Game data div not found');
-        }
+        await page.goto(url, { 
+            waitUntil: 'networkidle0',
+            timeout: 30000 
+        });
         
-        let gameDataText = gameDataDiv.text().trim();
-        if (!gameDataText) {
-            throw new Error('Game data is empty');
-        }
+        await page.waitForSelector('#game-data-crawler', { timeout: 10000 });
         
-        let gameData = JSON.parse(gameDataText);
+        await page.waitForFunction(
+            () => {
+                const div = document.getElementById('game-data-crawler');
+                return div && div.textContent.trim().length > 0;
+            },
+            { timeout: 5000 }
+        );
         
-        if (!gameData.moves || gameData.moves.length === 0) {
+        let gameData = await page.evaluate(() => {
+            const div = document.getElementById('game-data-crawler');
+            if (!div) return null;
+            const text = div.textContent.trim();
+            if (!text) return null;
+            return JSON.parse(text);
+        });
+        
+        if (!gameData || !gameData.moves || gameData.moves.length === 0) {
             throw new Error('No moves in game data');
         }
         
@@ -257,10 +284,13 @@ async function getBotMoveFromWebsite(game) {
         let row = Math.floor(movePos / game.size);
         let col = movePos % game.size;
         
+        await page.close();
+        
         return { row, col };
         
     } catch (error) {
         console.error("Error fetching from website:", error);
+        if (page) await page.close();
         throw error;
     }
 }
