@@ -1,39 +1,19 @@
 import { createCanvas } from "canvas";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { createRequire } from "module";
 import { sendMessageComplete, sendMessageWarning, sendMessageTag } from "../../chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service.js";
 import { removeMention } from "../../../utils/format-util.js";
-import puppeteer from "puppeteer";
 
 let activeCaroGames = new Map();
 let turnTimers = new Map();
-let browser = null;
 
 const TTL_LONG = 3600000;
 const TTL_SHORT = 60000;
-
 const BOARD_SIZE = 16;
 const BLACK_PLAYER = 'black';
 const WHITE_PLAYER = 'white';
-
-async function initBrowser() {
-    if (!browser) {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--disable-gpu'
-            ]
-        });
-    }
-    return browser;
-}
+const VERCEL_API = 'https://gomoku-game-api.vercel.app/api/move';
 
 function clearTurnTimer(threadId) {
     let timer = turnTimers.get(threadId);
@@ -221,76 +201,28 @@ async function createCaroBoard(board, size, moveCount, playerSymbol, botSymbol, 
     return canvas.toBuffer("image/png");
 }
 
-async function getBotMoveFromWebsite(game) {
-    const br = await initBrowser();
-    let page = null;
-    
+async function getBotMoveFromAPI(game) {
     try {
-        let levelMap = {
-            'de': 'easy',
-            'kho': 'normal',
-            'caothu': 'hard'
-        };
-        let level = levelMap[game.mode] || 'normal';
-        
-        let first = game.playerSymbol === 'X' ? 'human' : 'ai';
-        
-        let moves = [];
-        for (let r = 0; r < game.size; r++) {
-            for (let c = 0; c < game.size; c++) {
-                if (game.board[r][c] !== null) {
-                    moves.push(r * game.size + c + 1);
-                }
-            }
-        }
-        
-        let url = `https://depchaiaiyeu.github.io/easycaro.github.io/?level=${level}&first=${first}&moves=${moves.join(',')}`;
-        
-        console.log(`Opening: ${url}`);
-        
-        page = await br.newPage();
-        
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        
-        await page.goto(url, { 
-            waitUntil: 'networkidle0',
-            timeout: 30000 
+        const response = await fetch(VERCEL_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                board: game.board,
+                aiMark: game.aiMark,
+                humanMark: game.humanMark,
+                mode: game.mode
+            })
         });
-        
-        await page.waitForSelector('#game-data-crawler', { timeout: 10000 });
-        
-        await page.waitForFunction(
-            () => {
-                const div = document.getElementById('game-data-crawler');
-                return div && div.textContent.trim().length > 0;
-            },
-            { timeout: 5000 }
-        );
-        
-        let gameData = await page.evaluate(() => {
-            const div = document.getElementById('game-data-crawler');
-            if (!div) return null;
-            const text = div.textContent.trim();
-            if (!text) return null;
-            return JSON.parse(text);
-        });
-        
-        if (!gameData || !gameData.moves || gameData.moves.length === 0) {
-            throw new Error('No moves in game data');
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
         }
-        
-        let lastMoveCell = gameData.moves[gameData.moves.length - 1];
-        let movePos = lastMoveCell - 1;
-        let row = Math.floor(movePos / game.size);
-        let col = movePos % game.size;
-        
-        await page.close();
-        
-        return { row, col };
-        
+
+        const data = await response.json();
+        return data.move;
+
     } catch (error) {
-        console.error("Error fetching from website:", error);
-        if (page) await page.close();
+        console.error("Error calling Vercel API:", error);
         throw error;
     }
 }
@@ -309,9 +241,9 @@ async function handleBotTurn(api, message) {
     let move = null;
 
     try {
-        move = await getBotMoveFromWebsite(game);
+        move = await getBotMoveFromAPI(game);
     } catch (error) {
-        console.error("Lỗi crawl website:", error);
+        console.error("Lỗi gọi API:", error);
         clearTurnTimer(threadId);
         await sendMessageWarning(api, message, "🤖 Rất tiếc, AI đang gặp sự cố. Vui lòng thử lại sau.", TTL_SHORT);
         activeCaroGames.delete(threadId);
