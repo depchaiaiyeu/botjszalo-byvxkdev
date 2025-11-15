@@ -8,12 +8,6 @@ import { readWebConfig, writeWebConfig } from "../../utils/io-json.js";
 import { getBotId } from "../../index.js";
 import { getDataAllGroup, getGroupAdmins } from "../info-service/group-info.js";
 import { checkUrlStatus } from "../../utils/util.js";
-import {
-  sendMessageComplete,
-  sendMessageQuery,
-  sendMessageWarning,
-} from "../chat-zalo/chat-style/chat-style.js";
-import { removeMention } from "../../utils/format-util.js";
 
 const FILE_PR_PATH = path.join(process.cwd(), "assets", "web-config");
 const IMAGE_PR_PATH = path.join(FILE_PR_PATH, "image-pr");
@@ -52,12 +46,14 @@ async function checkAndFixAttachments(api, prObject, idZaloGroup) {
   const { hinhAnh, video, link } = prObject;
   const updatedLinks = { ...link };
 
+  // Kiểm tra và xóa các link Không có file tương ứng
   for (const fileName in updatedLinks) {
     if (!hinhAnh.includes(fileName) && !video.includes(fileName)) {
       delete updatedLinks[fileName];
     }
   }
 
+  // Kiểm tra và thêm link cho các file mới
   for (const imageName of hinhAnh) {
     const imagePath = path.join(IMAGE_PR_PATH, imageName);
     if (!fs.existsSync(imagePath)) {
@@ -274,8 +270,6 @@ async function sendPRMessage(api, config, prObject, ttl) {
           } catch (error) { }
         }
         try {
-          const point = (defaultPrObject.hinhAnh.length > 0 ? 1 : 0) + (defaultPrObject.video.length > 0 ? 2 : 0);
-          
           if (point === 0) {
             await api.sendMessage(
               {
@@ -402,270 +396,4 @@ async function schedulePR(api) {
 export async function initPRService(api) {
   await schedulePR(api);
   console.log(chalk.yellow("Dịch vụ PR đã khởi tạo thành công"));
-}
-
-async function downloadImage(url, fileName) {
-  try {
-    const response = await axios({
-      url,
-      method: "GET",
-      responseType: "stream",
-    });
-
-    if (!fs.existsSync(IMAGE_PR_PATH)) {
-      fs.mkdirSync(IMAGE_PR_PATH, { recursive: true });
-    }
-
-    const filePath = path.join(IMAGE_PR_PATH, fileName);
-    const writer = fs.createWriteStream(filePath);
-    response.data.pipe(writer);
-
-    return new Promise((resolve, reject) => {
-      writer.on("finish", () => resolve(filePath));
-      writer.on("error", reject);
-    });
-  } catch (error) {
-    console.error("Lỗi khi tải ảnh:", error);
-    throw error;
-  }
-}
-
-function extractImageUrl(quote) {
-  if (!quote.attach || quote.attach === "") {
-    return null;
-  }
-
-  try {
-    let attachData = quote.attach;
-    if (typeof attachData === "string") {
-      attachData = JSON.parse(attachData);
-      if (attachData.params && typeof attachData.params === "string") {
-        attachData.params = JSON.parse(
-          attachData.params.replace(/\\\\/g, "\\").replace(/\\\//g, "/")
-        );
-      }
-    }
-
-    if (attachData.href) {
-      return attachData.href;
-    }
-  } catch (e) {
-    console.error("Lỗi khi parse attach:", e);
-  }
-
-  return null;
-}
-
-function normalizeImageUrl(url) {
-  let normalized = url;
-  if (normalized.includes("/jxl/")) {
-    normalized = normalized.replace("/jxl/", "/jpg/");
-  }
-  if (normalized.endsWith(".jxl")) {
-    normalized = normalized.replace(".jxl", ".jpg");
-  }
-  return normalized;
-}
-
-function isValidImageUrl(url) {
-  const validExtensions = [".jpg", ".jpeg", ".png"];
-  const validPaths = ["/jpg/", "/jpeg/", "/png/"];
-  
-  const hasValidExtension = validExtensions.some(ext => url.toLowerCase().endsWith(ext));
-  const hasValidPath = validPaths.some(path => url.includes(path));
-  
-  return hasValidExtension || hasValidPath;
-}
-
-function parseTimeSchedule(timeStr) {
-  if (!timeStr) return [];
-  
-  const times = timeStr.split(";").map(t => t.trim()).filter(t => t);
-  const validTimes = [];
-  
-  for (const time of times) {
-    const match = time.match(/^(\d{1,2}):(\d{2})$/);
-    if (match) {
-      const hour = match[1].padStart(2, "0");
-      const minute = match[2];
-      validTimes.push(`${hour}:${minute}`);
-    }
-  }
-  
-  return validTimes;
-}
-
-async function showPRList(api, message, config) {
-  if (!config.prObjects || config.prObjects.length === 0) {
-    await sendMessageWarning(
-      api,
-      message,
-      "🚫 Chưa có cấu hình PR nào"
-    );
-    return;
-  }
-
-  let listMessage = "📜 Danh sách cấu hình PR:\n\n";
-
-  config.prObjects.forEach((pr, index) => {
-    listMessage += `#${index + 1}\n`;
-    listMessage += `💬 Nội dung: ${pr.noiDung || "(Trống)"}\n`;
-    listMessage += `📷 Hình ảnh: ${pr.hinhAnh && pr.hinhAnh.length > 0 ? "Có" : "Không"}\n`;
-    listMessage += `📽️ Video: ${pr.video && pr.video.length > 0 ? "Có" : "Không"}\n`;
-    listMessage += `⏰ Thời gian: ${pr.thoiGianGui && pr.thoiGianGui.length > 0 ? pr.thoiGianGui.join(", ") : "Chưa cấu hình"}\n\n`;
-  });
-
-  await sendMessageComplete(api, message, listMessage);
-}
-
-export async function handlePrServiceCommand(api, message) {
-  const threadId = message.threadId;
-  const content = removeMention(message);
-  const parts = content.split(" ");
-  const command = parts[1];
-
-  const config = await readWebConfig();
-
-  if (!command) {
-    await showPRList(api, message, config);
-    return;
-  }
-
-  if (command === "delete") {
-    const indexToDelete = parseInt(parts[2]);
-    
-    if (isNaN(indexToDelete) || indexToDelete < 1 || indexToDelete > config.prObjects.length) {
-      await sendMessageWarning(
-        api,
-        message,
-        `🚫 Số không hợp lệ! Chọn từ 1 đến ${config.prObjects.length}`
-      );
-      return;
-    }
-
-    const deletedPr = config.prObjects[indexToDelete - 1];
-    config.prObjects.splice(indexToDelete - 1, 1);
-    await writeWebConfig(config);
-
-    await sendMessageComplete(
-      api,
-      message,
-      `🎯 Đã xóa PR #${indexToDelete}\n💬 Nội dung: ${deletedPr.noiDung || "(Trống)"}`
-    );
-    return;
-  }
-
-  if (command !== "add") {
-    await sendMessageQuery(
-      api,
-      message,
-      "📋 Cách dùng:\n• prservice → Xem danh sách\n• prservice add [nội dung]::[thời gian] → Thêm PR\n• prservice delete [số] → Xóa PR"
-    );
-    return;
-  }
-
-  const fullCommand = parts.slice(2).join(" ");
-  
-  if (!fullCommand.includes("::")) {
-    await sendMessageWarning(
-      api,
-      message,
-      "🚫 Sai định dạng!\nVí dụ: prservice add Xin chào::12:00;13:00"
-    );
-    return;
-  }
-
-  const [prContent, timeScheduleStr] = fullCommand.split("::").map(s => s.trim());
-  const timeSchedule = parseTimeSchedule(timeScheduleStr);
-
-  if (timeSchedule.length === 0) {
-    await sendMessageWarning(
-      api,
-      message,
-      "🚫 Thời gian không hợp lệ!\nĐịnh dạng: HH:MM (VD: 12:00;13:30)"
-    );
-    return;
-  }
-
-  const quote = message.data?.quote || message.reply;
-  let imageFileName = null;
-
-  if (quote) {
-    const cliMsgType = quote.cliMsgType || "";
-    
-    if (cliMsgType === "32") {
-      const imageUrl = extractImageUrl(quote);
-      
-      if (imageUrl) {
-        const normalizedUrl = normalizeImageUrl(imageUrl);
-        
-        if (isValidImageUrl(normalizedUrl)) {
-          try {
-            imageFileName = `image-pr${Date.now()}.png`;
-            await sendMessageQuery(api, message, "⏳ Đang tải ảnh...");
-            await downloadImage(normalizedUrl, imageFileName);
-          } catch (error) {
-            await sendMessageWarning(
-              api,
-              message,
-              `🚫 Lỗi tải ảnh: ${error.message}\nTiếp tục với text...`
-            );
-            imageFileName = null;
-          }
-        } else {
-          await sendMessageWarning(
-            api,
-            message,
-            "🚫 Định dạng ảnh không hỗ trợ! Chỉ nhận .jpg, .jpeg, .png\nTiếp tục với text..."
-          );
-        }
-      }
-    }
-  }
-
-  try {
-    const newPrObject = {
-      ten: `PR_${Date.now()}`,
-      idZalo: -1,
-      noiDung: prContent,
-      hinhAnh: imageFileName ? [imageFileName] : [],
-      video: [],
-      link: {},
-      thoiGianGui: timeSchedule,
-      customContent: {}
-    };
-
-    if (!config.selectedGroups) {
-      config.selectedGroups = {};
-    }
-    
-    if (!config.selectedFriends) {
-      config.selectedFriends = {};
-    }
-
-    config.selectedGroups[threadId] = true;
-
-    if (!config.prObjects) {
-      config.prObjects = [];
-    }
-
-    config.prObjects.push(newPrObject);
-    await writeWebConfig(config);
-
-    let successMessage = `🎯 Thêm PR thành công!\n\n`;
-    successMessage += `💬 Nội dung: ${prContent}\n`;
-    successMessage += `⏰ Gửi lúc: ${timeSchedule.join(", ")}\n`;
-    successMessage += `📷 Ảnh: ${imageFileName ? "Có" : "Không"}\n`;
-    successMessage += `📍 Nhóm: Nhóm hiện tại\n\n`;
-    successMessage += `💡 Cấu hình thêm qua web panel nếu cần`;
-
-    await sendMessageComplete(api, message, successMessage);
-  } catch (error) {
-    console.error("Lỗi khi xử lý PR service:", error);
-    await sendMessageWarning(
-      api,
-      message,
-      `🚫 Lỗi xử lý: ${error.message}`
-    );
-  }
 }
