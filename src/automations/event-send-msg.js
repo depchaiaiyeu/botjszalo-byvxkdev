@@ -69,19 +69,8 @@ export async function checkAndSendBusinessCard(api, senderId, senderName) {
     lastBusinessCardTime.set(senderId, currentTime);
     const idBot = getBotId();
     if (admins.length == 0 || (admins.length == 1 && admins.includes(idBot.toString()))) return false;
-    //await api.sendMessage(
-      //{
-        //msg:
-          //`Xin Chào ${senderName}, Tôi Là Vũ Xuân Kiên.\n` +
-          //`Hiện Tại Tôi Đang Bận Bạn Có Thể Nhắn Lại Sau Nhé.\n`+
-          //`Link Group Của Tôi: https://zalo.me/g/cytzbq576\n`,
-      //},
-      //senderId,
-      //MessageType.DirectMessage
-    //);
     for (const userId of admins) {
       if (userId != idBot) {
-        //await api.sendBusinessCard(null, userId, null, MessageType.DirectMessage, senderId);
       }
     }
     return true;
@@ -182,7 +171,34 @@ export async function messagesUser(api, message) {
       }
 
       let handleChat = true;
-      handleChat = handleChat && !(await superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings));
+      let handledReply = false;
+
+      if (isPlainText) {
+        handleChat = handleChat && groupSettings[threadId].activeBot === true;
+        handleChat = handleChat && !isSelf;
+        if (handleChat || (!isSelf && isAdminBot)) {
+          await handleOnChatUser(api, message, false, groupSettings);
+        }
+        if (handleChat || isAdminBot) {
+          handledReply = await handleOnReplyFromUser(
+            api,
+            message,
+            groupInfo,
+            groupAdmins,
+            groupSettings,
+            isAdminLevelHighest,
+            isAdminBot,
+            isAdminBox,
+            handleChat || isAdminBot
+          );
+          handleChat = !handledReply;
+        }
+      }
+
+      if (!handledReply) {
+        handleChat = handleChat && !(await superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings));
+      }
+
       handleChat = handleChat && !(await antiBot(api, message, groupSettings, isAdminBox, botIsAdminBox, isSelf));
       handleChat = handleChat && !(await autoDownload(api, message, isSelf, groupSettings));
       handleChat = handleChat && !(await antiSpam(api, message, groupInfo, isAdminBox, groupSettings, botIsAdminBox, isSelf));
@@ -191,6 +207,7 @@ export async function messagesUser(api, message) {
       handleChat = !(await handleMute(api, message, groupSettings, isAdminBox, botIsAdminBox, isSelf));
       handleChat = handleChat && !(await antiBadWord(api, message, groupSettings, isAdminBox, botIsAdminBox, isSelf));
       handleChat = handleChat && !isUserBlocked(senderId);
+
       const numberHandleCommand = await handleCommand(
         api,
         message,
@@ -202,28 +219,9 @@ export async function messagesUser(api, message) {
         isAdminBox,
         handleChat
       );
-      if (isPlainText) {
-        handleChat = handleChat && groupSettings[threadId].activeBot === true;
-        handleChat = handleChat && !isSelf;
-        if (handleChat || (!isSelf && isAdminBot)) {
-          await handleOnChatUser(api, message, numberHandleCommand === 5, groupSettings);
-        }
-        if (handleChat || isAdminBot) {
-          handleChat = await handleOnReplyFromUser(
-            api,
-            message,
-            groupInfo,
-            groupAdmins,
-            groupSettings,
-            isAdminLevelHighest,
-            isAdminBot,
-            isAdminBox,
-            handleChat || isAdminBot
-          );
-        }
-        if (!isSelf) {
-          await handleChatBot(api, message, threadId, groupSettings, nameGroup, numberHandleCommand === 2);
-        }
+
+      if (isPlainText && !isSelf) {
+        await handleChatBot(api, message, threadId, groupSettings, nameGroup, numberHandleCommand === 2);
       }
 
       await Promise.all([
@@ -239,6 +237,7 @@ export async function messagesUser(api, message) {
         handleCaroMessage(api, message),
         handleChessMessage(api, message),
       ]);
+
       await handleActionGroupReply(api, message, groupInfo, groupAdmins, groupSettings, isAdminLevelHighest, isAdminBot, isAdminBox);
       break;
     }
