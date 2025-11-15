@@ -1,5 +1,5 @@
 import { startWebServer } from "../web-service/web-server.js";
-import { readCommandConfig } from "../utils/io-json.js";
+import { readCommandConfig, isBotMain } from "../utils/io-json.js";
 import { initRankSystem } from "./info-service/rank-chat.js";
 import { initializeFarmService } from "./game-service/nong-trai/nong-trai.js";
 import { initializeScheduler } from "./scheduler/scheduler.js";
@@ -29,85 +29,92 @@ import { startAutoLockChatScheduler } from "../commands/bot-manager/group-autolo
 import { handleHH3DReply } from "./api-crawl/video/yanhh3d-phim3d.js";
 import { handleSubNhanhChillReply } from "./api-crawl/video/subnhanhchill.net.js";
 import { handleKKPhimReply } from "./api-crawl/video/kkphim.js";
-
 let globalPrefix = ".";
 
 export function getGlobalPrefix() {
-  return globalPrefix;
+  return globalPrefix;
 }
 
 export function setGlobalPrefix(newPrefix) {
-  globalPrefix = newPrefix;
+  globalPrefix = newPrefix;
 }
 
-export async function initService(api, port) {
-  const commandConfig = readCommandConfig();
-  globalPrefix = commandConfig.prefix || "";
+export async function initService(api) {
+  const commandConfig = readCommandConfig();
+  globalPrefix = commandConfig.prefix || "";
 
-  await Promise.all([
-    initializeDatabase(),
-    initializeCacheService(),
-    initializeFarmService(),
-    initializeGameDataManager(api),
-    initializeScheduler(api),
-    startAutoLockChatScheduler(api),
-    startAntiConfigCheck(),
-    startMuteCheck(api),
-    startBadWordViolationCheck(),
-    startBotViolationCheck(),
-    startNudeViolationCheck(),
-    initRankSystem(),
-    notifyResetGroup(api),
-    startWebServer(api, port),
-  ]);
+  const servicePromises = [
+    initializeDatabase(),
+    initializeCacheService(),
+    initializeFarmService(),
+    initializeGameDataManager(api),
+    initializeScheduler(api),
+    startAutoLockChatScheduler(api),
+    startAntiConfigCheck(),
+    startMuteCheck(api),
+    startBadWordViolationCheck(),
+    startBotViolationCheck(),
+    startNudeViolationCheck(),
+    initRankSystem(),
+    notifyResetGroup(api),
+  ];
+
+  if (isBotMain()) {
+    console.log("[Service] ℹ️ Khởi động Web service (Bot Chính)...");
+    servicePromises.push(startWebServer(api, port));
+  } else {
+    console.log("[Service] ℹ️ Bỏ qua khởi động Web service (Bot Con)");
+  }
+
+  await Promise.all(servicePromises);
 }
 
 export async function handleOnChatUser(
-  api,
-  message,
-  isCallGame,
-  groupSettings
+  api,
+  message,
+  isCallGame,
+  groupSettings
 ) {
-  await handleChatWithGame(api, message, isCallGame, groupSettings);
+  await handleChatWithGame(api, message, isCallGame, groupSettings);
 }
 
 export async function handleOnReplyFromUser(
-  api,
-  message,
-  groupInfo,
-  groupAdmins,
-  groupSettings,
-  isAdminLevelHighest,
-  isAdminBot,
-  isAdminBox,
-  handleChat
+  api,
+  message,
+  groupInfo,
+  groupAdmins,
+  groupSettings,
+  isAdminLevelHighest,
+  isAdminBot,
+  isAdminBox,
+  handleChat
 ) {
-  if (await checkReplySelectionsMapData(api, message)) return true;
-  if (await handleScanGroupsReply(api, message)) return true;
-  if (await handleMusicReply(api, message)) return true;
-  if (await handleZingMp3Reply(api, message)) return true;
-  if (await handleYoutubeReply(api, message)) return true;
-  if (await handleTikTokReply(api, message)) return true;
-  if (await handleNhacCuaTuiReply(api, message)) return true;
-  if (await handleCapcutReply(api, message)) return true;
-  if (await handleLienQuanReply(api, message)) return true;
-  if (await handleLOLReply(api, message)) return true;
-  if (await handleHH3DReply(api, message)) return true;
-  if (await handleKKPhimReply(api, message)) return true;
-  if (await handleSubNhanhChillReply(api, message)) return true;
-  if (
-    await handleActionGroupReply(
-      api,
-      message,
-      groupInfo,
-      groupAdmins,
-      groupSettings,
-      isAdminLevelHighest,
-      isAdminBot,
-      isAdminBox,
-      handleChat
-    )
-  )
-    return true;
-  return false;
+  if (await checkReplySelectionsMapData(api, message)) return true;
+  if (await handleScanGroupsReply(api, message)) return true;
+  if (await handleMusicReply(api, message)) return true;
+  if (await handleZingMp3Reply(api, message)) return true;
+  if (await handleYoutubeReply(api, message)) return true;
+  if (await handleTikTokReply(api, message)) return true;
+  if (await handleNhacCuaTuiReply(api, message)) return true;
+  if (await handleCapcutReply(api, message)) return true;
+  if (await handleLienQuanReply(api, message)) return true;
+  if (await handleLOLReply(api, message)) return true;
+  if (await handleHH3DReply(api, message)) return true;
+  if (await handleKKPhimReply(api, message)) return true;
+  if (await handleSubNhanhChillReply(api, message)) return true;
+  if (
+    await handleActionGroupReply(
+      api,
+      message,
+      groupInfo,
+      groupAdmins,
+      groupSettings,
+      isAdminLevelHighest,
+      isAdminBot,
+      isAdminBox,
+      handleChat
+    )
+  )
+    return true;
+  return false;
 }
