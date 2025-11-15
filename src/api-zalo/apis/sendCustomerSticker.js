@@ -52,10 +52,10 @@ export function sendCustomStickerFactory(api) {
       width,
       height,
       properties: JSON.stringify({
-        subType: -1,
+        subType: 0,
         color: -1,
         size: -1,
-        type: -1,
+        type: 3,
         ext: JSON.stringify({
           sSrcStr: "@STICKER",
           sSrcType: -1,
