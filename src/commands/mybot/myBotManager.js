@@ -240,6 +240,52 @@ async function getNextBotPort(currentBots) {
     return maxPort + 1;
 }
 
+async function listAllBots(api) {
+    console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
+    try {
+        const files = await fs.readdir(paths.myBotDataDir);
+        console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
+
+        const bots = [];
+
+        for (const file of files) {
+            if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
+                const botId = file.replace(".json", "");
+
+                if (isNaN(botId) || botId.length < 10) {
+                    continue;
+                }
+
+                const botConfig = await getBotConfig(botId);
+
+                if (botConfig) {
+                    let botName = botId;
+                    if (api) {
+                        try {
+                            const userInfo = await getUserInfoData(api, botId);
+                            if (userInfo && userInfo.name) {
+                                botName = userInfo.name;
+                            }
+                        } catch (err) {
+                        }
+                    }
+                    bots.push({
+                        uid: botId,
+                        name: botName,
+                        config: botConfig
+                    });
+                }
+            }
+        }
+
+        return bots;
+    } catch (error) {
+        console.error(`[MyBot] 🚫 Lỗi liệt kê bot:`, error);
+        return [];
+    }
+}
+
+
 async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent = null, currentBots) {
     console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
 
@@ -293,78 +339,6 @@ function streamLogs(processName, botId, botName) {
     logStream.on('error', (err) => {
         console.error(`[MyBot] 🚫 Lỗi khi stream log cho ${processName}:`, err);
     });
-}
-
-async function listAllBots(api) {
-    console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
-    try {
-        const files = await fs.readdir(paths.myBotDataDir);
-        console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
-
-        const bots = [];
-
-        for (const file of files) {
-            if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
-                const botId = file.replace(".json", "");
-
-                if (isNaN(botId) || botId.length < 10) {
-                    console.log(`[MyBot] ⏭️ Bỏ qua file: ${file} (không phải bot config)`);
-                    continue;
-                }
-
-                console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
-
-                const botConfig = await getBotConfig(botId);
-
-                if (botConfig) {
-                    let botName = botId;
-                    if (api) {
-                        try {
-                            const userInfo = await getUserInfoData(api, botId);
-                            if (userInfo && userInfo.name) {
-                                botName = userInfo.name;
-                            }
-                            console.log(`[MyBot] ✅ Thêm bot: ${botId} (Tên: ${botName})`);
-                        } catch (err) {
-                            console.log(`[MyBot] 🟡 Không thể lấy thông tin user ${botId}. Dùng UID làm tên.`);
-                        }
-                    }
-                    bots.push({
-                        uid: botId,
-                        name: botName,
-                        config: botConfig
-                    });
-                }
-            }
-        }
-
-        console.log(`[MyBot] 📊 Tổng bot tìm được: ${bots.length}`);
-        return bots;
-    } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi liệt kê bot:`, error);
-        return [];
-    }
-}
-
-function getBotTarget(message, parts, botList) {
-    let botId = null;
-    let botName = "Bot";
-    let mention = null;
-    const mentions = message.data.mentions;
-
-    if (mentions && mentions.length > 0) {
-        mention = mentions[0];
-        botId = mention.uid;
-        botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
-    } else if (parts.length >= 3) {
-        const index = parseInt(parts[2]) - 1;
-        if (index >= 0 && index < botList.length) {
-            botId = botList[index].uid;
-            botName = botList[index].name;
-        }
-    }
-
-    return { botId, botName, mention };
 }
 
 async function handleMyBotCreate(api, message) {
@@ -441,51 +415,6 @@ async function handleMyBotCreate(api, message) {
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi tạo bot:`, error.message);
         await sendMessageWarning(api, message, `🚫 Lỗi khi tạo bot: ${error.message}`);
-    }
-}
-
-async function listAllBots(api) {
-    console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
-    try {
-        const files = await fs.readdir(paths.myBotDataDir);
-        console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
-
-        const bots = [];
-
-        for (const file of files) {
-            if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
-                const botId = file.replace(".json", "");
-
-                if (isNaN(botId) || botId.length < 10) {
-                    continue;
-                }
-
-                const botConfig = await getBotConfig(botId);
-
-                if (botConfig) {
-                    let botName = botId;
-                    if (api) {
-                        try {
-                            const userInfo = await getUserInfoData(api, botId);
-                            if (userInfo && userInfo.name) {
-                                botName = userInfo.name;
-                            }
-                        } catch (err) {
-                        }
-                    }
-                    bots.push({
-                        uid: botId,
-                        name: botName,
-                        config: botConfig
-                    });
-                }
-            }
-        }
-
-        return bots;
-    } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi liệt kê bot:`, error);
-        return [];
     }
 }
 
