@@ -52,13 +52,13 @@ export function sendCustomStickerFactory(api) {
       width,
       height,
       properties: JSON.stringify({
-        subType: 0,
+        subType: -1,
         color: -1,
         size: -1,
-        type: 3,
+        type: -1,
         ext: JSON.stringify({
           sSrcStr: "@STICKER",
-          sSrcType: 1,
+          sSrcType: -1,
         }),
       }),
       contentId: Date.now(),
@@ -71,8 +71,7 @@ export function sendCustomStickerFactory(api) {
         thumb: "",
       }),
       zsource: -1,
-      ttl,
-      pStickerType: 1
+      ttl
     };
 
     if (quote) {
