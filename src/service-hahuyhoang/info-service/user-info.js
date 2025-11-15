@@ -54,14 +54,14 @@ export async function userInfoCommand(api, message, aliasCommand) {
     
         await api.sendMessage({
           msg: logMessage,
-          ttl: 360000,
+          ttl: 600000,
           clientId: Math.floor(Date.now() / 1000) * 60
         }, threadId, message.type);
 
     } else {
       imagePath = await cv.createUserInfoImage(userInfo);
       await api.sendMessage(
-        { msg: "", attachments: [imagePath], ttl: 360000 },
+        { msg: "", attachments: [imagePath] },
         threadId,
         message.type
       );
