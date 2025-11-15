@@ -70,6 +70,9 @@ export function sendCustomStickerFactory(api) {
         url: animationImgUrl,
         thumb: "",
       }),
+      jcp: JSON.stringify({
+        pStickerType: 1
+      }),
       zsource: -1,
       ttl
     };
