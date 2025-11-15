@@ -1,5 +1,5 @@
 import { startWebServer } from "../web-service/web-server.js";
-import { readCommandConfig, isBotMain } from "../utils/io-json.js";
+import { readCommandConfig } from "../utils/io-json.js";
 import { initRankSystem } from "./info-service/rank-chat.js";
 import { initializeFarmService } from "./game-service/nong-trai/nong-trai.js";
 import { initializeScheduler } from "./scheduler/scheduler.js";
@@ -29,6 +29,7 @@ import { startAutoLockChatScheduler } from "../commands/bot-manager/group-autolo
 import { handleHH3DReply } from "./api-crawl/video/yanhh3d-phim3d.js";
 import { handleSubNhanhChillReply } from "./api-crawl/video/subnhanhchill.net.js";
 import { handleKKPhimReply } from "./api-crawl/video/kkphim.js";
+
 let globalPrefix = ".";
 
 export function getGlobalPrefix() {
@@ -43,7 +44,7 @@ export async function initService(api) {
   const commandConfig = readCommandConfig();
   globalPrefix = commandConfig.prefix || "";
 
-  const servicePromises = [
+  await Promise.all([
     initializeDatabase(),
     initializeCacheService(),
     initializeFarmService(),
@@ -57,16 +58,8 @@ export async function initService(api) {
     startNudeViolationCheck(),
     initRankSystem(),
     notifyResetGroup(api),
-  ];
-
-  if (isBotMain()) {
-    console.log("[Service] ℹ️ Khởi động Web service (Bot Chính)...");
-    servicePromises.push(startWebServer(api));
-  } else {
-    console.log("[Service] ℹ️ Bỏ qua khởi động Web service (Bot Con)");
-  }
-
-  await Promise.all(servicePromises);
+    startWebServer(api),
+  ]);
 }
 
 export async function handleOnChatUser(
