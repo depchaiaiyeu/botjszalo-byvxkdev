@@ -2348,6 +2348,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "prservice",
+      "description": "Thêm/xóa/xem danh sách khởi tạo dịch vụ PR Service",
+      "syntax": "{p}prservice add/delete",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "🌟",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
