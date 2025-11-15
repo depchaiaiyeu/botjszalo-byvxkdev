@@ -39,6 +39,15 @@ function normalizeImageUrl(url) {
   return url
 }
 
+function isWebpWithParams(url) {
+  return url.includes(".webp") && url.includes("?")
+}
+
+function replaceWebpParams(url) {
+  const parts = url.split("?")
+  return parts[0] + "?creator=VXK-Service-BOT.webp"
+}
+
 async function processAndSendSticker(api, message, mediaUrl, width, height, cliMsgType, useSpinDisk = false, frameRate = null) {
   const threadId = message.threadId
   let videoPath = null
@@ -53,6 +62,13 @@ async function processAndSendSticker(api, message, mediaUrl, width, height, cliM
       const result = await createCircleWebp(api, message, redirectUrl, idImage, frameRate)
       if (!result) throw new Error("Tạo spin disk sticker thất bại")
       await api.sendCustomSticker(message, result.url + "?creator=VXK-Service-BOT.webp", result.url + "?createdBy=VXK-Service-BOT.Webp", result.stickerData.width, result.stickerData.height)
+      return true
+    }
+
+    if (isWebpWithParams(mediaUrl)) {
+      const staticUrl = replaceWebpParams(mediaUrl)
+      const animUrl = staticUrl.replace("?creator=", "?createdBy=").replace(".webp", ".Webp")
+      await api.sendCustomSticker(message, staticUrl, animUrl, width, height)
       return true
     }
 
