@@ -169,7 +169,7 @@ import { handleCheckHttpCommand } from "../service-hahuyhoang/tien-ich/check-htt
 import { handleCheckPingCommand } from "../service-hahuyhoang/tien-ich/check-ping.js";
 import { handleCheckTcpCommand } from "../service-hahuyhoang/tien-ich/check-tcp.js";
 import { handleCheckOrderCommand } from "../service-hahuyhoang/tien-ich/check-order.js";
-
+import { handlePrServiceCommand } from "../service-hahuyhoang/scheduler/auto-pr.js";
 
 const lastCommandUsage = {};
 
@@ -1374,6 +1374,9 @@ export async function handleCommand(
                 break;
               case "checkorder":
                 await handleCheckOrderCommand (api, message);
+                break;
+              case "prservice":
+                await handlePrServiceCommand (api, message);
                 break;
             }
           } else {
