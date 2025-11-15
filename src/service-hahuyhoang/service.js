@@ -33,81 +33,81 @@ import { handleKKPhimReply } from "./api-crawl/video/kkphim.js";
 let globalPrefix = ".";
 
 export function getGlobalPrefix() {
-  return globalPrefix;
+  return globalPrefix;
 }
 
 export function setGlobalPrefix(newPrefix) {
-  globalPrefix = newPrefix;
+  globalPrefix = newPrefix;
 }
 
-export async function initService(api) {
-  const commandConfig = readCommandConfig();
-  globalPrefix = commandConfig.prefix || "";
+export async function initService(api, port) {
+  const commandConfig = readCommandConfig();
+  globalPrefix = commandConfig.prefix || "";
 
-  await Promise.all([
-    initializeDatabase(),
-    initializeCacheService(),
-    initializeFarmService(),
-    initializeGameDataManager(api),
-    initializeScheduler(api),
-    startAutoLockChatScheduler(api),
-    startAntiConfigCheck(),
-    startMuteCheck(api),
-    startBadWordViolationCheck(),
-    startBotViolationCheck(),
-    startNudeViolationCheck(),
-    initRankSystem(),
-    notifyResetGroup(api),
-    startWebServer(api),
-  ]);
+  await Promise.all([
+    initializeDatabase(),
+    initializeCacheService(),
+    initializeFarmService(),
+    initializeGameDataManager(api),
+    initializeScheduler(api),
+    startAutoLockChatScheduler(api),
+    startAntiConfigCheck(),
+    startMuteCheck(api),
+    startBadWordViolationCheck(),
+    startBotViolationCheck(),
+    startNudeViolationCheck(),
+    initRankSystem(),
+    notifyResetGroup(api),
+    startWebServer(api, port),
+  ]);
 }
 
 export async function handleOnChatUser(
-  api,
-  message,
-  isCallGame,
-  groupSettings
+  api,
+  message,
+  isCallGame,
+  groupSettings
 ) {
-  await handleChatWithGame(api, message, isCallGame, groupSettings);
+  await handleChatWithGame(api, message, isCallGame, groupSettings);
 }
 
 export async function handleOnReplyFromUser(
-  api,
-  message,
-  groupInfo,
-  groupAdmins,
-  groupSettings,
-  isAdminLevelHighest,
-  isAdminBot,
-  isAdminBox,
-  handleChat
+  api,
+  message,
+  groupInfo,
+  groupAdmins,
+  groupSettings,
+  isAdminLevelHighest,
+  isAdminBot,
+  isAdminBox,
+  handleChat
 ) {
-  if (await checkReplySelectionsMapData(api, message)) return true;
-  if (await handleScanGroupsReply(api, message)) return true;
-  if (await handleMusicReply(api, message)) return true;
-  if (await handleZingMp3Reply(api, message)) return true;
-  if (await handleYoutubeReply(api, message)) return true;
-  if (await handleTikTokReply(api, message)) return true;
-  if (await handleNhacCuaTuiReply(api, message)) return true;
-  if (await handleCapcutReply(api, message)) return true;
-  if (await handleLienQuanReply(api, message)) return true;
-  if (await handleLOLReply(api, message)) return true;
-  if (await handleHH3DReply(api, message)) return true;
-  if (await handleKKPhimReply(api, message)) return true;
-  if (await handleSubNhanhChillReply(api, message)) return true;
-  if (
-    await handleActionGroupReply(
-      api,
-      message,
-      groupInfo,
-      groupAdmins,
-      groupSettings,
-      isAdminLevelHighest,
-      isAdminBot,
-      isAdminBox,
-      handleChat
-    )
-  )
-    return true;
-  return false;
+  if (await checkReplySelectionsMapData(api, message)) return true;
+  if (await handleScanGroupsReply(api, message)) return true;
+  if (await handleMusicReply(api, message)) return true;
+  if (await handleZingMp3Reply(api, message)) return true;
+  if (await handleYoutubeReply(api, message)) return true;
+  if (await handleTikTokReply(api, message)) return true;
+  if (await handleNhacCuaTuiReply(api, message)) return true;
+  if (await handleCapcutReply(api, message)) return true;
+  if (await handleLienQuanReply(api, message)) return true;
+  if (await handleLOLReply(api, message)) return true;
+  if (await handleHH3DReply(api, message)) return true;
+  if (await handleKKPhimReply(api, message)) return true;
+  if (await handleSubNhanhChillReply(api, message)) return true;
+  if (
+    await handleActionGroupReply(
+      api,
+      message,
+      groupInfo,
+      groupAdmins,
+      groupSettings,
+      isAdminLevelHighest,
+      isAdminBot,
+      isAdminBox,
+      handleChat
+    )
+  )
+    return true;
+  return false;
 }
