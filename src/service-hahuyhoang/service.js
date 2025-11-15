@@ -61,7 +61,7 @@ export async function initService(api) {
 
   if (isBotMain()) {
     console.log("[Service] ℹ️ Khởi động Web service (Bot Chính)...");
-    servicePromises.push(startWebServer(api, port));
+    servicePromises.push(startWebServer(api));
   } else {
     console.log("[Service] ℹ️ Bỏ qua khởi động Web service (Bot Con)");
   }
