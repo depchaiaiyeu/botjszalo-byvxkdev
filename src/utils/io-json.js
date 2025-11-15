@@ -7,7 +7,8 @@ import { getTimeToString, getTimeNow } from "./format-util.js"
 export const botId = process.argv[2] || 'main'
 const isMainBot = botId === 'main'
 
-console.log(chalk.cyan(`Bot ID: ${botId}`))
+console.log(chalk.cyan(`📦 Config Loader: Bot ID = ${botId}`))
+console.log(chalk.cyan(`📦 Config Loader: Is Main Bot = ${isMainBot}`))
 
 let botInfo = {
   adminFilePath: path.resolve("./assets/data/list_admin.json"),
@@ -26,11 +27,12 @@ let botInfo = {
 
 if (!isMainBot) {
   const subBotPath = path.resolve("./mybot", `${botId}.json`)
-  console.log(chalk.yellow(`Tải dữ liệu bot con với ID: ${botId}`))
+  console.log(chalk.yellow(`📦 Config Loader: Tìm bot con tại ${subBotPath}`))
 
   if (fs.existsSync(subBotPath)) {
     try {
       const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
+      console.log(chalk.green(`✅ Config Loader: Tìm thấy bot con ${botId}`))
       botInfo = {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
@@ -46,19 +48,19 @@ if (!isMainBot) {
         PROPHYLACTIC_CONFIG_PATH: path.resolve("./mybot/json-data/prophylactic_" + botId + ".json"),
         subBotId: botId,
         subBotConfig: subBotData,
-        mainBotConfigPath: path.resolve("./assets/config.json"),
-        mainCommandPath: path.resolve("./assets/json-data/command.json")
+        mainBotConfigPath: path.resolve("./assets/config.json")
       }
+      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (riêng bot con)`))
     } catch (error) {
-      console.error(chalk.red(`❌ Lỗi khi đọc bot con ${botId}: ${error.message}`))
+      console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
       process.exit(1)
     }
   } else {
-    console.error(chalk.red(`❌ Bot con ${botId} không tồn tại`))
+    console.error(chalk.red(`❌ Config Loader: Bot con ${botId} không tồn tại`))
     process.exit(1)
   }
 } else {
-  console.log(chalk.green(`Tải dữ liệu bot chính...`))
+  console.log(chalk.green(`✅ Config Loader: Load bot chính từ /assets`))
 }
 
 const adminFilePath = botInfo.adminFilePath
@@ -104,6 +106,7 @@ export function readConfig() {
     const config = JSON.parse(data)
 
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
+      console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
       try {
         const mainData = fs.readFileSync(botInfo.mainBotConfigPath, "utf-8");
         const mainConfig = JSON.parse(mainData);
@@ -167,50 +170,20 @@ export function writeGroupSettings(settings) {
 
 export function readCommandConfig() {
   try {
-    let commandPath = commandFilePath
-    
-    if (!isMainBot && botInfo.mainCommandPath) {
-      if (!fs.existsSync(commandFilePath)) {
-        commandPath = botInfo.mainCommandPath
-        const mainData = fs.readFileSync(commandPath, "utf-8")
-        const mainConfig = JSON.parse(mainData)
-        
-        if (mainConfig.prefix) {
-          mainConfig.prefix = "."
-        }
-        
-        const subBotDir = path.dirname(commandFilePath)
-        mkdirRecursive(subBotDir)
-        fs.writeFileSync(commandFilePath, JSON.stringify(mainConfig, null, 2))
-        console.log(chalk.green(`✅ Đã khởi tạo command cho bot con thành công`))
-        
-        return mainConfig
-      }
-    }
-
-    const data = fs.readFileSync(commandPath, "utf-8")
+    const data = fs.readFileSync(commandFilePath, "utf-8")
     const config = JSON.parse(data)
-
-    if (config.prefix && config.prefix !== ".") {
-      config.prefix = "."
-      fs.writeFileSync(commandPath, JSON.stringify(config, null, 2))
-    }
-
     return config
   } catch (error) {
-    console.error(`Lỗi khi đọc file command.json:`, error)
-    return { commands: [], prefix: "." }
+    console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
+    return { commands: [] }
   }
 }
 
 export function writeCommandConfig(config) {
   try {
-    if (config.prefix && config.prefix !== ".") {
-      config.prefix = "."
-    }
     fs.writeFileSync(commandFilePath, JSON.stringify(config, null, 2))
   } catch (error) {
-    console.error(`Lỗi khi ghi file command.json:`, error)
+    console.error(`Lỗi khi ghi file command.json (${commandFilePath}):`, error)
   }
 }
 
@@ -297,5 +270,5 @@ export function isBotMain() {
 }
 
 export function getBotId() {
-  return botId
+  return botId;
 }
