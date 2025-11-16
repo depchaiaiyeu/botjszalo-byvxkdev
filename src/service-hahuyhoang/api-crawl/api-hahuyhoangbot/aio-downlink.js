@@ -191,7 +191,8 @@ export async function processAndSendMedia(api, message, mediaData) {
       thumbnail: selectedMedia.thumbnail,
       message: {
         text: caption
-      }
+      },
+      ttl: 86400000,
     });
   }
 }
@@ -287,12 +288,13 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
         await api.sendMessage({
           msg: caption,
           attachments: [filePath],
+          ttl: 86400000, 
         }, message.threadId, message.type);
 
         await clearImagePath(filePath);
 
         if (voiceUrl) {
-          await api.sendVoice(message, voiceUrl, 600000);
+          await api.sendVoice(message, voiceUrl, 86400000);
         }
         return;
       } else {
@@ -313,12 +315,12 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
           `📊 Số ảnh: ${attachmentPaths.length}`;
 
         await api.sendMessage({
-          msg: caption,
+          msg: caption, ttl: 86400000,
         }, message.threadId, message.type);
 
         await api.sendMessage({
           msg: "",
-          attachments: attachmentPaths,
+          attachments: attachmentPaths, ttl: 86400000,
         }, message.threadId, message.type);
     
         for (const filePath of attachmentPaths) {
@@ -326,7 +328,7 @@ export async function handleDownloadCommand(api, message, aliasCommand) {
         }
 
         if (voiceUrl) {
-          await api.sendVoice(message, voiceUrl, 600000);
+          await api.sendVoice(message, voiceUrl, 86400000);
         }
         return;
       }
