@@ -252,11 +252,6 @@ export async function handleStkmemeReply(api, message) {
     const senderName = message.data.dName || "Người dùng";
 
     try {
-        if (!message.data.quote || !message.data.quote.globalMsgId) return false;
-
-        const quotedMsgId = message.data.quote.globalMsgId.toString();
-        if (!stickerSelectionsMap.has(quotedMsgId)) return false;
-
         const stickerData = stickerSelectionsMap.get(quotedMsgId);
         if (stickerData.userRequest !== senderId) return false;
 
@@ -292,10 +287,6 @@ export async function handleStkmemeReply(api, message) {
         await api.deleteMessage(msgDel, false);
         stickerSelectionsMap.delete(quotedMsgId);
 
-        await sendMessageWarningRequest(api, message, {
-            caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
-        }, 5000);
-
         await processTenorStickerAndSend(
             api, 
             message, 
@@ -305,6 +296,10 @@ export async function handleStkmemeReply(api, message) {
             senderName
         );
 
+        await sendMessageCompleteRequest(api, message, {
+            caption: `Sticker của bạn đây!!!`
+        }, 600000);
+      
         return true;
 
     } catch (error) {
