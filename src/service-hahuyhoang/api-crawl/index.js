@@ -20,6 +20,8 @@ import { handleSendLOLChampionDetail } from "../servises/lmht-hero.js";
 import { handleSendHH3DEpisode } from "./video/yanhh3d-phim3d.js";
 import { handleSendSubNhanhChillEpisode } from "./video/subnhanhchill.net.js";
 import { handleSendKKPhimEpisode } from "./video/kkphim.js";
+import { handleSendStickerMeme } from "../chat-zalo/chat-special/send-sticker/stkmeme-utils.js";
+
 const TIME_TO_SELECT = 60000;
 export const selectionsMapData = new LRUCache({
   max: 500,
@@ -94,6 +96,8 @@ export async function checkReplySelectionsMapData(api, message) {
     switch (data.platform) {
       case "subnhanhchill": 
         return await handleSendSubNhanhChillEpisode(api, message, media);
+      case "stickermeme":
+        return await handleSendStickerMeme(api, message, media, senderName);
       case "hh3d":
         return await handleSendHH3DEpisode(api, message, media);
       case "kkphim":
