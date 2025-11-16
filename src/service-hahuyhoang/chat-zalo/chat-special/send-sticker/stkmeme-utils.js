@@ -164,10 +164,6 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
     }
 
     const query = input;
-    await sendMessageWarningRequest(api, message, {
-        caption: `${senderName}, Đang tìm sticker cho từ khóa "${query}", chờ chút nhé!`
-    }, 6000);
-
     try {
         const validResults = await searchTenorSticker(query, 10);
 
