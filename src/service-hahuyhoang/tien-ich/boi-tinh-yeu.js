@@ -6,6 +6,7 @@ import path from "path";
 import { createCanvas, loadImage } from "canvas";
 import { MessageType } from "zlbotdqt";
 import { sendMessageWarning } from "../chat-zalo/chat-style/chat-style.js";
+import { getRandomGradient } from "../../utils/canvas/color.js";
 
 const downloadImage = async (url, filePath) => {
   try {
@@ -28,6 +29,12 @@ const getColorByRate = (rate) => {
   if (rate >= 40) return { bg: '#f48fb1', text: '#ffffff', heart: '💗' };
   if (rate >= 20) return { bg: '#f8bbd0', text: '#333333', heart: '💓' };
   return { bg: '#e1bee7', text: '#333333', heart: '💔' };
+};
+
+const toTitleCase = (str) => {
+  return str.split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
 };
 
 const drawCircularAvatar = async (ctx, imagePath, x, y, radius) => {
@@ -61,10 +68,11 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = '#ffffff';
+  const titleGradient = getRandomGradient(ctx, width);
+  ctx.fillStyle = titleGradient;
   ctx.font = 'bold 38px "Arial"';
   ctx.textAlign = 'center';
-  ctx.fillText(title, width / 2, 70);
+  ctx.fillText(toTitleCase(title), width / 2, 70);
 
   await drawCircularAvatar(ctx, avatarPath1, 200, 250, 100);
   await drawCircularAvatar(ctx, avatarPath2, 600, 250, 100);
@@ -81,7 +89,7 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
   const boxWidth = 400;
   const boxHeight = 100;
   const boxX = (width - boxWidth) / 2;
-  const boxY = 430;
+  const boxY = 460;
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
   ctx.shadowBlur = 15;
@@ -105,7 +113,7 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
 
   ctx.font = 'bold 20px "Arial"';
   ctx.fillStyle = colors.bg;
-  ctx.fillText('MỨC ĐỘ PHÙ HỢP', width / 2, boxY - 15);
+  ctx.fillText('Mức Độ Phù Hợp', width / 2, boxY - 15);
 
   return canvas.toBuffer('image/png');
 };
@@ -195,7 +203,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
     const mentions = data.mentions;
     
     if (!mentions || mentions.length === 0) {
-      await sendMessageWarning(api, message, '❌ Cần phải tag ít nhất 1 người để xem tình duyên!');
+      await sendMessageWarning(api, message, '🚫 Cần phải tag ít nhất 1 người để xem tình duyên!');
       return;
     }
 
@@ -218,7 +226,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
     const user2 = info2.changed_profiles?.[uid2] || info2.unchanged_profiles?.[uid2];
 
     if (!user1 || !user2) {
-      await sendMessageWarning(api, message, 'Không thể lấy thông tin người dùng. Vui lòng thử lại!');
+      await sendMessageWarning(api, message, '🚫 Không thể lấy thông tin người dùng. Vui lòng thử lại!');
       return;
     }
 
@@ -244,7 +252,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
 
     const fileReady = await ensureFileReady(resultImagePath, 6, 150);
     if (!fileReady) {
-      await sendMessageWarning(api, message, '❌ Không thể tạo ảnh kết quả. Vui lòng thử lại sau!');
+      await sendMessageWarning(api, message, '🚫 Không thể tạo ảnh kết quả. Vui lòng thử lại sau!');
       return;
     }
 
@@ -255,13 +263,13 @@ async function processLoveCommand(api, message, commandType, titleText) {
     else if (matchRate >= 20) emoji = '💓 CÓ THỂ THỬ!';
     else emoji = '💔 KHÔNG PHÙ HỢP...';
 
-    const resultMessage = `✨ ${titleText}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
+    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
 
     await api.sendMessage(
       {
         msg: resultMessage,
         attachments: [resultImagePath],
-        ttl: 3000000
+        ttl: 86400000
       },
       threadId,
       type
@@ -275,7 +283,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
 
   } catch (error) {
     console.error(`Lỗi khi xử lý lệnh ${commandType}:`, error);
-    await sendMessageWarning(api, message, '❌ Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại!');
+    await sendMessageWarning(api, message, '🚫 Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại!');
   }
 }
 
