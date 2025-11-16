@@ -36,7 +36,9 @@ async function searchTenorSticker(query, limit = 10) {
                 contentfilter: 'high',
             },
             timeout: 10000,
-            headers: { 'User-Agent': 'HHH_MYBOT/1.0 (Node.js)' },
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
         });
 
         const results = response.data.results;
@@ -110,7 +112,8 @@ async function processAndSendSticker(api, message, mediaSource, senderName) {
             throw new Error(`File WebP đầu ra rỗng hoặc không tồn tại: ${pathWebp}`);
         }
 
-        const linkUploadZalo = await api.uploadAttachment([pathWebp], appContext.send2meId, MessageType.DirectMessage);
+        const threadId = message.threadId;
+        const linkUploadZalo = await api.uploadAttachment([pathWebp], threadId, appContext.send2meId, MessageType.DirectMessage);
         const stickerData = await getVideoMetadata(pathWebp);
         const finalUrl = (linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl || linkUploadZalo[0].url || linkUploadZalo[0].mediaUrl) + "?CreatedBy=HàHuyHoàng.BOT";
 
@@ -171,7 +174,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
 
     if (!commandContent || !input) {
         await sendMessageWarningRequest(api, message, {
-            caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} [nội dung]`
+            caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} Nội dung cần tìm`
         }, 30000);
         return 0;
     }
