@@ -70,20 +70,20 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
 
   const titleGradient = getRandomGradient(ctx, width);
   ctx.fillStyle = titleGradient;
-  ctx.font = 'bold 38px "BeVietnamPro"';
+  ctx.font = 'bold 38px BeVietnamPro, Arial';
   ctx.textAlign = 'center';
   ctx.fillText(toTitleCase(title), width / 2, 70);
 
   await drawCircularAvatar(ctx, avatarPath1, 200, 250, 100);
   await drawCircularAvatar(ctx, avatarPath2, 600, 250, 100);
 
-  ctx.font = 'bold 26px "BeVietnamPro"';
+  ctx.font = 'bold 26px BeVietnamPro, Arial';
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.fillText(name1.length > 15 ? name1.substring(0, 15) + '...' : name1, 200, 390);
   ctx.fillText(name2.length > 15 ? name2.substring(0, 15) + '...' : name2, 600, 390);
 
-  ctx.font = '60px "BeVietnamPro"';
+  ctx.font = '60px BeVietnamPro, Arial';
   ctx.fillText(colors.heart, width / 2, 270);
 
   const boxWidth = 400;
@@ -107,11 +107,11 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
   ctx.shadowOffsetY = 0;
 
   ctx.fillStyle = colors.bg;
-  ctx.font = 'bold 50px "Arial"';
+  ctx.font = 'bold 50px BeVietnamPro, Arial';
   ctx.textAlign = 'center';
   ctx.fillText(`${rate}%`, width / 2, boxY + 68);
 
-  ctx.font = 'bold 20px "Arial"';
+  ctx.font = 'bold 20px BeVietnamPro, Arial';
   ctx.fillStyle = colors.bg;
   ctx.fillText('Mức Độ Phù Hợp', width / 2, boxY - 15);
 
