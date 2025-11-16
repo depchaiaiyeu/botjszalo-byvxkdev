@@ -218,6 +218,7 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
             {
               msg: caption,
               attachments: [filePath],
+              ttl: 86400000,
             },
             threadId,
             message.type
@@ -281,6 +282,7 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
           await api.sendMessage(
             {
               msg: caption,
+              ttl: 86400000,
             },
             threadId,
             message.type
@@ -290,6 +292,7 @@ export async function autoDownload(api, message, isSelf, groupSettings) {
             {
               msg: "",
               attachments: attachmentPaths,
+              ttl: 86400000,
             },
             threadId,
             message.type
