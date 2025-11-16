@@ -2102,10 +2102,10 @@
     },
     {
       "name": "meme",
-      "description": "Tìm meme ở nền tảng Pinterest",
+      "description": "Tìm kiếm meme hài hước đến những người tim đầy vết xước",
       "syntax": "{p}meme <keyword>",
       "permission": "all",
-      "countdown": 30,
+      "countdown": 15,
       "icon": "💽",
       "type": 1,
       "author": "Vũ Xuân Kiên",
