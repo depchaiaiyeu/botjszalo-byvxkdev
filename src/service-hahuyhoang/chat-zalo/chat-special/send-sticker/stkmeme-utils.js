@@ -130,10 +130,10 @@ export async function handleSendStickerMeme(api, message, selectedSticker, sende
         const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
         const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
 
-        await api.sendCustomSticker(message, staticUrl, animUrl, selectedSticker.width || 512, selectedSticker.height || 512);
         await sendMessageCompleteRequest(api, message, {
                 caption: `Sticker của bạn đây!!!`
             }, 600000);
+        await api.sendCustomSticker(message, staticUrl, animUrl, selectedSticker.width || 512, selectedSticker.height || 512);
       
         return true;
     } catch (error) {
