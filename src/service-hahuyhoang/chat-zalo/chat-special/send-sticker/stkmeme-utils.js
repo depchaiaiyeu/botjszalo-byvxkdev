@@ -8,7 +8,7 @@ import { tempDir } from "../../../../utils/io-json.js";
 import { removeMention } from "../../../../utils/format-util.js";
 import { getVideoMetadata } from "../../../../api-zalo/utils.js";
 import { appContext } from "../../../../api-zalo/context.js";
-import ffmpeg from 'fluent-ffmpeg';
+import { execSync } from "child_process";
 import { LRUCache } from "lru-cache";
 import { sendMessageCompleteRequest, sendMessageWarningRequest } from "../../chat-style/chat-style.js";
 import { createStickerGridImage } from "../../../../utils/canvas/sticker-grid-canvas.js";
@@ -78,44 +78,44 @@ async function searchTenorSticker(query, limit = 10) {
 }
 
 async function processAndSendSticker(api, message, mediaSource, senderName) {
-    let pathSticker = path.join(tempDir, `sticker_${Date.now()}.temp`);
-    let pathWebp = path.join(tempDir, `sticker_${Date.now()}.webp`);
+    const threadId = message.threadId;
+    let pathSticker = null;
+    let pathWebp = null;
 
     try {
-        try {
-            fs.accessSync(tempDir, fs.constants.W_OK);
-        } catch (error) {
-            throw new Error(`Không có quyền ghi vào thư mục ${tempDir}: ${error.message}`);
-        }
-
-        const mediaCheck = await isValidMediaUrl(mediaSource);
-        if (!mediaCheck.isValid) {
-            throw new Error(`URL media không hợp lệ: ${mediaSource}`);
-        }
-
         const ext = await checkExstentionFileRemote(mediaSource);
+        if (!ext) {
+            throw new Error(`Không xác định được định dạng file`);
+        }
+
         pathSticker = path.join(tempDir, `sticker_${Date.now()}.${ext}`);
         await downloadFile(mediaSource, pathSticker);
 
         const stats = fs.statSync(pathSticker);
         if (stats.size === 0) {
-            throw new Error(`File tải về rỗng: ${pathSticker}`);
+            throw new Error(`File tải về rỗng`);
         }
 
         if (ext.toLowerCase() === 'webp') {
             pathWebp = pathSticker;
         } else {
-            await convertToWebp(pathSticker, pathWebp);
+            pathWebp = path.join(tempDir, `sticker_${Date.now()}.webp`);
+            execSync(`ffmpeg -y -i "${pathSticker}" -c:v libwebp -q:v 80 "${pathWebp}"`, { stdio: 'pipe' });
         }
 
         if (!fs.existsSync(pathWebp) || fs.statSync(pathWebp).size === 0) {
-            throw new Error(`File WebP đầu ra rỗng hoặc không tồn tại: ${pathWebp}`);
+            throw new Error(`File WebP đầu ra rỗng hoặc không tồn tại`);
         }
 
-        const threadId = message.threadId;
         const linkUploadZalo = await api.uploadAttachment([pathWebp], threadId, appContext.send2meId, MessageType.DirectMessage);
+        const webpUrl = linkUploadZalo?.[0]?.fileUrl;
+        if (!webpUrl) {
+            throw new Error("Upload attachment thất bại");
+        }
+
         const stickerData = await getVideoMetadata(pathWebp);
-        const finalUrl = (linkUploadZalo[0].fileUrl || linkUploadZalo[0].normalUrl || linkUploadZalo[0].url || linkUploadZalo[0].mediaUrl) + "?CreatedBy=HàHuyHoàng.BOT";
+        const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
+        const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
 
         await sendMessageCompleteRequest(api, message, {
             caption: `${senderName}, Sticker của bạn đây!`
@@ -123,8 +123,8 @@ async function processAndSendSticker(api, message, mediaSource, senderName) {
 
         await api.sendCustomSticker(
             message,
-            finalUrl,
-            finalUrl,
+            staticUrl,
+            animUrl,
             stickerData.width,
             stickerData.height,
             3600000
@@ -135,10 +135,12 @@ async function processAndSendSticker(api, message, mediaSource, senderName) {
         console.error("Lỗi khi xử lý sticker:", error);
         throw error;
     } finally {
-        if (pathSticker !== pathWebp) {
+        if (pathSticker && pathSticker !== pathWebp) {
             await deleteFile(pathSticker);
         }
-        await deleteFile(pathWebp);
+        if (pathWebp) {
+            await deleteFile(pathWebp);
+        }
     }
 }
 
@@ -307,69 +309,4 @@ export async function handleStkmemeReply(api, message) {
         }, 30000);
         return true;
     }
-}
-
-export async function convertToWebp(inputPath, outputPath) {
-    return new Promise((resolve, reject) => {
-        try {
-            if (!fs.existsSync(inputPath)) {
-                throw new Error(`File đầu vào không tồn tại: ${inputPath}`);
-            }
-            const stats = fs.statSync(inputPath);
-            if (stats.size === 0) {
-                throw new Error(`File đầu vào rỗng: ${inputPath}`);
-            }
-
-            const ext = path.extname(inputPath).toLowerCase();
-            if (ext === '.webp') {
-                fs.copyFileSync(inputPath, outputPath);
-                if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
-                    throw new Error(`Sao chép file WebP thất bại: ${outputPath}`);
-                }
-                resolve(true);
-                return;
-            }
-
-            let options = [
-                '-c:v', 'libvpx-vp9',
-                '-lossless', '0',
-                '-compression_level', '6',
-                '-q:v', '60',
-                '-loop', '0',
-                '-preset', 'default',
-                '-cpu-used', '4',
-                '-deadline', 'realtime',
-                '-threads', 'auto',
-                '-an',
-                '-vsync', '0'
-            ];
-
-            if (ext === '.mp4' || ext === '.mov' || ext === '.webm') {
-                options = options.concat(['-vf', 'fps=10,scale=512:-2:flags=fast_bilinear']);
-            } else if (ext === '.gif') {
-                options = options.concat(['-vf', 'scale=512:-2:flags=fast_bilinear']);
-            } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
-                options = options.concat(['-vf', 'scale=512:-2:flags=fast_bilinear']);
-            } else {
-                throw new Error(`Định dạng file không được hỗ trợ: ${ext}`);
-            }
-
-            ffmpeg(inputPath)
-                .outputOptions(options)
-                .toFormat('webp')
-                .on('end', () => {
-                    if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
-                        reject(new Error(`File WebP đầu ra rỗng hoặc không tồn tại: ${outputPath}`));
-                    } else {
-                        resolve(true);
-                    }
-                })
-                .on('error', (err) => {
-                    reject(new Error(`Lỗi khi chuyển đổi sang WebP: ${err.message}`));
-                })
-                .save(outputPath);
-        } catch (error) {
-            reject(error);
-        }
-    });
 }
