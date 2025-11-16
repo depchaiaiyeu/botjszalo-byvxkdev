@@ -12,7 +12,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { LRUCache } from "lru-cache";
 import { sendMessageComplete, sendMessageWarning } from "../../chat-style/chat-style.js";
 import { createStickerGridImage } from "../../../../utils/canvas/sticker-grid-canvas.js";
-import { setSelectionsMapData } from "../../..api-crawl/index.js";
+import { setSelectionsMapData } from "../../../api-crawl/index.js";
 import { getBotId } from "../../../../index.js";
 
 const TENOR_API_KEY = "AIzaSyACyC8fxJfIm6yiM1TG0B-gBNXnM2iATFw";
