@@ -22,7 +22,7 @@ const downloadImage = async (url, filePath) => {
   }
 };
 
-const getRandomMatchRate = () => Math.floor(Math.random() * 101);
+const getRandomMatchRate = () => Math.floor(Math.random() * 100) + 1;
 
 const getColorByRate = (rate) => {
   if (rate >= 80) return { bg: '#ff1744', text: '#ffffff', heart: '💖' };
@@ -238,10 +238,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
       downloadImage(user2.avatar, avatarPath2)
     ]);
 
-    const formBuildId = await getFormBuildId();
-    const { lovePercentage, messageText } = await getBoiTinhYeuResult(commandType, name1, name2, formBuildId);
-
-    const matchRate = parseInt(lovePercentage);
+    const matchRate = getRandomMatchRate();
 
     const resultImagePath = path.join(tempDir, `love_result_${Date.now()}.png`);
     const imageBuffer = await createLoveMatchImage(avatarPath1, avatarPath2, name1, name2, matchRate, titleText);
@@ -260,7 +257,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
     else if (matchRate >= 20) emoji = '💓 CÓ THỂ THỬ!';
     else emoji = '💔 KHÔNG PHÙ HỢP...';
 
-    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
+    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${matchRate}%\n${emoji}`;
 
     await api.sendMessage(
       {
