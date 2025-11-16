@@ -1,19 +1,19 @@
 import axios from "axios";
 import fs from "fs";
 import path from "path";
-import { getGlobalPrefix } from "../../../service.js";
-import { checkExstentionFileRemote, deleteFile, downloadFile } from "../../../../utils/util.js";
-import { MessageMention, MessageType } from "../../../../api-zalo/index.js";
-import { tempDir } from "../../../../utils/io-json.js";
-import { removeMention } from "../../../../utils/format-util.js";
-import { getVideoMetadata } from "../../../../api-zalo/utils.js";
-import { appContext } from "../../../../api-zalo/context.js";
+import { getGlobalPrefix } from "../../service.js";
+import { checkExstentionFileRemote, deleteFile, downloadFile } from "../../../utils/util.js";
+import { MessageType } from "../../../api-zalo/index.js";
+import { tempDir } from "../../../utils/io-json.js";
+import { removeMention } from "../../../utils/format-util.js";
+import { getVideoMetadata } from "../../../api-zalo/utils.js";
+import { appContext } from "../../../api-zalo/context.js";
 import ffmpeg from 'fluent-ffmpeg';
 import { LRUCache } from "lru-cache";
-import { sendMessageComplete, sendMessageWarning } from "../../chat-style/chat-style.js";
-import { createStickerGridImage } from "../../../../utils/canvas/sticker-grid-canvas.js";
-import { setSelectionsMapData } from "../../../api-crawl/index.js";
-import { getBotId } from "../../../../index.js";
+import { sendMessageCompleteRequest, sendMessageWarningRequest } from "../chat-style/chat-style.js";
+import { createStickerGridImage } from "../../../utils/canvas/sticker-grid-canvas.js";
+import { setSelectionsMapData } from "../../api-crawl/index.js";
+import { getBotId } from "../../../index.js";
 
 const TENOR_API_KEY = "AIzaSyACyC8fxJfIm6yiM1TG0B-gBNXnM2iATFw";
 const CLIENT_KEY = "my_bot_app";
@@ -75,8 +75,7 @@ async function searchTenorSticker(query, limit = 10) {
     }
 }
 
-async function processAndSendSticker(api, message, mediaSource) {
-    const senderName = message.data.dName;
+async function processAndSendSticker(api, message, mediaSource, senderName) {
     const senderId = message.data.uidFrom;
     let pathSticker = path.join(tempDir, `sticker_${Date.now()}.temp`);
     let pathWebp = path.join(tempDir, `sticker_${Date.now()}.webp`);
@@ -119,7 +118,7 @@ async function processAndSendSticker(api, message, mediaSource) {
         const object = {
             caption: `${senderName}, Sticker của bạn đây!`,
         };
-        await sendMessageComplete(api, message, object, 300000);
+        await sendMessageCompleteRequest(api, message, object, 300000);
 
         await api.sendCustomSticker(
             message,
@@ -178,7 +177,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
         const object = {
             caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} [nội dung]`,
         };
-        await sendMessageWarning(api, message, object, 30000);
+        await sendMessageWarningRequest(api, message, object, 30000);
         return 0;
     }
 
@@ -186,7 +185,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
     const object = {
         caption: `${senderName}, Đang tìm sticker cho từ khóa "${query}", chờ chút nhé!`,
     };
-    await sendMessageWarning(api, message, object, 6000);
+    await sendMessageWarningRequest(api, message, object, 6000);
 
     try {
         const validResults = await searchTenorSticker(query, 10);
@@ -195,7 +194,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
             const object = {
                 caption: `${senderName}, Không tìm thấy GIF nào trên Tenor với từ khóa "${query}"! Hãy thử từ khóa khác như "funny" hoặc "cat".`,
             };
-            await sendMessageWarning(api, message, object, 30000);
+            await sendMessageWarningRequest(api, message, object, 30000);
             return 0;
         }
 
@@ -211,7 +210,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
             const object = {
                 caption: `${senderName}, Không tìm thấy sticker hợp lệ nào cho từ khóa "${query}"! Hãy thử từ khóa khác.`,
             };
-            await sendMessageWarning(api, message, object, 30000);
+            await sendMessageWarningRequest(api, message, object, 30000);
             return 0;
         }
 
@@ -222,7 +221,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
             imagePath: imagePath,
         };
 
-        const stickerListMessage = await sendMessageComplete(api, message, object, TIME_TO_SELECT);
+        const stickerListMessage = await sendMessageCompleteRequest(api, message, object, TIME_TO_SELECT);
 
         const quotedMsgId = stickerListMessage?.message?.msgId || stickerListMessage?.attachment?.[0]?.msgId;
         if (!quotedMsgId) return 0;
@@ -252,7 +251,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
         const object = {
             caption: errorMessage,
         };
-        await sendMessageWarning(api, message, object, 30000);
+        await sendMessageWarningRequest(api, message, object, 30000);
     } finally {
         if (imagePath) await deleteFile(imagePath);
     }
@@ -281,7 +280,7 @@ export async function handleStkmemeReply(api, message) {
             const object = {
                 caption: `Lựa chọn không hợp lệ. Vui lòng chọn một số từ danh sách.`,
             };
-            await sendMessageWarning(api, message, object, 30000);
+            await sendMessageWarningRequest(api, message, object, 30000);
             return true;
         }
 
@@ -290,7 +289,7 @@ export async function handleStkmemeReply(api, message) {
             const object = {
                 caption: `Số bạn chọn không nằm trong danh sách. Vui lòng chọn lại.`,
             };
-            await sendMessageWarning(api, message, object, 30000);
+            await sendMessageWarningRequest(api, message, object, 30000);
             return true;
         }
 
@@ -308,7 +307,7 @@ export async function handleStkmemeReply(api, message) {
         await api.deleteMessage(msgDel, false);
         stickerSelectionsMap.delete(quotedMsgId);
 
-        await processAndSendSticker(api, message, selectedSticker.url);
+        await processAndSendSticker(api, message, selectedSticker.url, senderName);
         return true;
 
     } catch (error) {
@@ -316,7 +315,7 @@ export async function handleStkmemeReply(api, message) {
         const object = {
             caption: `${senderName}, Đã xảy ra lỗi khi xử lý sticker. Vui lòng thử lại sau.`,
         };
-        await sendMessageWarning(api, message, object, 30000);
+        await sendMessageWarningRequest(api, message, object, 30000);
         return true;
     }
 }
@@ -369,23 +368,18 @@ export async function convertToWebp(inputPath, outputPath) {
             ffmpeg(inputPath)
                 .outputOptions(options)
                 .toFormat('webp')
-                .on('start', commandLine => {
-                    console.log(`FFmpeg command: ${commandLine}`);
-                })
                 .on('end', () => {
-                    console.log(`Chuyển đổi WebP thành công: ${outputPath}`);
                     if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
-                        throw new Error(`File WebP đầu ra rỗng hoặc không tồn tại: ${outputPath}`);
+                        reject(new Error(`File WebP đầu ra rỗng hoặc không tồn tại: ${outputPath}`));
+                    } else {
+                        resolve(true);
                     }
-                    resolve(true);
                 })
                 .on('error', (err) => {
-                    console.error(`Lỗi FFmpeg: ${err.message}`);
                     reject(new Error(`Lỗi khi chuyển đổi sang WebP: ${err.message}`));
                 })
                 .save(outputPath);
         } catch (error) {
-            console.error(`Lỗi khi xử lý file đầu vào: ${error.message}`);
             reject(error);
         }
     });
