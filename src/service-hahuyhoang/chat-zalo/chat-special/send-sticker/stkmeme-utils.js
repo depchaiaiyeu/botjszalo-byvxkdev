@@ -252,23 +252,13 @@ export async function handleStkmemeReply(api, message) {
     const senderName = message.data.dName || "Người dùng";
 
     try {
-        let quotedMsgId = null;
-        let stickerData = null;
+        if (!message.data.quote || !message.data.quote.globalMsgId) return false;
 
-        if (message.data.quote && message.data.quote.globalMsgId) {
-            quotedMsgId = message.data.quote.globalMsgId.toString();
-            if (stickerSelectionsMap.has(quotedMsgId)) {
-                stickerData = stickerSelectionsMap.get(quotedMsgId);
-            }
-        }
+        const quotedMsgId = message.data.quote.globalMsgId.toString();
+        if (!stickerSelectionsMap.has(quotedMsgId)) return false;
 
-        if (!stickerData) {
-            return false;
-        }
-
-        if (stickerData.userRequest !== senderId) {
-            return false;
-        }
+        const stickerData = stickerSelectionsMap.get(quotedMsgId);
+        if (stickerData.userRequest !== senderId) return false;
 
         let selection = removeMention(message);
         const selectedIndex = parseInt(selection) - 1;
@@ -290,21 +280,21 @@ export async function handleStkmemeReply(api, message) {
 
         const selectedSticker = collection[selectedIndex];
 
-        if (quotedMsgId) {
-            const msgDel = {
-                type: message.type,
-                threadId: message.threadId,
-                data: {
-                    cliMsgId: message.data.quote.cliMsgId,
-                    msgId: message.data.quote.globalMsgId,
-                    uidFrom: idBot,
-                },
-            };
-            try {
-                await api.deleteMessage(msgDel, false);
-            } catch (e) {}
-            stickerSelectionsMap.delete(quotedMsgId);
-        }
+        const msgDel = {
+            type: message.type,
+            threadId: message.threadId,
+            data: {
+                cliMsgId: message.data.quote.cliMsgId,
+                msgId: message.data.quote.globalMsgId,
+                uidFrom: idBot,
+            },
+        };
+        await api.deleteMessage(msgDel, false);
+        stickerSelectionsMap.delete(quotedMsgId);
+
+        await sendMessageWarningRequest(api, message, {
+            caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+        }, 5000);
 
         await processTenorStickerAndSend(
             api, 
@@ -314,10 +304,6 @@ export async function handleStkmemeReply(api, message) {
             selectedSticker.height || 512, 
             senderName
         );
-      
-        await sendMessageWarningRequest(api, message, {
-            caption: `Sticker của bạn đây!`
-        }, 600000);
 
         return true;
 
