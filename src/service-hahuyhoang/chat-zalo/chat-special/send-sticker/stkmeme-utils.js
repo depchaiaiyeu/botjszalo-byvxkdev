@@ -111,14 +111,14 @@ async function downloadAndConvertToWebp(url, outputPath) {
     }
 }
 
-async function processTenorStickerAndSend(api, message, stickerUrl, width, height, senderName) {
+export async function handleSendStickerMeme(api, message, selectedSticker, senderName) {
     const threadId = message.threadId;
     let webpPath = null;
 
     try {
         webpPath = path.join(tempDir, `tenor_sticker_${Date.now()}.webp`);
         
-        await downloadAndConvertToWebp(stickerUrl, webpPath);
+        await downloadAndConvertToWebp(selectedSticker.url, webpPath);
 
         const webpUpload = await api.uploadAttachment([webpPath], threadId, appContext.send2meId, MessageType.DirectMessage);
         const webpUrl = webpUpload?.[0]?.fileUrl;
@@ -130,7 +130,7 @@ async function processTenorStickerAndSend(api, message, stickerUrl, width, heigh
         const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
         const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
 
-        await api.sendCustomSticker(message, staticUrl, animUrl, width, height);
+        await api.sendCustomSticker(message, staticUrl, animUrl, selectedSticker.width || 512, selectedSticker.height || 512);
         
         return true;
     } catch (error) {
@@ -202,6 +202,15 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
             return 0;
         }
 
+        if (stickers.length === 1) {
+            await sendMessageWarningRequest(api, message, {
+                caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+            }, 5000);
+            
+            await handleSendStickerMeme(api, message, stickers[0], senderName);
+            return 0;
+        }
+
         imagePath = await createStickerGridImage(stickers);
 
         const stickerListMessage = await sendMessageCompleteRequest(api, message, {
@@ -252,6 +261,11 @@ export async function handleStkmemeReply(api, message) {
     const senderName = message.data.dName || "Người dùng";
 
     try {
+        if (!message.data.quote || !message.data.quote.globalMsgId) return false;
+
+        const quotedMsgId = message.data.quote.globalMsgId.toString();
+        if (!stickerSelectionsMap.has(quotedMsgId)) return false;
+
         const stickerData = stickerSelectionsMap.get(quotedMsgId);
         if (stickerData.userRequest !== senderId) return false;
 
@@ -287,19 +301,12 @@ export async function handleStkmemeReply(api, message) {
         await api.deleteMessage(msgDel, false);
         stickerSelectionsMap.delete(quotedMsgId);
 
-        await processTenorStickerAndSend(
-            api, 
-            message, 
-            selectedSticker.url, 
-            selectedSticker.width || 512, 
-            selectedSticker.height || 512, 
-            senderName
-        );
+        await sendMessageWarningRequest(api, message, {
+            caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+        }, 5000);
 
-        await sendMessageCompleteRequest(api, message, {
-            caption: `Sticker của bạn đây!!!`
-        }, 600000);
-      
+        await handleSendStickerMeme(api, message, selectedSticker, senderName);
+
         return true;
 
     } catch (error) {
