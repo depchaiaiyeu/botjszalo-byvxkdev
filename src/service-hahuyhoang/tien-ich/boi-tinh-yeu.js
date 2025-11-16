@@ -194,11 +194,8 @@ async function processLoveCommand(api, message, commandType, titleText) {
     else if (matchRate >= 20) emoji = '💓 CÓ THỂ THỬ!';
     else emoji = '💔 KHÔNG PHÙ HỢP...';
 
-    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${matchRate}%\n${emoji}`;
-
     await api.sendMessage(
       {
-        msg: resultMessage,
         attachments: [resultImagePath],
         ttl: 86400000
       },
