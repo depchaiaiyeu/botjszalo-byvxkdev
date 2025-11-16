@@ -15,7 +15,7 @@ export async function createStickerGridImage(stickers) {
     const canvas = createCanvas(canvasWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     for (let i = 0; i < stickers.length; i++) {
@@ -23,28 +23,26 @@ export async function createStickerGridImage(stickers) {
         const row = Math.floor(i / cols);
         const x = col * cellWidth + padding;
         const y = row * cellHeight + padding;
-
-        ctx.fillStyle = '#2a2a2a';
-        ctx.fillRect(x, y, cellWidth - padding, cellHeight - padding);
-
-        ctx.strokeStyle = '#3a3a3a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, cellWidth - padding, cellHeight - padding);
+        
+        const innerWidth = cellWidth - padding;
+        const innerHeight = cellHeight - padding;
 
         try {
             const img = await loadImage(stickers[i].preview || stickers[i].url);
             const imgSize = 120;
-            const imgX = x + (cellWidth - padding - imgSize) / 2;
+            const imgX = x + (innerWidth - imgSize) / 2;
             const imgY = y + 10;
+            
             ctx.drawImage(img, imgX, imgY, imgSize, imgSize);
         } catch (error) {
             console.error(`Lỗi load ảnh sticker ${i + 1}:`, error);
         }
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 16px "BeVietnamPro", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`ID: ${i + 1}`, x + (cellWidth - padding) / 2, y + cellHeight - padding - 15);
+        
+        ctx.fillText(`ID: ${i + 1}`, x + innerWidth / 2, y + innerHeight - 15);
     }
 
     const outputPath = path.join(tempDir, `sticker_grid_${Date.now()}.png`);
