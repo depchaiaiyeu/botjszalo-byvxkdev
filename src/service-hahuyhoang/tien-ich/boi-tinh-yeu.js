@@ -7,6 +7,7 @@ import { createCanvas, loadImage } from "canvas";
 import { MessageType } from "zlbotdqt";
 import { sendMessageWarning } from "../chat-zalo/chat-style/chat-style.js";
 import { getRandomGradient } from "../../utils/canvas/color.js";
+import { createHelpBackground } from "../../utils/canvas/help.js";
 
 const downloadImage = async (url, filePath) => {
   try {
@@ -62,11 +63,7 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
 
   const colors = getColorByRate(rate);
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, colors.bg);
-  gradient.addColorStop(1, '#c2185b');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
+  createHelpBackground(ctx, width, height);
 
   const titleGradient = getRandomGradient(ctx, width);
   ctx.fillStyle = titleGradient;
@@ -107,11 +104,11 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
   ctx.shadowOffsetY = 0;
 
   ctx.fillStyle = colors.bg;
-  ctx.font = 'bold 50px BeVietnamPro, Arial';
+  ctx.font = 'bold 52px BeVietnamPro, Arial';
   ctx.textAlign = 'center';
   ctx.fillText(`${rate}%`, width / 2, boxY + 68);
 
-  ctx.font = 'bold 20px BeVietnamPro, Arial';
+  ctx.font = 'bold 22px BeVietnamPro, Arial';
   ctx.fillStyle = colors.bg;
   ctx.fillText('Mức Độ Phù Hợp', width / 2, boxY - 15);
 
@@ -263,7 +260,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
     else if (matchRate >= 20) emoji = '💓 CÓ THỂ THỬ!';
     else emoji = '💔 KHÔNG PHÙ HỢP...';
 
-    const resultMessage = `✨ ${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
+    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
 
     await api.sendMessage(
       {
