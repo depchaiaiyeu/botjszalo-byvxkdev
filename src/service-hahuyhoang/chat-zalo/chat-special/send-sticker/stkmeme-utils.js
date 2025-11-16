@@ -2,11 +2,10 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { getGlobalPrefix } from "../../../service.js";
-import { checkExstentionFileRemote, deleteFile, downloadFile } from "../../../../utils/util.js";
+import { deleteFile, downloadFileFake } from "../../../../utils/util.js";
 import { MessageType } from "../../../../api-zalo/index.js";
 import { tempDir } from "../../../../utils/io-json.js";
 import { removeMention } from "../../../../utils/format-util.js";
-import { getVideoMetadata } from "../../../../api-zalo/utils.js";
 import { appContext } from "../../../../api-zalo/context.js";
 import { execSync } from "child_process";
 import { LRUCache } from "lru-cache";
@@ -77,89 +76,52 @@ async function searchTenorSticker(query, limit = 10) {
     }
 }
 
-async function processAndSendSticker(api, message, mediaSource, senderName) {
+async function processAndSendSticker(api, message, mediaUrl, senderName) {
     const threadId = message.threadId;
-    let pathSticker = null;
-    let pathWebp = null;
+    let downloadPath = null;
+    let webpPath = null;
 
     try {
-        const ext = await checkExstentionFileRemote(mediaSource);
-        if (!ext) {
-            throw new Error(`Không xác định được định dạng file`);
-        }
+        const urlLower = mediaUrl.toLowerCase();
+        let fileExt = "gif";
+        if (urlLower.includes('.mp4')) fileExt = "mp4";
+        else if (urlLower.includes('.webp')) fileExt = "webp";
+        else if (urlLower.includes('.gif')) fileExt = "gif";
+        else if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) fileExt = "jpg";
+        else if (urlLower.includes('.png')) fileExt = "png";
 
-        pathSticker = path.join(tempDir, `sticker_${Date.now()}.${ext}`);
-        await downloadFile(mediaSource, pathSticker);
+        downloadPath = path.join(tempDir, `sticker_download_${Date.now()}.${fileExt}`);
+        await downloadFileFake(mediaUrl, downloadPath);
 
-        const stats = fs.statSync(pathSticker);
-        if (stats.size === 0) {
+        if (!fs.existsSync(downloadPath) || fs.statSync(downloadPath).size === 0) {
             throw new Error(`File tải về rỗng`);
         }
 
-        if (ext.toLowerCase() === 'webp') {
-            pathWebp = pathSticker;
+        if (fileExt === 'webp') {
+            webpPath = downloadPath;
         } else {
-            pathWebp = path.join(tempDir, `sticker_${Date.now()}.webp`);
-            execSync(`ffmpeg -y -i "${pathSticker}" -c:v libwebp -q:v 80 "${pathWebp}"`, { stdio: 'pipe' });
+            webpPath = path.join(tempDir, `sticker_webp_${Date.now()}.webp`);
+            execSync(`ffmpeg -y -i "${downloadPath}" -c:v libwebp -q:v 80 "${webpPath}"`, { stdio: 'pipe' });
         }
 
-        if (!fs.existsSync(pathWebp) || fs.statSync(pathWebp).size === 0) {
-            throw new Error(`File WebP đầu ra rỗng hoặc không tồn tại`);
+        if (!fs.existsSync(webpPath) || fs.statSync(webpPath).size === 0) {
+            throw new Error(`File WebP đầu ra rỗng`);
         }
 
-        const linkUploadZalo = await api.uploadAttachment([pathWebp], threadId, appContext.send2meId, MessageType.DirectMessage);
-        const webpUrl = linkUploadZalo?.[0]?.fileUrl;
-        if (!webpUrl) {
-            throw new Error("Upload attachment thất bại");
-        }
+        const webpUpload = await api.uploadAttachment([webpPath], threadId, appContext.send2meId, MessageType.DirectMessage);
+        const webpUrl = webpUpload?.[0]?.fileUrl;
+        if (!webpUrl) throw new Error("Upload attachment thất bại");
 
-        const stickerData = await getVideoMetadata(pathWebp);
-        const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
-        const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
-
-        await sendMessageCompleteRequest(api, message, {
-            caption: `${senderName}, Sticker của bạn đây!`
-        }, 300000);
-
-        await api.sendCustomSticker(
-            message,
-            staticUrl,
-            animUrl,
-            stickerData.width,
-            stickerData.height,
-            3600000
-        );
+        await api.sendCustomSticker(message, webpUrl + "?creator=VXK-Service-BOT.webp", webpUrl + "?createdBy=VXK-Service-BOT.Webp", 512, 512);
+        await sendMessageCompleteRequest(api, message, { caption: `${senderName}, Sticker của bạn đây!` }, 300000);
 
         return true;
     } catch (error) {
         console.error("Lỗi khi xử lý sticker:", error);
         throw error;
     } finally {
-        if (pathSticker && pathSticker !== pathWebp) {
-            await deleteFile(pathSticker);
-        }
-        if (pathWebp) {
-            await deleteFile(pathWebp);
-        }
-    }
-}
-
-async function isValidMediaUrl(url) {
-    try {
-        const ext = await checkExstentionFileRemote(url);
-        if (!ext) {
-            return { isValid: false, isVideo: false };
-        }
-        if (ext === "mp4" || ext === "mov" || ext === "webm") {
-            return { isValid: true, isVideo: true };
-        } else if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif" || ext === "webp") {
-            return { isValid: true, isVideo: false };
-        } else {
-            return { isValid: false, isVideo: false };
-        }
-    } catch (error) {
-        console.error("Lỗi khi kiểm tra URL:", error);
-        return { isValid: false, isVideo: false };
+        if (downloadPath && downloadPath !== webpPath) await deleteFile(downloadPath);
+        if (webpPath) await deleteFile(webpPath);
     }
 }
 
