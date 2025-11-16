@@ -10,7 +10,7 @@ import { getVideoMetadata } from "../../../../api-zalo/utils.js";
 import { appContext } from "../../../../api-zalo/context.js";
 import ffmpeg from 'fluent-ffmpeg';
 import { LRUCache } from "lru-cache";
-import { sendMessageCompleteRequest, sendMessageWarningRequest } from "../chat-style/chat-style.js";
+import { sendMessageCompleteRequest, sendMessageWarningRequest } from "../../chat-style/chat-style.js";
 import { createStickerGridImage } from "../../../../utils/canvas/sticker-grid-canvas.js";
 import { setSelectionsMapData } from "../../../api-crawl/index.js";
 import { getBotId } from "../../../../index.js";
