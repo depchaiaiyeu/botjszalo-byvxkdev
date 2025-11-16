@@ -70,20 +70,20 @@ const createLoveMatchImage = async (avatarPath1, avatarPath2, name1, name2, rate
 
   const titleGradient = getRandomGradient(ctx, width);
   ctx.fillStyle = titleGradient;
-  ctx.font = 'bold 38px "Arial"';
+  ctx.font = 'bold 38px "BeVietnamPro"';
   ctx.textAlign = 'center';
   ctx.fillText(toTitleCase(title), width / 2, 70);
 
   await drawCircularAvatar(ctx, avatarPath1, 200, 250, 100);
   await drawCircularAvatar(ctx, avatarPath2, 600, 250, 100);
 
-  ctx.font = 'bold 26px "Arial"';
+  ctx.font = 'bold 26px "BeVietnamPro"';
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.fillText(name1.length > 15 ? name1.substring(0, 15) + '...' : name1, 200, 390);
   ctx.fillText(name2.length > 15 ? name2.substring(0, 15) + '...' : name2, 600, 390);
 
-  ctx.font = '60px "Arial"';
+  ctx.font = '60px "BeVietnamPro"';
   ctx.fillText(colors.heart, width / 2, 270);
 
   const boxWidth = 400;
@@ -263,7 +263,7 @@ async function processLoveCommand(api, message, commandType, titleText) {
     else if (matchRate >= 20) emoji = '💓 CÓ THỂ THỬ!';
     else emoji = '💔 KHÔNG PHÙ HỢP...';
 
-    const resultMessage = `${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
+    const resultMessage = `✨ ${toTitleCase(titleText)}\n\n❤️ Tỷ lệ hợp: ${lovePercentage}%\n${emoji}\n\n💬 Lời giải thích:\n${messageText}`;
 
     await api.sendMessage(
       {
@@ -288,13 +288,13 @@ async function processLoveCommand(api, message, commandType, titleText) {
 }
 
 export async function duyenphan(api, message) {
-  await processLoveCommand(api, message, 'duyenphan', '💕 KẾT QUẢ BÓI DUYÊN PHẬN 💕');
+  await processLoveCommand(api, message, 'duyenphan', '💕 Kết Quả Bói Duyên Phận 💕');
 }
 
 export async function tuonglai(api, message) {
-  await processLoveCommand(api, message, 'tuonglai', '🔮 KẾT QUẢ BÓI TƯƠNG LAI 🔮');
+  await processLoveCommand(api, message, 'tuonglai', '🔮 Kết Quả Bói Tương Lai 🔮');
 }
 
 export async function tamdauyhop(api, message) {
-  await processLoveCommand(api, message, 'tamdauyhop', '💖 KẾT QUẢ BÓI TÂM ĐẦU Ý HỢP 💖');
+  await processLoveCommand(api, message, 'tamdauyhop', '💖 Kết Quả Bói Tâm Đầu Ý Hợp 💖');
 }
