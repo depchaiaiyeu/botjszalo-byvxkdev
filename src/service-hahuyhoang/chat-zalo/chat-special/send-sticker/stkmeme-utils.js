@@ -165,7 +165,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
 
     if (!commandContent) {
         await sendMessageWarningRequest(api, message, {
-            caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} Nội dung cần tìm\nHoặc: ${prefix}${aliasCommand} Nội dung && 20 (để lấy 20 sticker)`
+            caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} Nội dung cần tìm`
         }, 30000);
         return 0;
     }
