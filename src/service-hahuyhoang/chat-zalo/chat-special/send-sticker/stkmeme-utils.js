@@ -41,7 +41,6 @@ async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
         key: TENOR_API_KEY,
         client_key: CLIENT_KEY,
         limit: MAX_LIMIT,
-        appversion: 'browser-r20250506-2',
         prettyPrint: false,
         locale: 'en',
         contentfilter: 'low',
