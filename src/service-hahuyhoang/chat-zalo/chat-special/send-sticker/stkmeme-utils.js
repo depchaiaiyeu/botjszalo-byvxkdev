@@ -18,7 +18,7 @@ const TENOR_API_KEY = "AIzaSyC-P6_qz3FzCoXGLk6tgitZo4jEJ5mLzD8";
 const CLIENT_KEY = "tenor_web";
 const TIME_TO_SELECT = 60000;
 const PLATFORM = "stickermeme";
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 10;
 
 export const stickerSelectionsMap = new LRUCache({
