@@ -61,7 +61,6 @@ export async function initService(api) {
     initRankSystem(),
     notifyResetGroup(api),
   ]);
-}
 
   await Promise.all(servicePromises);
 }
