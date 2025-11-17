@@ -58,7 +58,7 @@ export function sendImageFactory(api) {
 			zsource: -1,
 			jcp: JSON.stringify({
 				sendSource: 1,
-				convertible: "jxl"
+				convertible: "jpg"
 			}),
 			ttl: ttl,
 			imei: appContext.imei
