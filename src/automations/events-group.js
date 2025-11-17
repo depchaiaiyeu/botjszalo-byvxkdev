@@ -230,3 +230,21 @@ export async function groupEvents(api, event) {
       console.log("\n========== ADD/REMOVE_ADMIN EVENT ==========");
       console.log(JSON.stringify(event, null, 2));
       console.log("============================================\n");
+      if (subType === 1) {
+        const isAdd = type === GroupEventType.ADD_ADMIN;
+        const targetInfo = event.data?.updateMembers?.[0];
+        const targetName = targetInfo?.dName || "Người dùng";
+        const sourceInfo = await getUserInfoData(api, idAction);
+        imagePath = await cv.createAdminChangeImage(sourceInfo, targetName, groupName, isAdd, groupType);
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  if (imagePath) {
+    await sendGroupMessage(api, threadId, imagePath, "");
+    await cv.clearImagePath(imagePath);
+  }
+}
