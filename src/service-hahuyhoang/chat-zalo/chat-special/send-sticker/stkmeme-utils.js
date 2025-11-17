@@ -18,7 +18,7 @@ const TENOR_API_KEY = "AIzaSyC-P6_qz3FzCoXGLk6tgitZo4jEJ5mLzD8";
 const CLIENT_KEY = "tenor_web";
 const TIME_TO_SELECT = 60000;
 const PLATFORM = "stickermeme";
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 10;
 
 export const stickerSelectionsMap = new LRUCache({
@@ -31,20 +31,6 @@ function getRandomItems(array, count) {
   return shuffled.slice(0, count);
 }
 
-function getFileExtension(url) {
-  const urlLower = url.toLowerCase();
-  if (urlLower.includes('.webp')) return 'webp';
-  if (urlLower.includes('.gif')) return 'gif';
-  if (urlLower.includes('.png')) return 'png';
-  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) return 'jpg';
-  if (urlLower.includes('.mp4')) return 'mp4';
-  if (urlLower.includes('.webm')) return 'webm';
-  
-  const urlObj = new URL(url);
-  const urlExt = path.extname(urlObj.pathname).slice(1);
-  return urlExt || 'jpg';
-}
-
 async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
   try {
     const searchLimit = Math.min(limit, MAX_LIMIT);
@@ -55,10 +41,11 @@ async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
         key: TENOR_API_KEY,
         client_key: CLIENT_KEY,
         limit: MAX_LIMIT,
+        appversion: 'browser-r20250506-2',
         prettyPrint: false,
         locale: 'en',
         contentfilter: 'low',
-        media_filter: 'gif,gif_transparent,mediumgif,tinygif,tinygif_transparent,webp,webp_transparent,tinywebp,tinywebp_transparent,tinymp4,mp4,webm,originalgif,gifpreview,png,jpg',
+        media_filter: 'gif,gif_transparent,mediumgif,tinygif,tinygif_transparent,webp,webp_transparent,tinywebp,tinywebp_transparent,tinymp4,mp4,webm,originalgif,gifpreview',
         fields: 'next,results.id,results.media_formats,results.title,results.h1_title,results.long_title,results.itemurl,results.url,results.created,results.user,results.shares,results.embed,results.hasaudio,results.policy_status,results.source_id,results.flags,results.tags,results.content_rating,results.bg_color,results.legacy_info,results.geographic_restriction,results.content_description',
         searchfilter: 'sticker',
         component: 'web_mobile'
@@ -86,9 +73,7 @@ async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
         (formats.webp_transparent && formats.webp_transparent.url) ||
         (formats.gif_transparent && formats.gif_transparent.url) ||
         (formats.mediumgif && formats.mediumgif.url) ||
-        (formats.gif && formats.gif.url) ||
-        (formats.png && formats.png.url) ||
-        (formats.jpg && formats.jpg.url)
+        (formats.gif && formats.gif.url)
       );
     });
 
@@ -107,9 +92,11 @@ async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
 }
 
 async function downloadAndConvertToWebp(url, outputPath) {
-  const ext = getFileExtension(url);
-  const tempDownload = path.join(tempDir, `temp_download_${Date.now()}.${ext}`);
-  let tempGif = null;
+  const ext = url.includes(".webp") ? ".webp" : 
+               url.includes(".gif") ? ".gif" :
+               url.includes(".png") ? ".png" :
+               url.includes(".jpg") || url.includes(".jpeg") ? ".jpg" : ".gif";
+  const tempDownload = path.join(tempDir, `temp_download_${Date.now()}${ext}`);
   
   try {
     await downloadFileFake(url, tempDownload);
@@ -123,35 +110,7 @@ async function downloadAndConvertToWebp(url, outputPath) {
       throw new Error(`File tải về rỗng`);
     }
 
-    let ffmpegCommand;
-    
-    if (ext === "webp") {
-      tempGif = path.join(tempDir, `temp_gif_${Date.now()}.gif`);
-      
-      try {
-        execSync(`ffmpeg -y -i "${tempDownload}" -vf "scale=512:512:force_original_aspect_ratio=decrease" "${tempGif}"`, { stdio: 'pipe' });
-        
-        if (!fs.existsSync(tempGif) || fs.statSync(tempGif).size === 0) {
-          throw new Error('Convert to GIF failed');
-        }
-        
-        execSync(`ffmpeg -y -i "${tempGif}" -c:v libwebp -q:v 80 "${outputPath}"`, { stdio: 'pipe' });
-      } catch (innerError) {
-        if (tempGif && fs.existsSync(tempGif)) {
-          await deleteFile(tempGif);
-          tempGif = null;
-        }
-        
-        ffmpegCommand = `ffmpeg -y -loop 1 -i "${tempDownload}" -c:v libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease" -frames:v 1 -q:v 80 "${outputPath}"`;
-        execSync(ffmpegCommand, { stdio: 'pipe' });
-      }
-    } else if (ext === "png" || ext === "jpg" || ext === "jpeg") {
-      ffmpegCommand = `ffmpeg -y -i "${tempDownload}" -c:v libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease" -frames:v 1 -q:v 80 "${outputPath}"`;
-      execSync(ffmpegCommand, { stdio: 'pipe' });
-    } else {
-      ffmpegCommand = `ffmpeg -y -i "${tempDownload}" -c:v libwebp -q:v 80 -vf "scale=512:512:force_original_aspect_ratio=decrease" "${outputPath}"`;
-      execSync(ffmpegCommand, { stdio: 'pipe' });
-    }
+    execSync(`ffmpeg -y -i "${tempDownload}" -c:v libwebp -q:v 80 -vf "scale=512:512:force_original_aspect_ratio=decrease" "${outputPath}"`, { stdio: 'pipe' });
 
     if (!fs.existsSync(outputPath)) {
       throw new Error(`File WebP đầu ra không tồn tại`);
@@ -169,20 +128,17 @@ async function downloadAndConvertToWebp(url, outputPath) {
     if (fs.existsSync(tempDownload)) {
       await deleteFile(tempDownload);
     }
-    if (tempGif && fs.existsSync(tempGif)) {
-      await deleteFile(tempGif);
-    }
   }
 }
 
 export async function handleSendStickerMeme(api, message, selectedSticker, senderName) {
   const threadId = message.threadId;
   let webpPath = null;
-  
+
   await sendMessageCompleteRequest(api, message, {
     caption: `Đang tạo sticker cho bạn, vui lòng chờ một chút!`
   }, 5000);
-  
+
   try {
     webpPath = path.join(tempDir, `tenor_sticker_${Date.now()}.webp`);
     
@@ -197,11 +153,10 @@ export async function handleSendStickerMeme(api, message, selectedSticker, sende
 
     const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
     const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
-    
+
     await sendMessageCompleteRequest(api, message, {
       caption: `Sticker Của Bạn Đây!!!`
     }, 600000);
-    
     await api.sendCustomSticker(message, staticUrl, animUrl, selectedSticker.width || 512, selectedSticker.height || 512);
     
     return true;
@@ -265,9 +220,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
         media.gif_transparent || 
         media.mediumgif || 
         media.gif || 
-        media.tinygif ||
-        media.png ||
-        media.jpg ||
+        media.tinygif || 
         null;
       
       if (!selectedFormat || !selectedFormat.url) {
@@ -290,6 +243,11 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
       await sendMessageWarningRequest(api, message, {
         caption: `Không tìm thấy sticker hợp lệ nào cho từ khóa "${query}"! Hãy thử từ khóa khác.`
       }, 30000);
+      return 0;
+    }
+
+    if (stickers.length === 1) {
+      await handleSendStickerMeme(api, message, stickers[0], senderName);
       return 0;
     }
 
@@ -319,9 +277,9 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
   } catch (error) {
     let errorMessage = `${senderName}, Lỗi khi xử lý sticker: ${error.message}`;
     if (error.message.includes("File đầu vào rỗng") || error.message.includes("không tồn tại")) {
-      errorMessage = `${senderName}, File từ Tenor không hợp lệ hoặc không tải được. Hãy thử từ khóa khác.`;
+      errorMessage = `${senderName}, File GIF từ Tenor không hợp lệ hoặc không tải được. Hãy thử từ khóa khác.`;
     } else if (error.message.includes("Lỗi khi chuyển đổi sang WebP")) {
-      errorMessage = `${senderName}, Lỗi khi chuyển đổi sang sticker. Vui lòng thử lại sau.`;
+      errorMessage = `${senderName}, Lỗi khi chuyển đổi GIF sang sticker. Vui lòng thử lại sau.`;
     } else if (error.message.includes("không hợp lệ")) {
       errorMessage = `${senderName}, File từ Tenor không hợp lệ. Hãy thử từ khóa khác.`;
     }
