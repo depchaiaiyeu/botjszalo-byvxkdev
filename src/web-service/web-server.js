@@ -16,7 +16,6 @@ import { getCommandConfig } from "../index.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cấu hình multer để xử lý tải lên file
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, path.join(__dirname, "../../assets/resources/"));
@@ -31,11 +30,39 @@ const upload = multer({ storage: storage });
 let io;
 let cachedFriends = null;
 let lastFriendsFetchTime = 0;
-const CACHE_DURATION = 10000; // 10 giây
+const CACHE_DURATION = 10000;
 
 let cachedGroups = null;
 let lastGroupsFetchTime = 0;
-const GROUPS_CACHE_DURATION = 10000; // 10 giây
+const GROUPS_CACHE_DURATION = 10000;
+
+async function findAvailablePort(startPort, maxAttempts = 10) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = startPort + i;
+    try {
+      await new Promise((resolve, reject) => {
+        const testServer = createServer();
+        testServer.once("error", (err) => {
+          if (err.code === "EADDRINUSE") {
+            reject(err);
+          } else {
+            reject(err);
+          }
+        });
+        testServer.once("listening", () => {
+          testServer.close(() => resolve());
+        });
+        testServer.listen(port);
+      });
+      return port;
+    } catch (err) {
+      if (err.code !== "EADDRINUSE") {
+        throw err;
+      }
+    }
+  }
+  throw new Error(`Không tìm thấy port khả dụng sau ${maxAttempts} lần thử`);
+}
 
 export async function startWebServer(api) {
   const app = express();
@@ -279,10 +306,19 @@ export async function startWebServer(api) {
     });
   });
 
-  const PORT = 3456;
-  httpServer.listen(PORT, () => {
-    console.log(chalk.yellow(`Web server đã khởi tạo thành công trên port ${PORT}`));
-  });
+  const START_PORT = 3456;
+  try {
+    const availablePort = await findAvailablePort(START_PORT);
+    httpServer.listen(availablePort, () => {
+      console.log(chalk.yellow(`Web server đã khởi tạo thành công trên port ${availablePort}`));
+      if (availablePort !== START_PORT) {
+        console.log(chalk.cyan(`Port ${START_PORT} đã được sử dụng, tự động chuyển sang port ${availablePort}`));
+      }
+    });
+  } catch (error) {
+    console.error(chalk.red("Không thể khởi động web server:"), error);
+    throw error;
+  }
 }
 
 export function getIO() {
