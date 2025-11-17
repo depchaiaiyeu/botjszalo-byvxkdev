@@ -35,24 +35,16 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let backgroundImage;
   let fluent = 0.8;
-  if (fileName.includes("welcome")) {
-    typeImage = 0;
-    fluent = 0.6;
-  } else if (fileName.includes("goodbye")) {
+  
+  if (fileName.includes("goodbye")) {
     typeImage = 1;
     fluent = 0.6;
-  } else if (["blocked", "kicked", "kicked_spam"].some(keyword => fileName.includes(keyword))) {
+  } else if (["blocked", "kicked"].some(keyword => fileName.includes(keyword))) {
     typeImage = 2;
     fluent = 0.85;
-  } else if (fileName.includes("setting") || fileName.includes("update") || fileName.includes("link") || fileName.includes("board")) {
-    typeImage = fileName.includes("setting") ? 0 : 2;
-    fluent = 0.7;
-  } else if (fileName.includes("admin")) {
-    typeImage = fileName.includes("add") ? 0 : 2;
-    fluent = 0.7;
-  } else if (fileName.includes("request")) {
-    typeImage = 3;
-    fluent = 0.7;
+  } else {
+    typeImage = 0;
+    fluent = 0.6;
   }
 
   try {
@@ -88,8 +80,6 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     gradientColors = ["#FFFFFF", "#F0F0F0", "#FAFAFF", "#F8FBFF", "#EAEAFF", "#FFF5FA", "#FFFFFF"];
   } else if (typeImage === 2) {
     gradientColors = ["#ff0000", "#ff1111", "#ff2200", "#ff0022", "#ff3300"];
-  } else if (typeImage === 3) {
-    gradientColors = ["#FFD700", "#FFA500", "#FF8C00", "#FFB347", "#FFCC00", "#FFE066"];
   } else {
     gradientColors = ["#FF1493", "#FF69B4", "#FFD700", "#FFA500", "#FF8C00", "#00FF7F", "#40E0D0"];
   }
