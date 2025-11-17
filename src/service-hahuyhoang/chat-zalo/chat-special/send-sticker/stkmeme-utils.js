@@ -18,20 +18,29 @@ const TENOR_API_KEY = "AIzaSyACyC8fxJfIm6yiM1TG0B-gBNXnM2iATFw";
 const CLIENT_KEY = "my_bot_app";
 const TIME_TO_SELECT = 60000;
 const PLATFORM = "stickermeme";
+const MAX_LIMIT = 50;
+const DEFAULT_LIMIT = 10;
 
 export const stickerSelectionsMap = new LRUCache({
   max: 500,
   ttl: TIME_TO_SELECT
 });
 
-async function searchTenorSticker(query, limit = 10) {
+function getRandomItems(array, count) {
+    const shuffled = [...array].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+}
+
+async function searchTenorSticker(query, limit = DEFAULT_LIMIT) {
     try {
+        const searchLimit = Math.min(limit, MAX_LIMIT);
+        
         const response = await axios.get('https://tenor.googleapis.com/v2/search', {
             params: {
                 q: query,
                 key: TENOR_API_KEY,
                 client_key: CLIENT_KEY,
-                limit: limit,
+                limit: MAX_LIMIT,
                 contentfilter: 'high',
             },
             timeout: 10000,
@@ -68,7 +77,7 @@ async function searchTenorSticker(query, limit = 10) {
             return null;
         }
 
-        return validResults;
+        return getRandomItems(validResults, searchLimit);
     } catch (error) {
         console.error('Lỗi khi tìm kiếm GIF trên Tenor:', error.message);
         return null;
@@ -131,8 +140,8 @@ export async function handleSendStickerMeme(api, message, selectedSticker, sende
         const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
 
         await sendMessageCompleteRequest(api, message, {
-                caption: `Sticker của bạn đây!!!`
-            }, 600000);
+            caption: `Sticker Của Bạn Đây!!!`
+        }, 600000);
         await api.sendCustomSticker(message, staticUrl, animUrl, selectedSticker.width || 512, selectedSticker.height || 512);
       
         return true;
@@ -151,25 +160,39 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
     const prefix = getGlobalPrefix();
     const content = message.data.content ? message.data.content.trim() : '';
     const commandContent = content.replace(`${prefix}${aliasCommand}`, "").trim();
-    const rawArgs = commandContent.split(/\s+/);
-    const input = rawArgs.filter(a => !/^(-d|--debug|-debug)$/i.test(a)).join(" ").trim();
-
+    
     let imagePath = null;
 
-    if (!commandContent || !input) {
+    if (!commandContent) {
+        await sendMessageWarningRequest(api, message, {
+            caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} Nội dung cần tìm\nHoặc: ${prefix}${aliasCommand} Nội dung && 20 (để lấy 20 sticker)`
+        }, 30000);
+        return 0;
+    }
+
+    let query = commandContent;
+    let limit = DEFAULT_LIMIT;
+
+    const limitMatch = commandContent.match(/&&\s*(\d+)$/i);
+    if (limitMatch) {
+        const requestedLimit = parseInt(limitMatch[1]);
+        limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
+        query = commandContent.replace(/&&\s*\d+$/i, "").trim();
+    }
+
+    if (!query) {
         await sendMessageWarningRequest(api, message, {
             caption: `Vui lòng nhập từ khóa tìm kiếm sticker!\nVí dụ: ${prefix}${aliasCommand} Nội dung cần tìm`
         }, 30000);
         return 0;
     }
 
-    const query = input;
     try {
-        const validResults = await searchTenorSticker(query, 10);
+        const validResults = await searchTenorSticker(query, limit);
 
         if (!validResults || validResults.length === 0) {
             await sendMessageWarningRequest(api, message, {
-                caption: `${senderName}, Không tìm thấy GIF nào trên Tenor với từ khóa "${query}"! Hãy thử từ khóa khác như "funny" hoặc "cat".`
+                caption: `Không tìm thấy sticker nào với từ khóa "${query}"! Hãy thử từ khóa khác phổ biến.`
             }, 30000);
             return 0;
         }
@@ -196,14 +219,14 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
 
         if (stickers.length === 0) {
             await sendMessageWarningRequest(api, message, {
-                caption: `${senderName}, Không tìm thấy sticker hợp lệ nào cho từ khóa "${query}"! Hãy thử từ khóa khác.`
+                caption: `Không tìm thấy sticker hợp lệ nào cho từ khóa "${query}"! Hãy thử từ khóa khác.`
             }, 30000);
             return 0;
         }
 
         if (stickers.length === 1) {
-            await sendMessageWarningRequest(api, message, {
-                caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+            await sendMessageCompleteRequest(api, message, {
+                caption: `Đang tạo sticker cho bạn, vui lòng chờ một chút!`
             }, 5000);
             
             await handleSendStickerMeme(api, message, stickers[0], senderName);
@@ -213,7 +236,7 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
         imagePath = await createStickerGridImage(stickers);
 
         const stickerListMessage = await sendMessageCompleteRequest(api, message, {
-            caption: `Đây là danh sách sticker cho "${query}":\nHãy trả lời tin nhắn này với số index của sticker bạn muốn!`,
+            caption: `Đây là danh sách sticker cho từ khóa "${query}":\nHãy trả lời tin nhắn này với số index của sticker bạn muốn!`,
             imagePath: imagePath
         }, TIME_TO_SELECT);
 
@@ -300,8 +323,8 @@ export async function handleStkmemeReply(api, message) {
         await api.deleteMessage(msgDel, false);
         stickerSelectionsMap.delete(quotedMsgId);
 
-        await sendMessageWarningRequest(api, message, {
-            caption: `${senderName}, Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+        await sendMessageCompleteRequest(api, message, {
+            caption: `Đang tạo sticker cho bạn, vui lòng chờ một chút!`
         }, 5000);
 
         await handleSendStickerMeme(api, message, selectedSticker, senderName);
@@ -311,7 +334,7 @@ export async function handleStkmemeReply(api, message) {
     } catch (error) {
         console.error("Error handling sticker reply:", error);
         await sendMessageWarningRequest(api, message, {
-            caption: `${senderName}, Đã xảy ra lỗi khi xử lý sticker: ${error.message}. Vui lòng thử lại sau.`
+            caption: `Đã xảy ra lỗi khi xử lý sticker: ${error.message}. Vui lòng thử lại sau.`
         }, 30000);
         return true;
     }
