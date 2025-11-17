@@ -1,14 +1,14 @@
-import { writeGroupSettings } from "../../utils/io-json.js";
-import { sendMessageComplete, sendMessageInsufficientAuthority, sendMessageQuery, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { sendMessageComplete, sendMessageQuery, sendMessageWarning } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
 import fs from "fs/promises";
+import { createReadStream } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
-import { createAdminListImage } from "../../utils/canvas/info.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import { exec, spawn } from "child_process";
 import { promisify } from "util";
+import { initSession, verifyClient, generateQRCode, waitingScan, waitingConfirm } from "../../utils/zalo-qrlogin.js";
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -28,7 +28,8 @@ const paths = {
     assetsJsonDataDir: path.resolve("./assets/json-data"),
     logsDir: path.resolve("./logs"),
     resourcesDir: path.resolve("./resources"),
-    tempDir: path.resolve("./assets/temp")
+    tempDir: path.resolve("./assets/temp"),
+    cacheDir: path.resolve(".cache")
 };
 
 function getRandomUserAgent() {
@@ -36,6 +37,8 @@ function getRandomUserAgent() {
 }
 
 function parseTimeToMs(timeStr) {
+    if (timeStr === '-1') return -1;
+    
     const match = timeStr.match(/^(-?\d+)([hpmd])$/);
     if (!match) return null;
 
@@ -68,14 +71,6 @@ function formatRemainingTime(expiresAt) {
     return `${days}d ${hours}h ${mins}p`;
 }
 
-// =================================================================
-// BỔ SUNG: HÀM LẤY TRẠNG THÁI PM2
-// =================================================================
-
-/**
- * Lấy danh sách các tiến trình từ PM2 và trả về một Map
- * Map<processName, processInfo>
- */
 async function getPm2ProcessMap() {
     try {
         const { stdout } = await execAsync('pm2 jlist');
@@ -89,25 +84,18 @@ async function getPm2ProcessMap() {
                 memory: proc.monit.memory
             });
         }
-        console.log(`[MyBot] ✅ Lấy trạng thái PM2 thành công.`);
         return processMap;
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi khi lấy trạng thái PM2:`, error.message);
-        // Trả về map rỗng nếu pm2 chưa chạy hoặc có lỗi
         return new Map();
     }
 }
 
-/**
- * Chuyển đổi trạng thái PM2 sang emoji thân thiện
- */
 function formatPm2Status(status, isRunningInConfig) {
     if (!status) {
-        // Nếu pm2 không có thông tin (chưa được tạo) nhưng config nói là đang chạy
         if (isRunningInConfig) {
             return "🟡 Không tìm thấy (Lỗi)";
         }
-        // Nếu pm2 không có thông tin và config nói là dừng
         return "⚪ Chưa chạy";
     }
 
@@ -127,17 +115,13 @@ function formatPm2Status(status, isRunningInConfig) {
     }
 }
 
-// =================================================================
-// KẾT THÚC BỔ SUNG
-// =================================================================
-
-
 async function ensureDirectories() {
     const dirs = [
         paths.myBotDataDir,
         paths.myBotDataFolder,
         paths.myBotJsonDataFolder,
-        paths.tempDir
+        paths.tempDir,
+        paths.cacheDir
     ];
 
     for (const dir of dirs) {
@@ -280,32 +264,52 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
 }
 
 function streamLogs(processName, botId, botName) {
-    console.log(`[MyBot] 📡 Bắt đầu stream log vô hạn cho: ${processName}`);
+    console.log(`[MyBot] 📡 Đang tải 30 dòng log đầu tiên của: ${processName}`);
     const logStream = spawn('pm2', ['logs', processName, '--raw']);
+    let lineCount = 0;
+    const maxLines = 30;
+    
+    const killStream = () => {
+        try {
+            logStream.kill();
+            console.log(`[MyBot] 🛑 Đã dừng log stream cho ${processName}`);
+        } catch (e) {}
+    };
+
+    const timeout = setTimeout(() => {
+        killStream();
+    }, 10000);
 
     logStream.stdout.on('data', (data) => {
-        process.stdout.write(`[ Logs • ${botName} • ${botId} ] ${data.toString()}`);
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+            if (line.trim() && lineCount < maxLines) {
+                process.stdout.write(`[ Logs • ${botName} ] ${line}\n`);
+                lineCount++;
+            }
+        }
+        if (lineCount >= maxLines) {
+            clearTimeout(timeout);
+            killStream();
+        }
     });
 
     logStream.stderr.on('data', (data) => {
-        process.stderr.write(`[ ERROR • ${botName} • ${botId} ] ${data.toString()}`);
-    });
-
-    logStream.on('close', (code) => {
-        console.log(`[MyBot] 🛑 Stream log cho ${processName} đã dừng (Code: ${code})`);
-    });
-
-    logStream.on('error', (err) => {
-        console.error(`[MyBot] 🚫 Lỗi khi stream log cho ${processName}:`, err);
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+            if (line.trim() && lineCount < maxLines) {
+                process.stderr.write(`[ ERROR • ${botName} ] ${line}\n`);
+                lineCount++;
+            }
+        }
     });
 }
 
 async function handleMyBotCreate(api, message) {
     console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
-    console.log(`[MyBot] 📨 Nội dung: ${message.data.content}`);
-
     const mentions = message.data.mentions;
     const content = removeMention(message);
+    const parts = content.split(/\s+/).filter(p => p.trim());
 
     if (!mentions || mentions.length === 0) {
         await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot cho họ");
@@ -316,28 +320,80 @@ async function handleMyBotCreate(api, message) {
     const botId = mention.uid;
     const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-        await sendMessageWarning(api, message, "🚫 Cookie JSON không hợp lệ");
-        return;
-    }
+    let cookie, imei;
 
-    const cookieStr = jsonMatch[0];
+    if (parts.includes("qrlogin")) {
+        try {
+            await sendMessageComplete(api, message, "Đang khởi tạo phiên đăng nhập QR, vui lòng đợi...");
+            
+            await ensureDirectories();
+            let session = await initSession();
+            if (!session) {
+                throw new Error("Không thể khởi tạo session");
+            }
 
-    const imeiMatch = content.substring(content.lastIndexOf("}") + 1).trim().split(/\s+/);
-    const imei = imeiMatch[imeiMatch.length - 1];
+            session = await verifyClient(session);
+            if (!session) {
+                throw new Error("Không thể xác thực client");
+            }
 
-    if (!imei) {
-        await sendMessageWarning(api, message, "🚫 IMEI không hợp lệ");
-        return;
-    }
+            const [code, updatedSession] = await generateQRCode(session);
+            session = updatedSession;
 
-    let cookie;
-    try {
-        cookie = JSON.parse(cookieStr);
-    } catch (err) {
-        await sendMessageWarning(api, message, `🚫 Cookie JSON không hợp lệ: ${err.message}`);
-        return;
+            if (!code) {
+                throw new Error("Không thể tạo mã QR");
+            }
+
+            const qrImagePath = path.resolve(paths.cacheDir, "qr_code.png");
+            
+            await api.sendMessage({
+                msg: `Quét mã QR để đăng nhập..!\n\nMở Zalo trên điện thoại của tài khoản cần tạo Bot và quét mã này.\nSau đó nhấn "Đăng nhập" trên điện thoại.\n\nBot sẽ tự động thiết lập sau khi bạn xác nhận.`,
+                attachments: [qrImagePath]
+            }, message.threadId, message.type);
+
+            const scanResult = await waitingScan(code, session);
+            if (!scanResult) {
+                throw new Error("Hết thời gian chờ quét mã hoặc lỗi kết nối");
+            }
+
+            const [resultData, rawCookies] = await waitingConfirm(code, session);
+            if (!resultData || !rawCookies) {
+                throw new Error("Xác nhận đăng nhập thất bại hoặc hết hạn");
+            }
+
+            imei = resultData.imei;
+            cookie = rawCookies.cookies; 
+
+            await sendMessageComplete(api, message, "✅ Đăng nhập thành công! Đang khởi tạo bot...");
+
+        } catch (error) {
+            console.error(`[MyBot] 🚫 Lỗi QR Login:`, error);
+            await sendMessageWarning(api, message, `🚫 Lỗi quy trình QR: ${error.message}`);
+            return;
+        }
+
+    } else {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            await sendMessageWarning(api, message, "🚫 Cú pháp sai. Hãy dùng 'qrlogin' hoặc cung cấp JSON cookie thủ công.");
+            return;
+        }
+
+        const cookieStr = jsonMatch[0];
+        const imeiMatch = content.substring(content.lastIndexOf("}") + 1).trim().split(/\s+/);
+        imei = imeiMatch[imeiMatch.length - 1];
+
+        if (!imei) {
+            await sendMessageWarning(api, message, "🚫 IMEI không hợp lệ");
+            return;
+        }
+
+        try {
+            cookie = JSON.parse(cookieStr);
+        } catch (err) {
+            await sendMessageWarning(api, message, `🚫 Cookie JSON không hợp lệ: ${err.message}`);
+            return;
+        }
     }
 
     console.log(`[MyBot] 👤 Bot ID: ${botId}`);
@@ -348,24 +404,19 @@ async function handleMyBotCreate(api, message) {
         const processName = `mybot-${botId}`;
         const indexPath = path.resolve("src/index.js");
 
-        console.log(`[MyBot] 🚀 Index path: ${indexPath}`);
-
         try {
             console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
             await execAsync(`pm2 delete ${processName}`);
-            console.log(`[MyBot] ✅ Xóa process thành công`);
         } catch (err) {
-            console.log(`[MyBot] ℹ️ Process cũ không tồn tại hoặc xóa thất bại (OK)`);
         }
 
         await initializeBotFiles(botId, imei, cookie, null, null);
 
         console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
-        const { stdout, stderr } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+        const { stdout } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
         console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
-        if (stderr) console.log(`[MyBot] 🟡 PM2 stderr: ${stderr}`);
 
-        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot sẽ hoạt động sau 1~5 giây kể từ khi tin nhắn này được gửi đi.\n👉 Nếu xảy ra lỗi vui lòng kiểm tra logs để fix..!`);
+        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot đang khởi động...`);
 
         streamLogs(processName, botId, botName);
 
@@ -379,8 +430,6 @@ async function listAllBots(api) {
     console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
     try {
         const files = await fs.readdir(paths.myBotDataDir);
-        console.log(`[MyBot] 📂 Files trong mybot: ${files}`);
-
         const bots = [];
 
         for (const file of files) {
@@ -388,11 +437,8 @@ async function listAllBots(api) {
                 const botId = file.replace(".json", "");
 
                 if (isNaN(botId) || botId.length < 10) {
-                    console.log(`[MyBot] ⏭️ Bỏ qua file: ${file} (không phải bot config)`);
                     continue;
                 }
-
-                console.log(`[MyBot] 🔍 Kiểm tra file: ${file} -> Bot ID: ${botId}`);
 
                 const botConfig = await getBotConfig(botId);
 
@@ -404,9 +450,7 @@ async function listAllBots(api) {
                             if (userInfo && userInfo.name) {
                                 botName = userInfo.name;
                             }
-                            console.log(`[MyBot] ✅ Thêm bot: ${botId} (Tên: ${botName})`);
                         } catch (err) {
-                            console.log(`[MyBot] 🟡 Không thể lấy thông tin user ${botId}. Dùng UID làm tên.`);
                         }
                     }
                     bots.push({
@@ -417,8 +461,6 @@ async function listAllBots(api) {
                 }
             }
         }
-
-        console.log(`[MyBot] 📊 Tổng bot tìm được: ${bots.length}`);
         return bots;
     } catch (error) {
         console.error(`[MyBot] 🚫 Lỗi liệt kê bot:`, error);
@@ -447,9 +489,6 @@ function getBotTarget(message, parts, botList) {
     return { botId, botName, mention };
 }
 
-// =================================================================
-// SỬA ĐỔI: handleMyBotInfo
-// =================================================================
 async function handleMyBotInfo(api, message) {
     console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
 
@@ -471,23 +510,20 @@ async function handleMyBotInfo(api, message) {
             return;
         }
 
-        // Lấy trạng thái PM2 thực tế
         const pm2Map = await getPm2ProcessMap();
         const processName = `mybot-${botId}`;
         const pm2Info = pm2Map.get(processName);
         
-        // Cập nhật trạng thái isRunning trong config nếu bị sai lệch
         const realStatus = pm2Info ? pm2Info.status : 'stopped';
         const isRunning = (realStatus === 'online' || realStatus === 'launching');
         if (botConfig.isRunning !== isRunning) {
-            console.log(`[MyBot] Sync status cho ${botId}: ${botConfig.isRunning} -> ${isRunning}`);
             botConfig.isRunning = isRunning;
             await saveBotConfig(botId, botConfig);
         }
 
         const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
         const expireInfo = formatRemainingTime(botConfig.expiresAt);
-        const status = formatPm2Status(realStatus, botConfig.isRunning); // Sử dụng trạng thái PM2
+        const status = formatPm2Status(realStatus, botConfig.isRunning);
 
         const info = `📜 Thông tin Bot >> VXK Bot Team:\n\n`
                    + `1. ${botName}\n`
@@ -503,17 +539,12 @@ async function handleMyBotInfo(api, message) {
     }
 }
 
-// =================================================================
-// SỬA ĐỔI: handleMyBotList
-// =================================================================
 async function handleMyBotList(api, message) {
     console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
 
     try {
         const bots = await listAllBots(api);
-        const pm2Map = await getPm2ProcessMap(); // Lấy tất cả trạng thái PM2 một lần
-
-        console.log(`[MyBot] 📊 Số bot tìm được: ${bots.length}`);
+        const pm2Map = await getPm2ProcessMap();
 
         if (bots.length === 0) {
             await sendMessageQuery(api, message, "Chưa có bot nào trong hệ thống");
@@ -529,10 +560,8 @@ async function handleMyBotList(api, message) {
             
             const realStatus = pm2Info ? pm2Info.status : 'stopped';
             
-            // Cập nhật trạng thái trong file JSON nếu cần
             const isRunning = (realStatus === 'online' || realStatus === 'launching');
             if (bot.config.isRunning !== isRunning) {
-                console.log(`[MyBot-List] Sync status cho ${bot.uid}: ${bot.config.isRunning} -> ${isRunning}`);
                 bot.config.isRunning = isRunning;
                 await saveBotConfig(bot.uid, bot.config);
             }
@@ -553,7 +582,6 @@ async function handleMyBotList(api, message) {
         await sendMessageWarning(api, message, `🚫 Lỗi: ${error.message}`);
     }
 }
-
 
 async function handleMyBotAddTime(api, message) {
     console.log(`[MyBot] 📨 Nhận lệnh: mybot addtime`);
@@ -645,20 +673,14 @@ async function deleteBotFiles(botId) {
     for (const filePath of filePaths) {
         try {
             await fs.unlink(filePath);
-            console.log(`[MyBot] ✅ Xóa file: ${filePath}`);
         } catch (error) {
-            if (error.code !== 'ENOENT') {
-                console.error(`[MyBot] 🟡 Lỗi khi xóa file ${filePath}:`, error.message);
-            }
         }
     }
 
     for (const dirPath of dirs) {
         try {
             await fs.rm(dirPath, { recursive: true, force: true });
-            console.log(`[MyBot] ✅ Xóa thư mục: ${dirPath}`);
         } catch (error) {
-            console.error(`[MyBot] 🟡 Lỗi khi xóa thư mục ${dirPath}:`, error.message);
         }
     }
 }
@@ -684,9 +706,7 @@ async function handleMyBotDelete(api, message) {
         
         try {
             await execAsync(`pm2 delete ${processName}`);
-            console.log(`[MyBot] ✅ Dừng và xóa process PM2 thành công: ${processName}`);
         } catch (err) {
-            console.log(`[MyBot] ℹ️ Process PM2 không tồn tại hoặc xóa thất bại (OK): ${processName}`);
         }
 
         await deleteBotFiles(botId);
@@ -724,7 +744,6 @@ async function handleMyBotShutdown(api, message) {
         }
         
         await execAsync(`pm2 stop ${processName}`);
-        console.log(`[MyBot] ✅ Đã dừng process PM2: ${processName}`);
         
         botConfig.isRunning = false;
         await saveBotConfig(botId, botConfig);
@@ -771,7 +790,6 @@ async function handleMyBotActive(api, message) {
         }
         
         await execAsync(`pm2 start ${processName}`);
-        console.log(`[MyBot] ✅ Đã khởi động process PM2: ${processName}`);
         
         botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
@@ -807,7 +825,7 @@ async function handleMyBotRestart(api, message) {
         const botConfig = await getBotConfig(botId);
         
         if (!botConfig) {
-    	    await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
+            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
             return;
         }
 
@@ -821,7 +839,6 @@ async function handleMyBotRestart(api, message) {
         }
         
         await execAsync(`pm2 restart ${processName}`);
-        console.log(`[MyBot] ✅ Đã khởi động lại process PM2: ${processName}`);
         
         botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
@@ -840,17 +857,18 @@ function getHelpMessage() {
     const prefix = getGlobalPrefix();
     return `《 🤖 HỆ THỐNG QUẢN LÝ BOT - VXK BOT TEAM 🤖 》
 
-➤ 🆕 Tạo Bot (Thủ công):
+➤ 🆕 Tạo Bot:
 『${prefix}mybot create』
-• 📝 Cú pháp: ${prefix}mybot create @mention <cookie> <imei>
-• ⚙️ Chức năng: Đăng ký/sửa đổi thông tin vào hệ thống VXK Bot Team
+• 📝 Cú pháp: 
+1. ${prefix}mybot create @mention qrlogin (Quét mã QR)
+2. ${prefix}mybot create @mention <cookie_json> <imei> (Thủ công)
 
 ---
 ➤ ➕ Gia hạn/Đặt thời gian:
 『${prefix}mybot addtime』
 • 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
 • ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
-• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index 1d
+• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index -1
 
 ---
 ➤ 🗑️ Xóa Bot:
@@ -893,14 +911,11 @@ export async function handleMyBotCommands(api, message) {
     const prefix = getGlobalPrefix();
     const content = removeMention(message);
 
-    console.log(`[MyBot] 📨 Tin nhắn nhận được: ${content}`);
-
     if (!content.includes(`${prefix}mybot`)) {
         return false;
     }
 
     const parts = content.split(/\s+/).filter(p => p.trim());
-    console.log(`[MyBot] 🔍 Parts: ${JSON.stringify(parts)}`);
 
     if (parts.length < 2) {
         const helpMsg = getHelpMessage();
@@ -909,7 +924,6 @@ export async function handleMyBotCommands(api, message) {
     }
 
     const command = parts[1];
-    console.log(`[MyBot] 🎯 Command: ${command}`);
 
     switch (command) {
         case "create":
