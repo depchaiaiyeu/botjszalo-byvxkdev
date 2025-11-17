@@ -1,5 +1,5 @@
 import { startWebServer } from "../web-service/web-server.js";
-import { readCommandConfig, isBotMain } from "../utils/io-json.js";
+import { readCommandConfig } from "../utils/io-json.js";
 import { initRankSystem } from "./info-service/rank-chat.js";
 import { initializeFarmService } from "./game-service/nong-trai/nong-trai.js";
 import { initializeScheduler } from "./scheduler/scheduler.js";
@@ -45,14 +45,13 @@ export async function initService(api) {
   const commandConfig = readCommandConfig();
   globalPrefix = commandConfig.prefix || "";
 
-  await Promise.all([
+  const servicePromises = [
     initializeDatabase(),
     initializeCacheService(),
     initializeFarmService(),
     initializeGameDataManager(api),
     initializeScheduler(api),
     startAutoLockChatScheduler(api),
-    startWebServer(api),
     startAntiConfigCheck(),
     startMuteCheck(api),
     startBadWordViolationCheck(),
@@ -60,7 +59,8 @@ export async function initService(api) {
     startNudeViolationCheck(),
     initRankSystem(),
     notifyResetGroup(api),
-  ]);
+    startWebServer(api),
+  ];
 
   await Promise.all(servicePromises);
 }
