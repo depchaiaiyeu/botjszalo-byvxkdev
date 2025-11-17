@@ -59,14 +59,8 @@ export async function initService(api) {
     startNudeViolationCheck(),
     initRankSystem(),
     notifyResetGroup(api),
+    startWebServer(api),
   ];
-
-  if (isBotMain()) {
-    console.log("[Service] ℹ️ Khởi động Web service (Bot Chính)...");
-    servicePromises.push(startWebServer(api));
-  } else {
-    console.log("[Service] ℹ️ Bỏ qua khởi động Web service (Bot Con)");
-  }
 
   await Promise.all(servicePromises);
 }
