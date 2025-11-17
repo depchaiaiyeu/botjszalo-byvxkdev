@@ -13,7 +13,6 @@
     "start": "node src/index.js main"
   },
   "dependencies": {
-    "@algorithm.ts/gomoku": "^4.0.4",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "@google-cloud/aiplatform": "^4.1.0",
     "@google/genai": "^0.8.0",
@@ -25,6 +24,7 @@
     "xml2js": "^0.6.2",
     "axios": "^1.9.0",
     "big.js": "^6.2.2",
+    "fetch-cookie": "^3.1.0",
     "better-sqlite3": "^11.7.0",
     "canvas": "^2.11.2",
     "cheerio": "^1.0.0",
