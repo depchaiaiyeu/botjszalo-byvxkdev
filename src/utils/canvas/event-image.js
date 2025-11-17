@@ -44,7 +44,13 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   } else if (["blocked", "kicked", "kicked_spam"].some(keyword => fileName.includes(keyword))) {
     typeImage = 2;
     fluent = 0.85;
-  } else if (["setting", "update", "link", "pin", "unpin", "board", "topic", "admin"].some(keyword => fileName.includes(keyword)) || fileName.includes("request")) {
+  } else if (fileName.includes("setting") || fileName.includes("update") || fileName.includes("link") || fileName.includes("board")) {
+    typeImage = fileName.includes("setting") ? 0 : 2;
+    fluent = 0.7;
+  } else if (fileName.includes("admin")) {
+    typeImage = fileName.includes("add") ? 0 : 2;
+    fluent = 0.7;
+  } else if (fileName.includes("request")) {
     typeImage = 3;
     fluent = 0.7;
   }
@@ -312,8 +318,7 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
       subtitle: actorName,
       author: toTitleCase(`Đã Cập Nhật Cài Đặt ${vnGroupType}`),
     },
-    `setting_${Date.now()}.png`,
-    3
+    `setting_${Date.now()}.png`
   );
 }
 
@@ -328,8 +333,7 @@ export async function createUpdateDescImage(actorInfo, actorName, groupName, gro
       subtitle: actorName,
       author: toTitleCase(`Đã Cập Nhật Mô Tả ${vnGroupType}`),
     },
-    `update_${Date.now()}.png`,
-    3
+    `update_${Date.now()}.png`
   );
 }
 
@@ -344,40 +348,7 @@ export async function createNewLinkImage(actorInfo, actorName, groupName, groupT
       subtitle: actorName,
       author: toTitleCase(`Đã Tạo Link ${vnGroupType} Mới`),
     },
-    `link_${Date.now()}.png`,
-    3
-  );
-}
-
-export async function createPinTopicImage(actorInfo, actorName, groupName, topicTitle, groupType) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  return createImage(
-    actorInfo,
-    {
-      title: `Pin Topic ${groupTypeText}`,
-      userName: groupName,
-      subtitle: actorName,
-      author: `Đã Ghim Chủ Đề: ${topicTitle}`,
-    },
-    `pin_${Date.now()}.png`,
-    3
-  );
-}
-
-export async function createUpdateTopicImage(actorInfo, actorName, groupName, topicTitle, groupType) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  return createImage(
-    actorInfo,
-    {
-      title: `Update Topic ${groupTypeText}`,
-      userName: groupName,
-      subtitle: actorName,
-      author: `Đã Cập Nhật Chủ Đề: ${topicTitle}`,
-    },
-    `update_topic_${Date.now()}.png`,
-    3
+    `link_${Date.now()}.png`
   );
 }
 
@@ -392,53 +363,7 @@ export async function createUpdateBoardImage(actorInfo, actorName, groupName, gr
       subtitle: actorName,
       author: toTitleCase(`Đã Cập Nhật Bảng Thông Tin ${vnGroupType}`),
     },
-    `board_${Date.now()}.png`,
-    3
-  );
-}
-
-export async function createReorderPinImage(actorInfo, actorName, groupName, groupType) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  return createImage(
-    actorInfo,
-    {
-      title: `Reorder Pin ${groupTypeText}`,
-      userName: groupName,
-      subtitle: actorName,
-      author: toTitleCase(`Đã Thay Đổi Thứ Tự Ghim Chủ Đề`),
-    },
-    `reorder_pin_${Date.now()}.png`,
-    3
-  );
-}
-
-export async function createUnpinTopicImage(actorInfo, actorName, groupName, topicTitle, groupType) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  return createImage(
-    actorInfo,
-    {
-      title: `Unpin Topic ${groupTypeText}`,
-      userName: groupName,
-      subtitle: actorName,
-      author: `Đã Gỡ Ghim Chủ Đề: ${topicTitle}`,
-    },
-    `unpin_${Date.now()}.png`,
-    3
-  );
-}
-
-export async function createRemoveTopicImage(actorInfo, actorName, groupName, topicTitle, groupType) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  return createImage(
-    actorInfo,
-    {
-      title: `Remove Topic ${groupTypeText}`,
-      userName: groupName,
-      subtitle: actorName,
-      author: `Đã Xóa Chủ Đề: ${topicTitle}`,
-    },
-    `remove_topic_${Date.now()}.png`,
-    3
+    `board_${Date.now()}.png`
   );
 }
 
@@ -454,7 +379,6 @@ export async function createAdminChangeImage(actorInfo, targetName, groupName, i
       subtitle: actorName,
       author: toTitleCase(`${isAdd ? "Đã Thêm" : "Đã Gỡ"} ${targetName} Làm Phó ${vnGroupType}`),
     },
-    `${isAdd ? "add" : "remove"}_admin_${Date.now()}.png`,
-    3
+    `${isAdd ? "add" : "remove"}_admin_${Date.now()}.png`
   );
 }
