@@ -241,9 +241,6 @@ export async function handleStkmemeCommand(api, message, aliasCommand = 'stkmeme
         caption: `Không tìm thấy sticker hợp lệ nào cho từ khóa "${query}"! Hãy thử từ khóa khác.`
       }, 30000);
       return 0;
-    };
-      await handleSendStickerMeme(api, message, stickers[0], senderName);
-      return 0;
     }
 
     imagePath = await createStickerGridImage(stickers);
