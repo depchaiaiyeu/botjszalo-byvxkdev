@@ -2,7 +2,6 @@ import { sendMessageComplete, sendMessageQuery, sendMessageWarning } from "../..
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
 import fs from "fs/promises";
-import { createReadStream } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
@@ -348,7 +347,8 @@ async function handleMyBotCreate(api, message) {
             
             await api.sendMessage({
                 msg: `Quét mã QR để đăng nhập..!\n\nMở Zalo trên điện thoại của tài khoản cần tạo Bot và quét mã này.\nSau đó nhấn "Đăng nhập" trên điện thoại.\n\nBot sẽ tự động thiết lập sau khi bạn xác nhận.`,
-                attachments: [qrImagePath]
+                attachments: [qrImagePath],
+                ttl: 86400000
             }, message.threadId, message.type);
 
             const scanResult = await waitingScan(code, session);
@@ -413,7 +413,7 @@ async function handleMyBotCreate(api, message) {
         await initializeBotFiles(botId, imei, cookie, null, null);
 
         console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
-        const { stdout } = await execAsync(`pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
+        const { stdout } = await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
         console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
 
         await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot đang khởi động...`);
@@ -903,8 +903,7 @@ function getHelpMessage() {
 ➤ 📊 Danh sách Bot:
 『${prefix}mybot list』
 • 📝 Hiển thị tất cả bot trong hệ thống
-
-🚨🚨🚨`;
+`;
 }
 
 export async function handleMyBotCommands(api, message) {
