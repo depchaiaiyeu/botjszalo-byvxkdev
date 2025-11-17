@@ -158,14 +158,23 @@ export async function groupEvents(api, event) {
 
   switch (type) {
     case GroupEventType.UPDATE_SETTING:
+      console.log("\n========== UPDATE_SETTING EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("==========================================\n");
       imagePath = await cv.createUpdateSettingImage(actorInfo, actorName, groupName, groupType);
       break;
 
     case GroupEventType.UPDATE:
+      console.log("\n========== UPDATE EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("==================================\n");
       imagePath = await cv.createUpdateDescImage(actorInfo, actorName, groupName, groupType);
       break;
 
     case GroupEventType.NEW_LINK:
+      console.log("\n========== NEW_LINK EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("====================================\n");
       imagePath = await cv.createNewLinkImage(actorInfo, actorName, groupName, groupType);
       if (imagePath && link) {
         await sendGroupMessage(api, threadId, imagePath, `🔗 Link ${groupTypeText.toLowerCase()} mới: ${link}`);
@@ -175,46 +184,49 @@ export async function groupEvents(api, event) {
       break;
 
     case GroupEventType.NEW_PIN_TOPIC:
+      console.log("\n========== NEW_PIN_TOPIC EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("=========================================\n");
       imagePath = await cv.createPinTopicImage(actorInfo, actorName, groupName, topicTitle, groupType);
       break;
 
     case GroupEventType.UPDATE_TOPIC:
+      console.log("\n========== UPDATE_TOPIC EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("========================================\n");
       imagePath = await cv.createUpdateTopicImage(actorInfo, actorName, groupName, topicTitle, groupType);
       break;
 
     case GroupEventType.UPDATE_BOARD:
+      console.log("\n========== UPDATE_BOARD EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("========================================\n");
       imagePath = await cv.createUpdateBoardImage(actorInfo, actorName, groupName, groupType);
       break;
 
     case GroupEventType.REORDER_PIN_TOPIC:
+      console.log("\n========== REORDER_PIN_TOPIC EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("=============================================\n");
       imagePath = await cv.createReorderPinImage(actorInfo, actorName, groupName, groupType);
       break;
 
     case GroupEventType.UNPIN_TOPIC:
+      console.log("\n========== UNPIN_TOPIC EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("=======================================\n");
       imagePath = await cv.createUnpinTopicImage(actorInfo, actorName, groupName, topicTitle, groupType);
       break;
 
     case GroupEventType.REMOVE_TOPIC:
+      console.log("\n========== REMOVE_TOPIC EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("========================================\n");
       imagePath = await cv.createRemoveTopicImage(actorInfo, actorName, groupName, topicTitle, groupType);
       break;
 
     case GroupEventType.ADD_ADMIN:
     case GroupEventType.REMOVE_ADMIN:
-      if (subType === 1) {
-        const isAdd = type === GroupEventType.ADD_ADMIN;
-        const targetInfo = event.data?.updateMembers?.[0];
-        const targetName = targetInfo?.dName || "Người dùng";
-        const sourceInfo = await getUserInfoData(api, idAction);
-        imagePath = await cv.createAdminChangeImage(sourceInfo, targetName, groupName, isAdd, groupType);
-      }
-      break;
-
-    default:
-      break;
-  }
-
-  if (imagePath) {
-    await sendGroupMessage(api, threadId, imagePath, "");
-    await cv.clearImagePath(imagePath);
-  }
-}
+      console.log("\n========== ADD/REMOVE_ADMIN EVENT ==========");
+      console.log(JSON.stringify(event, null, 2));
+      console.log("============================================\n");
