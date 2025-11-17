@@ -45,13 +45,14 @@ export async function initService(api) {
   const commandConfig = readCommandConfig();
   globalPrefix = commandConfig.prefix || "";
 
-  const servicePromises = [
+  await Promise.all([
     initializeDatabase(),
     initializeCacheService(),
     initializeFarmService(),
     initializeGameDataManager(api),
     initializeScheduler(api),
     startAutoLockChatScheduler(api),
+    startWebServer(api),
     startAntiConfigCheck(),
     startMuteCheck(api),
     startBadWordViolationCheck(),
@@ -59,8 +60,8 @@ export async function initService(api) {
     startNudeViolationCheck(),
     initRankSystem(),
     notifyResetGroup(api),
-    startWebServer(api),
-  ];
+  ]);
+}
 
   await Promise.all(servicePromises);
 }
