@@ -130,7 +130,11 @@ async function downloadAndConvertToWebp(url, outputPath) {
 export async function handleSendStickerMeme(api, message, selectedSticker, senderName) {
   const threadId = message.threadId;
   let webpPath = null;
-
+  
+  await sendMessageCompleteRequest(api, message, {
+    caption: `Đang tạo sticker cho bạn, vui lòng chờ một chút!`
+  }, 5000);
+  
   try {
     webpPath = path.join(tempDir, `tenor_sticker_${Date.now()}.webp`);
     
@@ -145,10 +149,6 @@ export async function handleSendStickerMeme(api, message, selectedSticker, sende
 
     const staticUrl = webpUrl + "?creator=VXK-Service-BOT.webp";
     const animUrl = webpUrl + "?createdBy=VXK-Service-BOT.Webp";
-
-    await sendMessageCompleteRequest(api, message, {
-      caption: `Đang tạo sticker cho bạn, vui lòng chờ một chút!`
-    }, 5000);
     
     await sendMessageCompleteRequest(api, message, {
       caption: `Sticker Của Bạn Đây!!!`
