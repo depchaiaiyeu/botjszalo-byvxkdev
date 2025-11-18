@@ -332,9 +332,9 @@ function getSettingName(key) {
   const settingsMap = {
     blockName: "Chặn sửa thông tin nhóm",
     signAdminMsg: "Làm nổi tin nhắn từ Admin",
-    addMemberOnly: "Admin phê duyệt thành viên",
+    addMemberOnly: "Admin phê duyệt thành viên mới",
     setTopicOnly: "Chỉ Admin được đổi chủ đề",
-    enableMsgHistory: "Thành viên cũ xem lịch sử tin nhắn",
+    enableMsgHistory: "Thành viên mới xem lịch sử tin nhắn",
     joinAppr: "Phê duyệt thành viên mới",
     lockCreatePost: "Khóa tạo bài viết",
     lockCreatePoll: "Khóa tạo bình chọn",
