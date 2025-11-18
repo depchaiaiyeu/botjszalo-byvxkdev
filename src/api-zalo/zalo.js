@@ -60,7 +60,7 @@ import { sendVideov2Factory } from "./apis/sendVideov2.js";
 import { updateProfileAvatarFactory } from "./apis/updateProfileAvatarFactory.js";
 import { getBlockedGroupMembersFactory } from "./apis/getBlockMemberList.js";
 import { sendMessageForwardFactory } from "./apis/sendMessageForward.js";
-import { updateProfile } from "./apis/updateProfile.js";
+import { updateProfileFactory } from "./apis/updateProfile.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
