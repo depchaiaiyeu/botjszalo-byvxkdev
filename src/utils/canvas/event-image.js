@@ -330,18 +330,16 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
 
 function getSettingName(key) {
   const settingsMap = {
-    blockName: "Chặn Đổi Tên",
-    signAdminMsg: "Làm Nổi Tin Nhắn Admin",
-    addMemberOnly: "Chỉ Admin Thêm Thành Viên",
-    setTopicOnly: "Chỉ Admin Đổi Chủ Đề",
-    enableMsgHistory: "Xem Lịch Sử Tin Nhắn",
-    joinAppr: "Phê Duyệt Thành Viên",
-    lockCreatePost: "Khóa Tạo Bài Viết",
-    lockCreatePoll: "Khóa Tạo Bình Chọn",
-    lockSendMsg: "Khóa Gửi Tin Nhắn",
-    lockViewMember: "Khóa Xem Thành Viên",
-    bannFeature: "Chức Năng Cấm",
-    dirtyMedia: "Lọc Nội Dung Nhạy Cảm"
+    blockName: "Chặn sửa thông tin nhóm",
+    signAdminMsg: "Làm nổi tin nhắn từ Admin",
+    addMemberOnly: "Admin phê duyệt thành viên",
+    setTopicOnly: "Chỉ Admin được đổi chủ đề",
+    enableMsgHistory: "Thành viên cũ xem lịch sử tin nhắn",
+    joinAppr: "Phê duyệt thành viên mới",
+    lockCreatePost: "Khóa tạo bài viết",
+    lockCreatePoll: "Khóa tạo bình chọn",
+    lockSendMsg: "Chặn gửi tin nhắn",
+    lockViewMember: "Chặn thành viên xem thành viên"
   };
   return settingsMap[key] || key;
 }
