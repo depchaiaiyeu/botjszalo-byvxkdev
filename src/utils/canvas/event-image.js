@@ -6,13 +6,6 @@ import * as cs from "./index.js";
 export const linkBackgroundDefault = "https://i.postimg.cc/tTwFPLV1/avt.jpg";
 export const linkBackgroundDefaultZalo = "https://i.postimg.cc/tTwFPLV1/avt.jpg";
 
-function toTitleCase(str) {
-  return str.split(' ').map(word => {
-    if (word.length === 0) return word;
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  }).join(' ');
-}
-
 export async function getLinkBackgroundDefault(userInfo) {
   let backgroundImage;
   try {
@@ -132,43 +125,35 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let x1 = xAvatar - widthAvatar / 2 + widthAvatar;
   let x2 = x1 + (width - x1) / 2 - 5;
-  let y1 = 86;
+  let startY = 70;
+  let lineHeight = 42;
 
-  const titleGradient = ctx.createLinearGradient(x2 - 150, y1 - 30, x2 + 150, y1);
-  shuffledColors.slice(0, 3).forEach((color, index) => {
-    titleGradient.addColorStop(index / 2, color);
-  });
-  ctx.fillStyle = titleGradient;
-  ctx.textAlign = "center";
-  ctx.font = "bold 36px BeVietnamPro";
-  ctx.fillText(message.title, x2, y1);
+  const texts = [
+    message.title,
+    message.userName,
+    message.subtitle,
+    message.author
+  ].filter(text => text);
 
-  let y2 = y1 + 50;
-  const userNameGradient = ctx.createLinearGradient(x2 - 150, y2 - 30, x2 + 150, y2);
-  shuffledColors.slice(2, 5).forEach((color, index) => {
-    userNameGradient.addColorStop(index / 2, color);
+  texts.forEach((text, index) => {
+    const y = startY + (index * lineHeight);
+    const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
+    shuffledColors.slice(index, index + 3).forEach((color, colorIndex) => {
+      textGradient.addColorStop(colorIndex / 2, color);
+    });
+    ctx.fillStyle = textGradient;
+    ctx.textAlign = "center";
+    
+    if (index === 0) {
+      ctx.font = "bold 30px BeVietnamPro";
+    } else if (index === 1) {
+      ctx.font = "bold 30px BeVietnamPro";
+    } else {
+      ctx.font = "28px BeVietnamPro";
+    }
+    
+    ctx.fillText(text, x2, y);
   });
-  ctx.fillStyle = userNameGradient;
-  ctx.font = "bold 36px BeVietnamPro";
-  ctx.fillText(message.userName, x2, y2);
-
-  let y3 = y2 + 45;
-  const subtitleGradient = ctx.createLinearGradient(x2 - 150, y3 - 30, x2 + 150, y3);
-  shuffledColors.slice(1, 4).forEach((color, index) => {
-    subtitleGradient.addColorStop(index / 2, color);
-  });
-  ctx.fillStyle = subtitleGradient;
-  ctx.font = "32px BeVietnamPro";
-  ctx.fillText(message.subtitle, x2, y3);
-
-  let y4 = y3 + 45;
-  const authorGradient = ctx.createLinearGradient(x2 - 150, y4 - 30, x2 + 150, y4);
-  shuffledColors.slice(3, 6).forEach((color, index) => {
-    authorGradient.addColorStop(index / 2, color);
-  });
-  ctx.fillStyle = authorGradient;
-  ctx.font = "bold 32px BeVietnamPro";
-  ctx.fillText(message.author, x2, y4);
 
   const filePath = path.resolve(`./assets/temp/${fileName}`);
   const out = fs.createWriteStream(filePath);
@@ -181,16 +166,15 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 }
 
 export async function createJoinRequestImage(userInfo, groupName, groupType, userActionName, isAdmin) {
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   const userName = userInfo.name || "";
   return createImage(
     userInfo,
     {
-      title: `Join Request ${groupTypeText}`,
+      title: `Join Request ${groupType === 2 ? "Community" : "Group"}`,
       userName: groupName,
       subtitle: `${isAdmin ? "Sếp " : ""}${userName}`,
-      author: toTitleCase(`Đã Gửi Yêu Cầu Tham Gia ${vnGroupType}`),
+      author: `Đã gửi yêu cầu tham gia ${groupTypeText}`,
     },
     `join_request_${Date.now()}.png`
   );
@@ -198,14 +182,15 @@ export async function createJoinRequestImage(userInfo, groupName, groupType, use
 
 export async function createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdmin) {
   const userName = userInfo.name || "";
-  const authorText = userActionName === userName ? "Tham Gia Trực Tiếp Hoặc Được Mời" : `Duyệt Bởi ${userActionName}`;
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const authorText = userActionName === userName ? "Tham gia trực tiếp hoặc được mời" : `Duyệt bởi ${userActionName}`;
   return createImage(
     userInfo,
     {
       title: groupName,
-      userName: `Chào Mừng ${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Đã Tham Gia ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
-      author: toTitleCase(authorText),
+      userName: `Chào mừng ${isAdmin ? "Sếp " : ""}${userName}`,
+      subtitle: `Đã tham gia ${groupTypeText}`,
+      author: authorText,
     },
     `welcome_${Date.now()}.png`
   );
@@ -213,12 +198,13 @@ export async function createWelcomeImage(userInfo, groupName, groupType, userAct
 
 export async function createGoodbyeImage(userInfo, groupName, groupType, isAdmin) {
   const userName = userInfo.name || "";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: "Member Left The Group",
       userName: `${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Vừa Rời Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      subtitle: `Vừa rời khỏi ${groupTypeText}`,
       author: groupName
     },
     `goodbye_${Date.now()}.png`
@@ -228,13 +214,14 @@ export async function createGoodbyeImage(userInfo, groupName, groupType, isAdmin
 export async function createKickImage(userInfo, groupName, groupType, gender, userActionName, isAdmin) {
   const userName = userInfo.name || "";
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
-  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} Oắt Con ${userName}`;
+  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} oắt con ${userName}`;
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: `Kicked Out Member`,
       userName: userNameText,
-      subtitle: toTitleCase(`Đã Bị ${userActionName} Sút Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      subtitle: `Đã bị ${userActionName} sút khỏi ${groupTypeText}`,
       author: groupName,
     },
     `kicked_${Date.now()}.png`
@@ -244,13 +231,14 @@ export async function createKickImage(userInfo, groupName, groupType, gender, us
 export async function createBlockImage(userInfo, groupName, groupType, gender, userActionName, isAdmin) {
   const userName = userInfo.name || "";
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
-  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} Oắt Con ${userName}`;
+  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} oắt con ${userName}`;
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: `Blocked Out Member`,
       userName: userNameText,
-      subtitle: toTitleCase(`Đã Bị ${userActionName} Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      subtitle: `Đã bị ${userActionName} chặn khỏi ${groupTypeText}`,
       author: groupName,
     },
     `blocked_${Date.now()}.png`
@@ -260,12 +248,13 @@ export async function createBlockImage(userInfo, groupName, groupType, gender, u
 export async function createBlockSpamImage(userInfo, groupName, groupType, gender) {
   const userName = userInfo.name || "";
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: `Blocked Out Spam Member`,
-      userName: `${genderText} Oắt Con ${userName}`,
-      subtitle: toTitleCase(`Do Spam Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      userName: `${genderText} oắt con ${userName}`,
+      subtitle: `Do spam đã bị chặn khỏi ${groupTypeText}`,
       author: groupName,
     },
     `blocked_spam_${Date.now()}.png`
@@ -275,12 +264,13 @@ export async function createBlockSpamImage(userInfo, groupName, groupType, gende
 export async function createBlockSpamLinkImage(userInfo, groupName, groupType, gender) {
   const userName = userInfo.name || "";
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: `Blocked Out Spam Link Member`,
-      userName: `${genderText} Oắt Con ${userName}`,
-      subtitle: toTitleCase(`Do Spam Link Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      userName: `${genderText} oắt con ${userName}`,
+      subtitle: `Do spam link đã bị chặn khỏi ${groupTypeText}`,
       author: groupName,
     },
     `blocked_spam_link_${Date.now()}.png`
@@ -290,12 +280,13 @@ export async function createBlockSpamLinkImage(userInfo, groupName, groupType, g
 export async function createBlockAntiBotImage(userInfo, groupName, groupType, gender) {
   const userNames = userInfo.name || "";
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     userInfo,
     {
       title: `Blocked Out Anti Bot Member`,
-      userName: `${genderText} Oắt Con ${userNames}`,
-      subtitle: toTitleCase(`Do Sử Dụng Bot Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      userName: `${genderText} oắt con ${userNames}`,
+      subtitle: `Do sử dụng bot đã bị chặn khỏi ${groupTypeText}`,
       author: groupName,
     },
     `blocked_anti_bot_${Date.now()}.png`
@@ -308,8 +299,8 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
     actorInfo,
     {
       title: groupName,
-      userName: `Cài Đặt ${vnGroupType} Đã Được Cập Nhật`,
-      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      userName: `Cài đặt ${vnGroupType} đã được cập nhật`,
+      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
       author: actorName,
     },
     `setting_${Date.now()}.png`
@@ -322,8 +313,8 @@ export async function createUpdateDescImage(actorInfo, actorName, groupName, gro
     actorInfo,
     {
       title: groupName,
-      userName: `Mô Tả ${vnGroupType} Đã Được Cập Nhật`,
-      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      userName: `Mô tả ${vnGroupType} đã được cập nhật`,
+      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
       author: actorName,
     },
     `update_${Date.now()}.png`
@@ -336,8 +327,8 @@ export async function createNewLinkImage(actorInfo, actorName, groupName, groupT
     actorInfo,
     {
       title: groupName,
-      userName: `Link Mời ${vnGroupType} Đã Được Tạo Mới`,
-      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      userName: `Link mời ${vnGroupType} đã được tạo mới`,
+      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
       author: actorName,
     },
     `link_${Date.now()}.png`
@@ -350,8 +341,8 @@ export async function createUpdateBoardImage(actorInfo, actorName, groupName, gr
     actorInfo,
     {
       title: groupName,
-      userName: `Bảng Thông Báo ${vnGroupType} Đã Được Cập Nhật`,
-      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      userName: `Bảng thông báo ${vnGroupType} đã được cập nhật`,
+      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
       author: actorName,
     },
     `board_${Date.now()}.png`
@@ -362,11 +353,11 @@ export async function createAdminChangeImage(targetUserInfo, actorName, targetNa
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   
   const titleText = groupName;
-  const userNameText = isAdd ? `Chúc Mừng ${targetName}` : `Chia Buồn Cùng ${targetName}`;
+  const userNameText = isAdd ? `Chúc mừng ${targetName}` : `Chia buồn cùng ${targetName}`;
   const subtitleText = isAdd 
-    ? toTitleCase(`Đã Được Phong Làm Phó ${groupTypeText}`)
-    : toTitleCase(`Đã Bị Tước Quyền Phó ${groupTypeText}`);
-  const authorText = toTitleCase(`Thực Hiện Bởi ${actorName}`);
+    ? `Đã được phong làm Phó ${groupTypeText}`
+    : `Đã bị tước quyền Phó ${groupTypeText}`;
+  const authorText = `Thực hiện bởi Trưởng ${groupTypeText} ${actorName}`;
 
   return createImage(
     targetUserInfo,
