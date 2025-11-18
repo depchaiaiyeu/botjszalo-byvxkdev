@@ -7,8 +7,8 @@ import { getTimeToString, getTimeNow } from "./format-util.js"
 export const botId = process.argv[2] || 'main'
 const isMainBot = botId === 'main'
 
-console.log(chalk.cyan(`📦 Config Loader: Bot ID = ${botId}`))
-console.log(chalk.cyan(`📦 Config Loader: Is Main Bot = ${isMainBot}`))
+console.log(chalk.cyan(`• Khởi tạo Bot ID: ${botId}`))
+console.log(chalk.cyan(`• Chế độ: ${isMainBot ? 'Bot chính' : 'Bot con'}`))
 
 let botInfo = {
   adminFilePath: path.resolve("./assets/data/list_admin.json"),
@@ -27,17 +27,43 @@ let botInfo = {
 
 if (!isMainBot) {
   const subBotPath = path.resolve("./mybot", `${botId}.json`)
-  console.log(chalk.yellow(`📦 Config Loader: Tìm bot con tại ${subBotPath}`))
+  console.log(chalk.yellow(`• Đang tìm kiếm cấu hình bot con tại: ${subBotPath}`))
 
   if (fs.existsSync(subBotPath)) {
     try {
       const subBotData = JSON.parse(fs.readFileSync(subBotPath, "utf-8"))
-      console.log(chalk.green(`✅ Config Loader: Tìm thấy bot con ${botId}`))
+      console.log(chalk.green(`• Tìm thấy bot con: ${botId}`))
+      
+      const mainCommandPath = path.resolve("./assets/json-data/command.json")
+      const subCommandPath = path.resolve("./mybot/json-data/command_" + botId + ".json")
+      
+      if (fs.existsSync(mainCommandPath)) {
+        console.log(chalk.yellow(`• Đang sao chép cấu hình lệnh từ bot chính...`))
+        try {
+          const mainCommandData = JSON.parse(fs.readFileSync(mainCommandPath, "utf-8"))
+          
+          if (mainCommandData && mainCommandData.prefix) {
+            mainCommandData.prefix = "."
+            console.log(chalk.green(`• Đã thay đổi prefix thành: .`))
+          }
+          
+          const subCommandDir = path.dirname(subCommandPath)
+          if (!fs.existsSync(subCommandDir)) {
+            fs.mkdirSync(subCommandDir, { recursive: true })
+          }
+          
+          fs.writeFileSync(subCommandPath, JSON.stringify(mainCommandData, null, 2), "utf-8")
+          console.log(chalk.green(`• Sao chép cấu hình lệnh thành công`))
+        } catch (error) {
+          console.error(chalk.red(`• Lỗi khi sao chép cấu hình lệnh: ${error.message}`))
+        }
+      }
+      
       botInfo = {
         adminFilePath: path.resolve("./mybot/data/list_admin_" + botId + ".json"),
         groupSettingsPath: path.resolve("./mybot/data/group_settings_" + botId + ".json"),
         configFilePath: path.resolve("./mybot/data/config_" + botId + ".json"),
-        commandFilePath: path.resolve("./mybot/json-data/command.json"),
+        commandFilePath: subCommandPath,
         logDir: path.resolve("./logs", botId),
         resourceDir: path.resolve("./resources", botId),
         tempDir: path.resolve("./temp", botId),
@@ -50,17 +76,17 @@ if (!isMainBot) {
         subBotConfig: subBotData,
         mainBotConfigPath: path.resolve("./assets/config.json")
       }
-      console.log(chalk.cyan(`📦 Config Loader: Command path = ${botInfo.commandFilePath} (riêng bot con)`))
+      console.log(chalk.cyan(`• Đường dẫn lệnh bot con: ${botInfo.commandFilePath}`))
     } catch (error) {
-      console.error(chalk.red(`❌ Config Loader: Lỗi khi đọc bot con ${botId}: ${error.message}`))
+      console.error(chalk.red(`• Lỗi khi đọc cấu hình bot con ${botId}: ${error.message}`))
       process.exit(1)
     }
   } else {
-    console.error(chalk.red(`❌ Config Loader: Bot con ${botId} không tồn tại`))
+    console.error(chalk.red(`• Bot con ${botId} không tồn tại`))
     process.exit(1)
   }
 } else {
-  console.log(chalk.green(`✅ Config Loader: Load bot chính từ /assets`))
+  console.log(chalk.green(`• Đang tải cấu hình bot chính từ /assets`))
 }
 
 const adminFilePath = botInfo.adminFilePath
@@ -87,7 +113,7 @@ export async function ensureLogFiles() {
     if (!fs.existsSync(loggingMessageJsonPath)) fs.writeFileSync(loggingMessageJsonPath, "{}")
     if (!fs.existsSync(dataGamePath)) fs.writeFileSync(dataGamePath, "{}")
   } catch (err) {
-    console.error("Lỗi khi tạo thư mục hoặc file log:", err)
+    console.error("• Lỗi khi tạo thư mục hoặc file log:", err)
   }
 }
 
@@ -106,20 +132,20 @@ export function readConfig() {
     const config = JSON.parse(data)
 
     if (!isMainBot && Object.keys(config).length === 0 && botInfo.mainBotConfigPath) {
-      console.log(chalk.yellow(`⚠️ Config Loader: File config bot con trống, load từ bot chính`))
+      console.log(chalk.yellow(`• Cấu hình bot con trống, đang tải từ bot chính...`))
       try {
         const mainData = fs.readFileSync(botInfo.mainBotConfigPath, "utf-8");
         const mainConfig = JSON.parse(mainData);
         return mainConfig
       } catch (err) {
-        console.error("Lỗi đọc config bot chính:", err)
+        console.error("• Lỗi khi đọc cấu hình bot chính:", err)
         return config
       }
     }
 
     return config
   } catch (error) {
-    console.error("Lỗi đọc tệp config.json:", error)
+    console.error("• Lỗi khi đọc file config.json:", error)
     return {}
   }
 }
@@ -130,7 +156,7 @@ export function readAdmins() {
     const admins = JSON.parse(data)
     return admins
   } catch (error) {
-    console.error("Lỗi đọc tệp admin:", error)
+    console.error("• Lỗi khi đọc danh sách admin:", error)
     return []
   }
 }
@@ -155,7 +181,7 @@ export function readGroupSettings() {
     const settings = JSON.parse(data)
     return settings
   } catch (error) {
-    console.error("Lỗi khi đọc file group_settings.json:", error)
+    console.error("• Lỗi khi đọc cài đặt nhóm:", error)
     return {}
   }
 }
@@ -164,7 +190,7 @@ export function writeGroupSettings(settings) {
   try {
     fs.writeFileSync(groupSettingsPath, JSON.stringify(settings, null, 2), "utf-8")
   } catch (error) {
-    console.error("Lỗi khi ghi file group_settings.json:", error)
+    console.error("• Lỗi khi ghi cài đặt nhóm:", error)
   }
 }
 
@@ -174,7 +200,7 @@ export function readCommandConfig() {
     const config = JSON.parse(data)
     return config
   } catch (error) {
-    console.error(`Lỗi khi đọc file command.json (${commandFilePath}):`, error)
+    console.error(`• Lỗi khi đọc cấu hình lệnh (${commandFilePath}):`, error)
     return { commands: [] }
   }
 }
@@ -183,7 +209,7 @@ export function writeCommandConfig(config) {
   try {
     fs.writeFileSync(commandFilePath, JSON.stringify(config, null, 2))
   } catch (error) {
-    console.error(`Lỗi khi ghi file command.json (${commandFilePath}):`, error)
+    console.error(`• Lỗi khi ghi cấu hình lệnh (${commandFilePath}):`, error)
   }
 }
 
@@ -194,7 +220,7 @@ export function readWebConfig() {
     const config = JSON.parse(data)
     return config
   } catch (error) {
-    console.error("Lỗi khi đọc file web-config.json:", error)
+    console.error("• Lỗi khi đọc cấu hình web:", error)
     return {}
   }
 }
@@ -212,7 +238,7 @@ export function readManagerFile() {
     return parsedData
   } catch (error) {
     if (error.code === "ENOENT") return {}
-    console.error("Lỗi khi đọc file block:", error)
+    console.error("• Lỗi khi đọc file quản lý:", error)
     return {}
   }
 }
@@ -235,7 +261,7 @@ export function readProphylacticConfig() {
     const parsedData = JSON.parse(data)
     return parsedData
   } catch (error) {
-    console.error("Lỗi khi đọc file prophylactic.json:", error)
+    console.error("• Lỗi khi đọc cấu hình bảo vệ:", error)
     return {
       prophylacticUploadAttachment: {
         enable: false,
@@ -250,7 +276,7 @@ export function writeProphylacticConfig(data) {
   try {
     fs.writeFileSync(PROPHYLACTIC_CONFIG_PATH, JSON.stringify(data, null, 2))
   } catch (error) {
-    console.error("Lỗi khi ghi file prophylactic.json:", error)
+    console.error("• Lỗi khi ghi cấu hình bảo vệ:", error)
   }
 }
 
