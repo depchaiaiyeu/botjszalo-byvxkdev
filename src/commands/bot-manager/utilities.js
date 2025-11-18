@@ -20,7 +20,7 @@ import fetch from "node-fetch";
 import { setTimeout as delay } from 'timers/promises';
 import * as cheerio from "cheerio";
 import qs from "qs";
-
+import { inspect } from 'util';
 
 let stop = false;
 
@@ -123,7 +123,7 @@ export async function handleEval(api, message) {
 
     const code = content.replace(`${prefix}eval`, '').trim();
     if (!code) {
-      await sendMessageComplete(api, message, `Vui lòng nhập code để thực thi.`);
+      await sendMessageComplete(api, message, 'Vui lòng nhập code để thực thi.');
       return;
     }
 
@@ -133,23 +133,14 @@ export async function handleEval(api, message) {
 
     let output;
     try {
-      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
       const evalFunc = new AsyncFunction('api', 'message', 'senderId', 'threadId', 'senderName', code);
       output = await evalFunc(api, message, senderId, threadId, senderName);
     } catch (err) {
-      output = err?.stack || err?.message || String(err);
+      output = err;
     }
 
-    let resultText;
-    if (output === undefined) {
-      resultText = 'undefined';
-    } else if (output === null) {
-      resultText = 'null';
-    } else if (typeof output === 'object') {
-      resultText = JSON.stringify(output, getCircularReplacer(), 2);
-    } else {
-      resultText = String(output);
-    }
+    const resultText = inspect(output, { depth: null, maxArrayLength: null, showHidden: false });
 
     await sendMessageComplete(api, message, resultText);
     console.log('=== Eval Output ===\n', resultText);
@@ -157,17 +148,6 @@ export async function handleEval(api, message) {
     console.error('Eval handler error:', err);
     await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
-}
-
-function getCircularReplacer() {
-  const seen = new WeakSet();
-  return (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (seen.has(value)) return '[Circular]';
-      seen.add(value);
-    }
-    return value;
-  };
 }
 
 export async function handleCallGroupCommand(api, message) {
