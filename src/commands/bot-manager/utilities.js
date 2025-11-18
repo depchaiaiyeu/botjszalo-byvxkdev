@@ -1694,37 +1694,41 @@ export async function handleSendFriendRequest(api, message, customMessage = "Ch�
   }
 }
 export async function handleUpdateProfileName(api, message) {
-  try {
-      const senderId = message.data.uidFrom; // Lấy ID người gửi
-      const content = message.data?.content ? message.data.content.trim() : "";
-      const prefix = getGlobalPrefix(); // Nếu có prefix
+    try {
+        const senderId = message.data.uidFrom;
+        const content = message.data?.content ? message.data.content.trim() : "";
+        const prefix = getGlobalPrefix();
 
-      if (!content.startsWith(prefix + "setname")) {
-          return;
-      }
+        if (!content.startsWith(prefix + "setname")) {
+            return;
+        }
 
-      const newName = content.replace(prefix + "setname", "").trim();
-      if (!newName) {
-          await sendMessageStateQuote(api, message, "Vui lòng nhập tên mới cho profile!", false, 30000);
-          return;
-      }
+        const newName = content.replace(prefix + "setname", "").trim();
+        if (!newName) {
+            await sendMessageStateQuote(api, message, "Vui lòng nhập tên mới cho profile!", false, 30000);
+            return;
+        }
 
-      console.log(`🔄 Đang đổi tên profile của [${senderId}] thành: ${newName}`);
+        const response = await api.updateProfile({
+            profile: {
+                name: newName,
+                dob: "2000-01-01",
+                gender: 0
+            }
+        });
 
-      // Gọi API để đổi tên profile
-      const response = await api.updateZaloName(senderId, newName);
-      console.log("📌 Phản hồi từ API updateZaloName:", response);
+        console.log("Response updateProfile:", response);
 
-      if (response?.success) {
-          await sendMessageStateQuote(api, message, `Đã đổi tên profile của bạn thành: ${newName}`, true, 30000);
-      } else {
-          await sendMessageStateQuote(api, message, `❌ Không thể đổi tên. Phản hồi từ API: ${JSON.stringify(response)}`, false, 30000);
-      }
+        if (response && response.error === 0) {
+            await sendMessageStateQuote(api, message, `Đã đổi tên profile của bot thành: ${newName}`, true, 30000);
+        } else {
+            await sendMessageStateQuote(api, message, `❌ Không thể đổi tên. Phản hồi từ API: ${response?.message || JSON.stringify(response)}`, false, 30000);
+        }
 
-  } catch (error) {
-      console.error("❌ Lỗi khi đổi tên profile:", error);
-      await sendMessageStateQuote(api, message, `❌ Đã xảy ra lỗi khi đổi tên profile`, false, 30000);
-  }
+    } catch (error) {
+        console.error(error);
+        await sendMessageStateQuote(api, message, `❌ Đã xảy ra lỗi khi đổi tên profile`, false, 30000);
+    }
 }
 export async function spamCallInGroup(api, message, aliasCommand) {
   try {
