@@ -60,7 +60,7 @@ import { sendVideov2Factory } from "./apis/sendVideov2.js";
 import { updateProfileAvatarFactory } from "./apis/updateProfileAvatarFactory.js";
 import { getBlockedGroupMembersFactory } from "./apis/getBlockMemberList.js";
 import { sendMessageForwardFactory } from "./apis/sendMessageForward.js";
-import { updateZaloNameFactory } from "./apis/changProfileName.js";
+import { updateProfile } from "./apis/updateProfile.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
@@ -265,7 +265,7 @@ class API {
     this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
     this.removeGroupBlockedMember = removeGroupBlockedMemberFactory(this),
     this.sendMessageForward = sendMessageForwardFactory(this);
-    this.updateZaloName = updateZaloNameFactory(this);
+    this.updateProfile = updateProfileFactory(this);
     this.sendCallVoice = sendCallVoiceFactory(this);
     this.uploadToZCloud = uploadToZCloudFactory(this);
     this.callGroup = callGroupFactory(this);
