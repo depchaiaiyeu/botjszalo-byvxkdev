@@ -180,9 +180,13 @@ export async function groupEvents(api, event) {
     case GroupEventType.REMOVE_ADMIN:
       if (subType === 1) {
         const isAdd = type === GroupEventType.ADD_ADMIN;
-        const targetInfo = event.data?.updateMembers?.[0];
-        const targetName = targetInfo?.dName || "Người dùng";
-        imagePath = await cv.createAdminChangeImage(actorInfo, targetName, groupName, isAdd, groupType);
+        const targetRawInfo = event.data?.updateMembers?.[0]; 
+        const targetId = targetRawInfo?.id;
+        const targetName = targetRawInfo?.dName || "Người dùng";
+        
+        const targetUserInfo = await getUserInfoData(api, targetId); 
+        
+        imagePath = await cv.createAdminChangeImage(targetUserInfo, actorName, targetName, groupName, isAdd, groupType); 
       }
       break;
 
