@@ -481,7 +481,9 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
         }
 
         const memberToUnblock = blockedMembers[index];
-        await api.removeGroupBlockedMember(memberToUnblock.uid, threadId);
+        const memberIds = [memberToUnblock.uid];
+        
+        await api.removeGroupBlockedMember(memberIds, threadId);
 
         await sendMessageStateQuote(
           api,
