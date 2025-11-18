@@ -25,6 +25,7 @@ async function sendGroupMessage(api, threadId, imagePath, messageText) {
 }
 
 export async function groupEvents(api, event) {
+  console.log(event);
   const type = event.type;
   const { updateMembers } = event.data;
   const groupName = event.data.groupName;
