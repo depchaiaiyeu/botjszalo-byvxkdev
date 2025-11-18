@@ -108,30 +108,36 @@ export async function handleEval(api, message) {
 
     let output;
     try {
-      output = await eval(`(async () => {
-        const api = ${JSON.stringify(api, null, 2)};
-        const message = ${JSON.stringify(message, null, 2)};
-        const senderId = ${JSON.stringify(senderId)};
-        const threadId = ${JSON.stringify(threadId)};
-        const senderName = ${JSON.stringify(senderName)};
-        return ${code};
-      })()`);
+      const evalFunc = new Function('api', 'message', 'senderId', 'threadId', 'senderName', `
+        return (async () => {
+          ${code}
+        })();
+      `);
+      output = await evalFunc(api, message, senderId, threadId, senderName);
     } catch (err) {
       output = err?.stack || err?.message || String(err);
     }
 
     const resultText = typeof output === 'object'
-      ? JSON.stringify(output, null, 2)
+      ? JSON.stringify(output, getCircularReplacer(), 2)
       : String(output);
 
     await sendMessageComplete(api, message, resultText);
-    console.log('=== Eval Output ===\n', resultText);
   } catch (err) {
-    console.error('Eval handler error:', err);
     await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
 }
 
+function getCircularReplacer() {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    return value;
+  };
+}
 export async function handleCallGroupCommand(api, message) {
   try {
     const senderName = message.data?.dName || "Người dùng";
@@ -1575,56 +1581,6 @@ export async function handleRunPythonCommand(api, message) {
       {
         msg: `(@${senderName})\n❌ Lỗi khi gửi SMS: ${error.message}`,
         mentions: [{ uid: senderId, pos: 0, len: senderName.length + 3 }],
-      },
-      threadId,
-      message.type
-    );
-  }
-}
-export async function handleBlockedMembers(api, message) {
-  const threadId = message.threadId;
-  const senderName = message.data?.dName || "Người dùng";
-  const senderId = message.data?.uidFrom;
-  try {
-    const response = await api.getBlockedGroupMembers(threadId);
-  
-    console.log("[ZALO DEBUG] getBlockedGroupMembers response:", JSON.stringify(response, null, 2));
-  
-    const blockedMembers = response?.blocked_members || [];
-    if (blockedMembers.length === 0) {
-      await api.sendMessage(
-        {
-          msg: `@${senderName}\nKhông có thành viên nào bị chặn trong nhóm này.`,
-          mentions: [{ uid: senderId, pos: 0, len: senderName.length + 1 }],
-          ttl: 1000000
-        },
-        threadId,
-        message.type
-      );
-      return;
-    }
-
-    let responseMsg = `@${senderName}\nDanh sách thành viên bị chặn:\n`;
-    blockedMembers.forEach((member, index) => {
-      responseMsg += `${index + 1}. ${member.dName}\n`;
-    });
-
-    await api.sendMessage(
-      {
-        msg: responseMsg,
-        mentions: [{ uid: senderId, pos: 0, len: senderName.length + 1 }],
-        ttl: 1000000
-      },
-      threadId,
-      message.type
-    );
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách thành viên bị chặn:", error.message);
-    await api.sendMessage(
-      {
-        msg: `@${senderName}\nEm có key đâu mà lấy được danh sách mấy khứa bị block trong nhóm này đâu\nHong thì ném em cái KEY :d`,
-        mentions: [{ uid: senderId, pos: 0, len: senderName.length + 1 }],
-        ttl: 1000000
       },
       threadId,
       message.type
