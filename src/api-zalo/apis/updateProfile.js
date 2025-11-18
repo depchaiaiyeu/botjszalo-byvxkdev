@@ -1,6 +1,6 @@
 import { ZaloApiError } from "../Errors/ZaloApiError.js";
 import { appContext } from "../context.js";
-import { makeURL, encodeAES, request, resolve } from "../utils.js";
+import { makeURL, encodeAES, request, handleZaloResponse } from "../utils.js";
 
 export function updateProfileFactory(api) {
     const serviceURL = makeURL(`${api.zpwServiceMap.profile[0]}/api/social/profile/update`);
@@ -32,7 +32,7 @@ export function updateProfileFactory(api) {
             language: appContext.language,
         };
 
-        const encryptedParams = encodeAES(JSON.stringify(params));
+        const encryptedParams = encodeAES(appContext.secretKey, JSON.stringify(params));
         if (!encryptedParams) throw new ZaloApiError("Failed to encrypt params");
 
         const response = await request(serviceURL, {
@@ -42,6 +42,9 @@ export function updateProfileFactory(api) {
             }),
         });
 
-        return resolve(response);
+        const result = await handleZaloResponse(response);
+        if (result.error) throw new ZaloApiError(result.error.message, result.error.code);
+
+        return result.data;
     };
 }
