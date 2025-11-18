@@ -1,18 +1,16 @@
-import { ZaloApiError } from "../Errors/ZaloApiError.js";
+import { Zalo, ZaloApiError } from "../index.js"; // Import Zalo để lấy API_VERSION
 import { appContext } from "../context.js";
 import { makeURL, encodeAES, request, handleZaloResponse } from "../utils.js";
 
 export function updateProfileFactory(api) {
-    const serviceURL = makeURL(`${api.zpwServiceMap.profile[0]}/api/social/profile/update`);
+    // THÊM params zpw_ver và zpw_type
+    const serviceURL = makeURL(`${api.zpwServiceMap.profile[0]}/api/social/profile/update`, {
+        zpw_ver: Zalo.API_VERSION,
+        zpw_type: Zalo.API_TYPE,
+    });
 
     /**
      * Change account setting information
-     *
-     * @param payload payload
-     *
-     * @note If your account is a Business Account, include the biz.cate field; otherwise the category will be removed.
-     * You may leave the other biz fields empty if you don’t want to change them.
-     *
      * @throws {ZaloApiError}
      */
     return async function updateProfile(payload) {
