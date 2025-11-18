@@ -303,56 +303,56 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
 }
 
 export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType) {
-  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: actorName,
-      subtitle: toTitleCase(`Đã Cập Nhật Cài Đặt ${groupTypeText}`),
-      author: toTitleCase(`Thông Tin Được Cập Nhật`),
+      userName: `Cài Đặt ${vnGroupType} Đã Được Cập Nhật`,
+      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      author: actorName,
     },
     `setting_${Date.now()}.png`
   );
 }
 
 export async function createUpdateDescImage(actorInfo, actorName, groupName, groupType) {
-  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: actorName,
-      subtitle: toTitleCase(`Đã Cập Nhật Mô Tả ${groupTypeText}`),
-      author: toTitleCase(`Thông Tin Được Cập Nhật`),
+      userName: `Mô Tả ${vnGroupType} Đã Được Cập Nhật`,
+      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      author: actorName,
     },
     `update_${Date.now()}.png`
   );
 }
 
 export async function createNewLinkImage(actorInfo, actorName, groupName, groupType) {
-  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: actorName,
-      subtitle: toTitleCase(`Đã Tạo Link ${groupTypeText} Mới`),
-      author: toTitleCase(`Cùng Nhau Tham Gia ${groupTypeText} Nào`),
+      userName: `Link Mời ${vnGroupType} Đã Được Tạo Mới`,
+      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      author: actorName,
     },
     `link_${Date.now()}.png`
   );
 }
 
 export async function createUpdateBoardImage(actorInfo, actorName, groupName, groupType) {
-  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: actorName,
-      subtitle: toTitleCase(`Đã Cập Nhật Bảng Thông Tin ${groupTypeText}`),
-      author: toTitleCase(`Bảng Thông Báo Được Cập Nhật`),
+      userName: `Bảng Thông Báo ${vnGroupType} Đã Được Cập Nhật`,
+      subtitle: toTitleCase(`Thực Hiện Bởi Quản Trị ${vnGroupType}`),
+      author: actorName,
     },
     `board_${Date.now()}.png`
   );
