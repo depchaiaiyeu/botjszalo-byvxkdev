@@ -20,6 +20,25 @@ export async function getLinkBackgroundDefault(userInfo) {
   return backgroundImage;
 }
 
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + " " + word).width;
+    if (width < maxWidth) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+
 async function createImage(userInfo, message, fileName, typeImage = -1) {
   const width = 1000;
   const height = 300;
@@ -125,7 +144,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let x1 = xAvatar - widthAvatar / 2 + widthAvatar;
   let x2 = x1 + (width - x1) / 2 - 5;
-  let lineHeight = 43;
+  let maxWidth = width - x1 - 80;
 
   const texts = [
     message.title,
@@ -134,27 +153,41 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     message.author
   ].filter(text => text);
 
-  const totalHeight = (texts.length - 1) * lineHeight;
-  const startY = (height - totalHeight) / 2;
+  let allLines = [];
+  let baseFontSize = 31;
+  let smallFontSize = 29;
 
   texts.forEach((text, index) => {
+    let fontSize = (index === 0 || index === 1) ? baseFontSize : smallFontSize;
+    let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
+    ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
+    
+    const textWidth = ctx.measureText(text).width;
+    if (textWidth > maxWidth) {
+      const lines = wrapText(ctx, text, maxWidth);
+      lines.forEach(line => {
+        allLines.push({ text: line, fontSize, fontWeight, colorIndex: index });
+      });
+    } else {
+      allLines.push({ text, fontSize, fontWeight, colorIndex: index });
+    }
+  });
+
+  const lineHeight = 38;
+  const totalHeight = (allLines.length - 1) * lineHeight;
+  const startY = (height - totalHeight) / 2;
+
+  allLines.forEach((lineObj, index) => {
     const y = startY + (index * lineHeight);
     const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
-    shuffledColors.slice(index, index + 3).forEach((color, colorIndex) => {
+    shuffledColors.slice(lineObj.colorIndex, lineObj.colorIndex + 3).forEach((color, colorIndex) => {
       textGradient.addColorStop(colorIndex / 2, color);
     });
     ctx.fillStyle = textGradient;
     ctx.textAlign = "center";
+    ctx.font = `${lineObj.fontWeight} ${lineObj.fontSize}px BeVietnamPro`;
     
-    if (index === 0) {
-      ctx.font = "bold 30px BeVietnamPro";
-    } else if (index === 1) {
-      ctx.font = "bold 30px BeVietnamPro";
-    } else {
-      ctx.font = "29px BeVietnamPro";
-    }
-    
-    ctx.fillText(text, x2, y);
+    ctx.fillText(lineObj.text, x2, y);
   });
 
   const filePath = path.resolve(`./assets/temp/${fileName}`);
@@ -178,7 +211,7 @@ export async function createJoinRequestImage(userInfo, groupName, groupType, use
       subtitle: `${isAdmin ? "Sếp " : ""}${userName}`,
       author: `Đã gửi yêu cầu tham gia ${groupTypeText}`,
     },
-    `join_request_${Date.now()}    png`
+    `join_request_${Date.now()}.png`
   );
 }
 
@@ -295,15 +328,38 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
   );
 }
 
-export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType) {
+function getSettingName(key) {
+  const settingsMap = {
+    blockName: "Chặn Đổi Tên",
+    signAdminMsg: "Làm Nổi Tin Nhắn Admin",
+    addMemberOnly: "Chỉ Admin Thêm Thành Viên",
+    setTopicOnly: "Chỉ Admin Đổi Chủ Đề",
+    enableMsgHistory: "Xem Lịch Sử Tin Nhắn",
+    joinAppr: "Phê Duyệt Thành Viên",
+    lockCreatePost: "Khóa Tạo Bài Viết",
+    lockCreatePoll: "Khóa Tạo Bình Chọn",
+    lockSendMsg: "Khóa Gửi Tin Nhắn",
+    lockViewMember: "Khóa Xem Thành Viên",
+    bannFeature: "Chức Năng Cấm",
+    dirtyMedia: "Lọc Nội Dung Nhạy Cảm"
+  };
+  return settingsMap[key] || key;
+}
+
+export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType, creatorId, sourceId, settingKey, settingValue) {
   const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const settingName = settingKey ? getSettingName(settingKey) : "Cài Đặt";
+  const status = settingValue === 1 ? "Bật" : "Tắt";
+  const isCreator = creatorId === sourceId;
+  const actorRole = isCreator ? `Trưởng ${vnGroupType}` : `Quản Trị ${vnGroupType}`;
+  
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: `Cài đặt ${vnGroupType} đã được cập nhật`,
-      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
-      author: actorName,
+      userName: settingKey ? settingName : `Cài đặt ${vnGroupType} đã được cập nhật`,
+      subtitle: settingKey ? `Đã được ${status.toLowerCase()}` : `Thực hiện bởi ${actorRole.toLowerCase()}`,
+      author: settingKey ? `Thực hiện bởi ${actorRole} ${actorName}` : actorName,
     },
     `setting_${Date.now()}.png`
   );
