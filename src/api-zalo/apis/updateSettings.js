@@ -1,95 +1,50 @@
 import { ZaloApiError } from "../Errors/ZaloApiError.js";
 import { appContext } from "../context.js";
-import { makeURL, encodeAES, request, resolve } from "../utils.js";
+import { makeURL, encodeAES, request, handleZaloResponse } from "../utils.js";
 
-export const UpdateSettingsType = {
-    ViewBirthday: "view_birthday",
-    ShowOnlineStatus: "show_online_status",
-    DisplaySeenStatus: "display_seen_status",
-    ReceiveMessage: "receive_message",
-    AcceptCall: "accept_stranger_call",
-    AddFriendViaPhone: "add_friend_via_phone",
-    AddFriendViaQR: "add_friend_via_qr",
-    AddFriendViaGroup: "add_friend_via_group",
-    AddFriendViaContact: "add_friend_via_contact",
-    DisplayOnRecommendFriend: "display_on_recommend_friend",
-    ArchivedChat: "archivedChatStatus",
-    QuickMessage: "quickMessageStatus",
-};
-
-export function updateSettingsFactory(api) {
-    const serviceURL = makeURL(`https://wpa.chat.zalo.me/api/setting/update`);
+export function updateProfileFactory(api) {
+    const serviceURL = makeURL(`${api.zpwServiceMap.profile[0]}/api/social/profile/update`);
 
     /**
-     * Set account settings
+     * Change account setting information
      *
-     * @param type The type of setting to update
-     * @param value
+     * @param payload payload
      *
-     * ViewBirthday
-     * * 0: hide
-     * * 1: show full day/month/year
-     * * 2: show day/month
-     *
-     * ShowOnlineStatus
-     * * 0: hide
-     * * 1: show
-     *
-     * DisplaySeenStatus
-     * * 0: hide
-     * * 1: show
-     *
-     * ReceiveMessage
-     * * 1: everyone
-     * * 2: only friends
-     *
-     * AcceptCall
-     * * 2: only friends
-     * * 3: everyone
-     * * 4: friends and person who contacted
-     *
-     * AddFriendViaPhone
-     * * 0: disable
-     * * 1: enable
-     *
-     * AddFriendViaQR
-     * * 0: disable
-     * * 1: enable
-     *
-     * AddFriendViaGroup
-     * * 0: disable
-     * * 1: enable
-     *
-     * AddFriendViaContact
-     * * 0: disable
-     * * 1: enable
-     *
-     * DisplayOnRecommendFriend
-     * * 0: disable
-     * * 1: enable
-     *
-     * ArchivedChat
-     * * 0: disable
-     * * 1: enable
-     *
-     * QuickMessage
-     * * 0: disable
-     * * 1: enable
+     * @note If your account is a Business Account, include the biz.cate field; otherwise the category will be removed.
+     * You may leave the other biz fields empty if you don’t want to change them.
      *
      * @throws {ZaloApiError}
      */
-    return async function updateSettings(type, value) {
+    return async function updateProfile(payload) {
         const params = {
-            [type]: value,
+            profile: JSON.stringify({
+                name: payload.profile.name,
+                dob: payload.profile.dob,
+                gender: payload.profile.gender,
+            }),
+            biz: JSON.stringify({
+                desc: payload.biz?.description,
+                cate: payload.biz?.cate,
+                addr: payload.biz?.address,
+                website: payload.biz?.website,
+                email: payload.biz?.email,
+            }),
+            language: appContext.language,
         };
 
         const encryptedParams = encodeAES(appContext.secretKey, JSON.stringify(params));
         if (!encryptedParams) throw new ZaloApiError("Failed to encrypt params");
 
-        const response = await request(makeURL(serviceURL, { params: encryptedParams }), {
-            method: "GET",
+        const response = await request(serviceURL, {
+            method: "POST",
+            body: new URLSearchParams({
+                params: encryptedParams,
+            }),
         });
 
-        return resolve(response);
+        const result = await handleZaloResponse(response);
+        if (result.error) throw new ZaloApiError(result.error.message, result.error.code);
+
+        return result.data;
     };
 }
