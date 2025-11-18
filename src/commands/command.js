@@ -100,7 +100,6 @@ import {
   testMediaCommand,
   handleGetGroupMembers,
   handleRunPythonCommand,
-  handleBlockedMembers,
   handleSendFriendRequest,
   handleUpdateProfileName,
   spamCallInGroup,
@@ -1273,9 +1272,6 @@ export async function handleCommand(
               case "sms":
                 await handleRunPythonCommand (api, message);
                break;
-               case "groupblocklist":
-                await handleBlockedMembers(api, message);
-              break;
                 case "stickercustom":
                   await handleSendCustomerStickerVideo(api, message, aliasCommand);
                 break;
