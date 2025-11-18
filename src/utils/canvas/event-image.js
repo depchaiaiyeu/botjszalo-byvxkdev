@@ -362,7 +362,7 @@ export async function createAdminChangeImage(targetUserInfo, actorName, targetNa
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   
   const titleText = groupName;
-  const userNameText = isAdd ? `Chúc Mừng ${targetName}` : `Chia Buồn ${targetName}`;
+  const userNameText = isAdd ? `Chúc Mừng ${targetName}` : `Chia Buồn Cùng ${targetName}`;
   const subtitleText = isAdd 
     ? toTitleCase(`Đã Được Phong Làm Phó ${groupTypeText}`)
     : toTitleCase(`Đã Bị Tước Quyền Phó ${groupTypeText}`);
