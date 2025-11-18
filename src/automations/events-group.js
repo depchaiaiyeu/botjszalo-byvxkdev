@@ -6,8 +6,7 @@ import { readGroupSettings } from "../utils/io-json.js";
 import { getBotId, isAdmin } from "../index.js";
 
 const blockedMembers = new Map();
-const BLOCK_CHECK_TIMEOUT = 300;
-const previousSettings = new Map();
+const groupSettingsCache = new Map();
 
 async function sendGroupMessage(api, threadId, imagePath, messageText) {
   const message = messageText ? messageText : "";
@@ -26,8 +25,6 @@ async function sendGroupMessage(api, threadId, imagePath, messageText) {
 }
 
 function detectChangedSetting(oldSettings, newSettings) {
-  if (!oldSettings) return null;
-  
   for (const [key, value] of Object.entries(newSettings)) {
     if (oldSettings[key] !== value) {
       return { key, value };
@@ -46,6 +43,10 @@ export async function groupEvents(api, event) {
   const idAction = event.data.sourceId;
   const creatorId = event.data.creatorId;
   const groupSetting = event.data.groupSetting;
+
+  if (groupSetting && !groupSettingsCache.has(threadId)) {
+    groupSettingsCache.set(threadId, { ...groupSetting });
+  }
 
   const groupSettings = readGroupSettings();
   const threadSettings = groupSettings[threadId] || {};
@@ -102,13 +103,8 @@ export async function groupEvents(api, event) {
           break;
 
         case GroupEventType.REMOVE_MEMBER:
-          if (threadSettings.byeGroup) {
-            if (!blockedMembers.has(userId)) {
-              await new Promise((resolve) => setTimeout(resolve, BLOCK_CHECK_TIMEOUT));
-              if (!blockedMembers.has(userId)) {
-                imagePath = await cv.createKickImage(userInfo, groupName, groupType, userInfo.genderId, userActionName, isAdminBot);
-              }
-            }
+          if (threadSettings.byeGroup && !blockedMembers.has(userId)) {
+            imagePath = await cv.createKickImage(userInfo, groupName, groupType, userInfo.genderId, userActionName, isAdminBot);
           }
           break;
 
@@ -167,8 +163,8 @@ export async function groupEvents(api, event) {
 
   switch (type) {
     case GroupEventType.UPDATE_SETTING:
-      if (groupSetting) {
-        const oldSettings = previousSettings.get(threadId);
+      if (groupSetting && groupSettingsCache.has(threadId)) {
+        const oldSettings = groupSettingsCache.get(threadId);
         const changedSetting = detectChangedSetting(oldSettings, groupSetting);
         
         if (changedSetting) {
@@ -182,20 +178,9 @@ export async function groupEvents(api, event) {
             changedSetting.key,
             changedSetting.value
           );
-        } else {
-          imagePath = await cv.createUpdateSettingImage(
-            actorInfo, 
-            actorName, 
-            groupName, 
-            groupType, 
-            creatorId, 
-            idAction,
-            null,
-            null
-          );
         }
         
-        previousSettings.set(threadId, { ...groupSetting });
+        groupSettingsCache.set(threadId, { ...groupSetting });
       }
       break;
 
