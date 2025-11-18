@@ -338,7 +338,7 @@ export async function createNewLinkImage(actorInfo, actorName, groupName, groupT
       title: groupName,
       userName: actorName,
       subtitle: toTitleCase(`Đã Tạo Link ${groupTypeText} Mới`),
-      author: toTitleCase(`Link Mời Mới Được Tạo`),
+      author: toTitleCase(`Cùng Nhau Tham Gia ${groupTypeText} Nào`),
     },
     `link_${Date.now()}.png`
   );
@@ -358,9 +358,8 @@ export async function createUpdateBoardImage(actorInfo, actorName, groupName, gr
   );
 }
 
-export async function createAdminChangeImage(actorInfo, targetName, groupName, isAdd, groupType) {
+export async function createAdminChangeImage(targetUserInfo, actorName, targetName, groupName, isAdd, groupType) {
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const actorName = actorInfo.name || "";
   
   const titleText = groupName;
   const userNameText = isAdd ? `Chúc Mừng ${targetName}` : `Chia Buồn ${targetName}`;
@@ -370,7 +369,7 @@ export async function createAdminChangeImage(actorInfo, targetName, groupName, i
   const authorText = toTitleCase(`Thực Hiện Bởi ${actorName}`);
 
   return createImage(
-    actorInfo,
+    targetUserInfo,
     {
       title: titleText,
       userName: userNameText,
