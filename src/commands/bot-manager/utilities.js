@@ -39,17 +39,42 @@ export async function handleEncodeParamsCommand(api, message) {
   const rawContent = message?.data?.content;
   const content = (rawContent || "").toString().trim();
   const currentPrefix = getGlobalPrefix();
+  
   if (!content.startsWith(`${currentPrefix}decode`)) return false;
+  
   const args = content.slice(currentPrefix.length + "decode".length).trim();
-  if (!args) return sendMessageFromSQL(api, threadId, `Vui lòng nhập params cần decode.\nVí dụ: ${currentPrefix}decode <chuỗi>`);
+  
+  if (!args) {
+    await sendMessageFromSQL(api, message, {
+      success: false,
+      message: `Vui lòng nhập params cần decode.\nVí dụ: ${currentPrefix}decode <chuỗi>`
+    }, false, 60000);
+    return true;
+  }
+  
   const secretKey = appContext?.secretKey;
-  if (!secretKey) return sendMessageFromSQL(api, threadId, `Không có secretKey để giải mã. Vui lòng đảm bảo bot đã khởi tạo appContext.secretKey.`);
+  if (!secretKey) {
+    await sendMessageFromSQL(api, message, {
+      success: false,
+      message: `Không có secretKey để giải mã. Vui lòng đảm bảo bot đã khởi tạo appContext.secretKey.`
+    }, false, 60000);
+    return true;
+  }
+  
   try {
     const result = decodeAES(secretKey, args);
-    await sendMessageFromSQL(api, threadId, `🔍 Kết quả decode:\n${result}`);
+    await sendMessageFromSQL(api, message, {
+      success: true,
+      message: `🔍 Kết quả decode:\n${result}`
+    }, false, 60000);
   } catch (err) {
-    await sendMessageFromSQL(api, threadId, `Không thể decode params.\nLỗi: ${err?.message || err}`);
+    await sendMessageFromSQL(api, message, {
+      success: false,
+      message: `Không thể decode params.\nLỗi: ${err?.message || err}`
+    }, false, 60000);
   }
+  
+  return true;
 }
 
 export async function handleGetUID(api, message) {
@@ -108,22 +133,28 @@ export async function handleEval(api, message) {
 
     let output;
     try {
-      const evalFunc = new Function('api', 'message', 'senderId', 'threadId', 'senderName', `
-        return (async () => {
-          ${code}
-        })();
-      `);
+      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      const evalFunc = new AsyncFunction('api', 'message', 'senderId', 'threadId', 'senderName', code);
       output = await evalFunc(api, message, senderId, threadId, senderName);
     } catch (err) {
       output = err?.stack || err?.message || String(err);
     }
 
-    const resultText = typeof output === 'object'
-      ? JSON.stringify(output, getCircularReplacer(), 2)
-      : String(output);
+    let resultText;
+    if (output === undefined) {
+      resultText = 'undefined';
+    } else if (output === null) {
+      resultText = 'null';
+    } else if (typeof output === 'object') {
+      resultText = JSON.stringify(output, getCircularReplacer(), 2);
+    } else {
+      resultText = String(output);
+    }
 
     await sendMessageComplete(api, message, resultText);
+    console.log('=== Eval Output ===\n', resultText);
   } catch (err) {
+    console.error('Eval handler error:', err);
     await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
   }
 }
@@ -138,6 +169,7 @@ function getCircularReplacer() {
     return value;
   };
 }
+
 export async function handleCallGroupCommand(api, message) {
   try {
     const senderName = message.data?.dName || "Người dùng";
