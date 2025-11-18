@@ -9,11 +9,9 @@ export function removeGroupBlockedMemberFactory(api) {
   });
 
   /**
-   * Bỏ chặn thành viên trong nhóm theo ID.
+   * Xóa thành viên khỏi danh sách bị chặn trong nhóm.
    *
-   * Client phải là chủ sở hữu của nhóm.
-   *
-   * @param {string|string[]} memberId - Một hoặc nhiều ID thành viên cần bỏ chặn
+   * @param {string|string[]} memberId - Một hoặc nhiều ID thành viên cần xóa khỏi danh sách chặn
    * @param {string|number} groupId - ID của nhóm
    * @throws {ZaloApiError}
    */
@@ -23,25 +21,23 @@ export function removeGroupBlockedMemberFactory(api) {
     if (!appContext.cookie) throw new ZaloApiError("Cookie is not available");
     if (!appContext.userAgent) throw new ZaloApiError("User agent is not available");
 
-    memberId = Array.isArray(memberId) ? memberId.map(String) : [String(memberId)];
+    const members = Array.isArray(memberId) ? memberId.map(String) : [String(memberId)];
 
     const params = {
       grid: String(groupId),
-      members: memberId,
+      members: members,
       imei: appContext.imei,
     };
 
     const encryptedParams = encodeAES(appContext.secretKey, JSON.stringify(params));
     if (!encryptedParams) throw new ZaloApiError("Failed to encrypt params");
 
-    const response = await request(
-      makeURL(serviceURL, {
+    const response = await request(serviceURL, {
+      method: "POST",
+      body: new URLSearchParams({
         params: encryptedParams,
       }),
-      {
-        method: "GET",
-      }
-    );
+    });
 
     const result = await handleZaloResponse(response);
     if (result.error) throw new ZaloApiError(result.error.message, result.error.code);
