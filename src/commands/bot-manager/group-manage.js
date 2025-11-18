@@ -261,46 +261,6 @@ async function handleKeyAction(api, message, groupSettings, threadId, targetId, 
   }
 }
 
-    if (result?.errorMembers?.length > 0) {
-      console.warn("❗ Không thể block một số UID:", result.errorMembers);
-      if (command !== "all") {
-        await sendMessageWarning(api, message, "Đưa Em Key Vàng 🔑, Em Block Cho Sếp Xem :D 🚀", false);
-      }
-      return;
-    }
-
-    if (groupSettings?.[threadId]?.enableBlockImage === true) {
-      for (const userInfo of UserDataMentions) {
-        let imagePath = null;
-        try {
-          imagePath = await cv.createBlockImage(
-            userInfo,
-            groupInfo.name,
-            groupInfo.type,
-            userInfo.genderId,
-            senderName
-          );
-
-          await api.sendMessage(
-            { msg: "", attachments: [imagePath] },
-            threadId,
-            message.type
-          );
-        } catch (err) {
-          console.error("❌ Lỗi khi tạo/gửi ảnh block:", err);
-        } finally {
-          await cv.clearImagePath(imagePath);
-        }
-      }
-    }
-  } catch (err) {
-    console.error("❌ Lỗi khi gọi api.blockUsers:", err);
-    if (command !== "all") {
-      await sendMessageWarning(api, message, "Đưa Em Key Vàng 🔑, Em Block Cho Sếp Xem :D 🚀", false);
-    }
-  }
-}
-*/
 export async function handleBlockBot(api, message, groupSettings) {
   const threadId = message.threadId;
   let listIdBlock = [];
@@ -473,6 +433,8 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
   const threadId = message.threadId;
   const prefix = getGlobalPrefix();
   const args = content.slice(prefix.length).trim().split(/\s+/);
+  const senderName = message.data?.dName || "Người dùng";
+  const senderId = message.data?.uidFrom;
 
   args.shift();
 
@@ -487,7 +449,10 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
         `\n- joinappr: ${groupInfo.setting?.joinAppr ? "Mở" : "Tắt"} chế độ phê duyệt thành viên` +
         `\n- showkey: ${groupInfo.setting?.signAdminMsg ? "Mở" : "Tắt"} hiển thị key quản trị` +
         `\n\n[Cài đặt Chuỗi]:` +
-        `\n- name <tên mới>: Đổi tên nhóm`
+        `\n- name <tên mới>: Đổi tên nhóm` +
+        `\n\n[Danh sách Chặn]:` +
+        `\n- block: Xem danh sách thành viên bị chặn` +
+        `\n- block remove <index>: Gỡ chặn thành viên theo số thứ tự`
     };
     await sendMessageFromSQL(api, message, result, false, 60000);
     return;
@@ -496,7 +461,84 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
   const settingType = args[0].toLowerCase();
   const value = args.slice(1).join(" ");
 
-  // Xử lý các cài đặt chuỗi
+  if (settingType === "block") {
+    if (args[1] === "remove" && args[2]) {
+      const index = parseInt(args[2]) - 1;
+
+      try {
+        const response = await api.getBlockedGroupMembers(threadId);
+        const blockedMembers = response?.blocked_members || [];
+
+        if (index < 0 || index >= blockedMembers.length) {
+          await sendMessageStateQuote(
+            api,
+            message,
+            `Index ${args[2]} không hợp lệ. Vui lòng kiểm tra lại danh sách.`,
+            false,
+            60000
+          );
+          return;
+        }
+
+        const memberToUnblock = blockedMembers[index];
+        await api.removeGroupBlockedMember(memberToUnblock.uid, threadId);
+
+        await sendMessageStateQuote(
+          api,
+          message,
+          `Đã gỡ chặn thành công: ${memberToUnblock.dName}`,
+          true,
+          60000
+        );
+      } catch (error) {
+        console.error("Lỗi khi gỡ chặn thành viên:", error);
+        await sendMessageWarning(
+          api,
+          message,
+          "Em có key đâu mà gỡ chặn được\nHong thì ném em cái KEY :d",
+          false
+        );
+      }
+      return;
+    }
+
+    try {
+      const response = await api.getBlockedGroupMembers(threadId);
+      const blockedMembers = response?.blocked_members || [];
+
+      if (blockedMembers.length === 0) {
+        await sendMessageWarning(
+          api,
+          message,
+          "Không có thành viên nào bị chặn trong nhóm này.",
+          false
+        );
+        return;
+      }
+
+      let responseMsg = `Danh sách thành viên bị chặn:\n\n`;
+      blockedMembers.forEach((member, index) => {
+        responseMsg += `${index + 1}. ${member.dName}\n`;
+      });
+      responseMsg += `\nSử dụng: ${prefix}${aliasCommand} block remove <index> để gỡ chặn`;
+
+      const result = {
+        success: true,
+        message: responseMsg
+      };
+      await sendMessageFromSQL(api, message, result, false, 60000);
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách thành viên bị chặn:", error);
+      await sendMessageWarning(
+        api,
+        message,
+        "Em có key đâu mà lấy được danh sách mấy khứa bị block trong nhóm này đâu\nHong thì ném em cái KEY :d",
+        false
+      );
+    }
+    return;
+  }
+
   if (["name"].includes(settingType)) {
     if (!value) {
       await sendMessageStateQuote(api, message, `Vui lòng nhập giá trị cho cài đặt ${settingType}`, false, 60000);
@@ -518,7 +560,6 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
     }
   }
 
-  // Xử lý các cài đặt on/off
   if (!value || !["on", "off", "0", "1"].includes(value.toLowerCase())) {
     await sendMessageStateQuote(api, message, `Vui lòng chọn on/off hoặc 1/0 để thay đổi cài đặt`, false, 60000);
     return;
@@ -558,12 +599,6 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
         const showKeyStatus = newValue === 1 ? "mở" : "tắt";
         await updateGroupSetting(api, message, threadId, currentSettings, `Đã ${showKeyStatus} hiển thị key quản trị!`);
         break;
-
-      // Thêm các case khác ở đây trong tương lai
-      // case "setting_name":
-      //   currentSettings.settingKey = newValue;
-      //   await updateGroupSetting(...);
-      //   break;
 
       default:
         await sendMessageStateQuote(api, message, `Loại cài đặt '${settingType}' không hợp lệ!`, false, 60000);
