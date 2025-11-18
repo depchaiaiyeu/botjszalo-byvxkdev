@@ -26,7 +26,6 @@ export function removeGroupBlockedMemberFactory(api) {
     const params = {
       grid: String(groupId),
       members: members,
-      imei: appContext.imei,
     };
 
     const encryptedParams = encodeAES(appContext.secretKey, JSON.stringify(params));
