@@ -35,13 +35,16 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let backgroundImage;
   let fluent = 0.8;
-   
+  
   if (fileName.includes("goodbye")) {
     typeImage = 1;
     fluent = 0.6;
   } else if (["blocked", "kicked"].some(keyword => fileName.includes(keyword))) {
     typeImage = 2;
     fluent = 0.85;
+  } else if (["setting", "update", "link", "board", "admin"].some(keyword => fileName.includes(keyword))) {
+    typeImage = 3; 
+    fluent = 0.6;
   } else {
     typeImage = 0;
     fluent = 0.6;
@@ -80,6 +83,8 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     gradientColors = ["#FFFFFF", "#F0F0F0", "#FAFAFF", "#F8FBFF", "#EAEAFF", "#FFF5FA", "#FFFFFF"];
   } else if (typeImage === 2) {
     gradientColors = ["#ff0000", "#ff1111", "#ff2200", "#ff0022", "#ff3300"];
+  } else if (typeImage === 3) {
+    gradientColors = ["#FFD700", "#FFA500", "#FF8C00", "#FFC72C", "#FFCC33"]; 
   } else {
     gradientColors = ["#FF1493", "#FF69B4", "#FFD700", "#FFA500", "#FF8C00", "#00FF7F", "#40E0D0"];
   }
@@ -121,7 +126,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
       ctx.lineWidth = 2;
       ctx.stroke();
     } catch (error) {
-      console.error(error);
+      console.error("Lỗi load avatar:", error);
     }
   }
 
@@ -176,32 +181,30 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 }
 
 export async function createJoinRequestImage(userInfo, groupName, groupType, userActionName, isAdmin) {
+  const groupTypeText = groupType === 2 ? "Community" : "Group";
   const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên Mới";
-  
+  const userName = userInfo.name || "";
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `Xin Chào ${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Yêu Cầu Tham Gia ${vnGroupType}`),
-      author: toTitleCase(`Đang Chờ Phê Duyệt`),
+      title: `Join Request ${groupTypeText}`,
+      userName: groupName,
+      subtitle: `${isAdmin ? "Sếp " : ""}${userName}`,
+      author: toTitleCase(`Đã Gửi Yêu Cầu Tham Gia ${vnGroupType}`),
     },
     `join_request_${Date.now()}.png`
   );
 }
 
 export async function createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdmin) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-  const authorText = userActionName === userName ? "Tham Gia Trực Tiếp" : `Duyệt Bởi ${userActionName}`;
-
+  const userName = userInfo.name || "";
+  const authorText = userActionName === userName ? "Tham Gia Trực Tiếp Hoặc Được Mời" : `Duyệt Bởi ${userActionName}`;
   return createImage(
     userInfo,
     {
       title: groupName,
       userName: `Chào Mừng ${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Đã Trở Thành Thành Viên ${vnGroupType}`),
+      subtitle: toTitleCase(`Đã Tham Gia ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
       author: toTitleCase(authorText),
     },
     `welcome_${Date.now()}.png`
@@ -209,173 +212,170 @@ export async function createWelcomeImage(userInfo, groupName, groupType, userAct
 }
 
 export async function createGoodbyeImage(userInfo, groupName, groupType, isAdmin) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-
+  const userName = userInfo.name || "";
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `Tạm Biệt ${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Đã Rời Khỏi ${vnGroupType}`),
-      author: toTitleCase("Hẹn Gặp Lại"),
+      title: "Member Left The Group",
+      userName: `${isAdmin ? "Sếp " : ""}${userName}`,
+      subtitle: toTitleCase(`Vừa Rời Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName
     },
     `goodbye_${Date.now()}.png`
   );
 }
 
 export async function createKickImage(userInfo, groupName, groupType, gender, userActionName, isAdmin) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-  const genderText = gender === 0 ? "Thành Viên Nam" : gender === 1 ? "Thành Viên Nữ" : "Thành Viên";
-  
+  const userName = userInfo.name || "";
+  const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
+  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} Oắt Con ${userName}`;
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Đã Bị Mời Khỏi ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${userActionName}`),
+      title: `Kicked Out Member`,
+      userName: userNameText,
+      subtitle: toTitleCase(`Đã Bị ${userActionName} Sút Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName,
     },
     `kicked_${Date.now()}.png`
   );
 }
 
 export async function createBlockImage(userInfo, groupName, groupType, gender, userActionName, isAdmin) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-  
+  const userName = userInfo.name || "";
+  const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
+  let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} Oắt Con ${userName}`;
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `${isAdmin ? "Sếp " : ""}${userName}`,
-      subtitle: toTitleCase(`Đã Bị Chặn Khỏi ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${userActionName}`),
+      title: `Blocked Out Member`,
+      userName: userNameText,
+      subtitle: toTitleCase(`Đã Bị ${userActionName} Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName,
     },
     `blocked_${Date.now()}.png`
   );
 }
 
 export async function createBlockSpamImage(userInfo, groupName, groupType, gender) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-
+  const userName = userInfo.name || "";
+  const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `${userName}`,
-      subtitle: toTitleCase(`Phát Hiện Spam Tại ${vnGroupType}`),
-      author: toTitleCase("Hệ Thống Tự Động Chặn"),
+      title: `Blocked Out Spam Member`,
+      userName: `${genderText} Oắt Con ${userName}`,
+      subtitle: toTitleCase(`Do Spam Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName,
     },
     `blocked_spam_${Date.now()}.png`
   );
 }
 
 export async function createBlockSpamLinkImage(userInfo, groupName, groupType, gender) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-
+  const userName = userInfo.name || "";
+  const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `${userName}`,
-      subtitle: toTitleCase(`Phát Hiện Link Spam Tại ${vnGroupType}`),
-      author: toTitleCase("Hệ Thống Tự Động Chặn"),
+      title: `Blocked Out Spam Link Member`,
+      userName: `${genderText} Oắt Con ${userName}`,
+      subtitle: toTitleCase(`Do Spam Link Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName,
     },
     `blocked_spam_link_${Date.now()}.png`
   );
 }
 
 export async function createBlockAntiBotImage(userInfo, groupName, groupType, gender) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "Thành Viên";
-
+  const userNames = userInfo.name || "";
+  const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   return createImage(
     userInfo,
     {
-      title: groupName,
-      userName: `${userName}`,
-      subtitle: toTitleCase(`Phát Hiện Bot Tại ${vnGroupType}`),
-      author: toTitleCase("Hệ Thống Tự Động Chặn"),
+      title: `Blocked Out Anti Bot Member`,
+      userName: `${genderText} Oắt Con ${userNames}`,
+      subtitle: toTitleCase(`Do Sử Dụng Bot Đã Bị Chặn Khỏi ${groupType ? (groupType === 2 ? "Cộng Đồng" : "Nhóm") : "Nhóm"}`),
+      author: groupName,
     },
     `blocked_anti_bot_${Date.now()}.png`
   );
 }
 
 export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: "Cập Nhật Cài Đặt",
-      subtitle: toTitleCase(`Thay Đổi Thiết Lập ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${actorName}`),
+      userName: actorName,
+      subtitle: toTitleCase(`Đã Cập Nhật Cài Đặt ${groupTypeText}`),
+      author: toTitleCase(`Thông Tin Được Cập Nhật`),
     },
     `setting_${Date.now()}.png`
   );
 }
 
 export async function createUpdateDescImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: "Cập Nhật Mô Tả",
-      subtitle: toTitleCase(`Thay Đổi Thông Tin ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${actorName}`),
+      userName: actorName,
+      subtitle: toTitleCase(`Đã Cập Nhật Mô Tả ${groupTypeText}`),
+      author: toTitleCase(`Thông Tin Được Cập Nhật`),
     },
     `update_${Date.now()}.png`
   );
 }
 
 export async function createNewLinkImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: "Liên Kết Mới",
-      subtitle: toTitleCase(`Đã Tạo Link Tham Gia ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${actorName}`),
+      userName: actorName,
+      subtitle: toTitleCase(`Đã Tạo Link ${groupTypeText} Mới`),
+      author: toTitleCase(`Link Mời Mới Được Tạo`),
     },
     `link_${Date.now()}.png`
   );
 }
 
 export async function createUpdateBoardImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: "Bảng Tin Nhóm",
-      subtitle: toTitleCase(`Cập Nhật Ghim ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${actorName}`),
+      userName: actorName,
+      subtitle: toTitleCase(`Đã Cập Nhật Bảng Thông Tin ${groupTypeText}`),
+      author: toTitleCase(`Bảng Thông Báo Được Cập Nhật`),
     },
     `board_${Date.now()}.png`
   );
 }
 
 export async function createAdminChangeImage(actorInfo, targetName, groupName, isAdd, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const actorNameText = actorInfo.name || "Quản Trị Viên";
+  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
+  const actorName = actorInfo.name || "";
   
+  const titleText = groupName;
+  const userNameText = isAdd ? `Chúc Mừng ${targetName}` : `Chia Buồn ${targetName}`;
+  const subtitleText = isAdd 
+    ? toTitleCase(`Đã Được Phong Làm Phó ${groupTypeText}`)
+    : toTitleCase(`Đã Bị Tước Quyền Phó ${groupTypeText}`);
+  const authorText = toTitleCase(`Thực Hiện Bởi ${actorName}`);
+
   return createImage(
     actorInfo,
     {
-      title: groupName,
-      userName: isAdd ? `Chúc Mừng ${targetName}` : `Thông Báo Về ${targetName}`,
-      subtitle: toTitleCase(isAdd ? `Đã Được Phong Làm Phó ${vnGroupType}` : `Đã Hủy Quyền Phó ${vnGroupType}`),
-      author: toTitleCase(`Thực Hiện Bởi ${actorNameText}`),
+      title: titleText,
+      userName: userNameText,
+      subtitle: subtitleText,
+      author: authorText,
     },
     `${isAdd ? "add" : "remove"}_admin_${Date.now()}.png`
   );
