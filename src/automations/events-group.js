@@ -7,6 +7,7 @@ import { getBotId, isAdmin } from "../index.js";
 
 const blockedMembers = new Map();
 const BLOCK_CHECK_TIMEOUT = 300;
+const previousSettings = new Map();
 
 async function sendGroupMessage(api, threadId, imagePath, messageText) {
   const message = messageText ? messageText : "";
@@ -24,6 +25,17 @@ async function sendGroupMessage(api, threadId, imagePath, messageText) {
   }
 }
 
+function detectChangedSetting(oldSettings, newSettings) {
+  if (!oldSettings) return null;
+  
+  for (const [key, value] of Object.entries(newSettings)) {
+    if (oldSettings[key] !== value) {
+      return { key, value };
+    }
+  }
+  return null;
+}
+
 export async function groupEvents(api, event) {
   console.log(event);
   const type = event.type;
@@ -32,6 +44,8 @@ export async function groupEvents(api, event) {
   const threadId = event.threadId;
   const groupType = event.data.groupType;
   const idAction = event.data.sourceId;
+  const creatorId = event.data.creatorId;
+  const groupSetting = event.data.groupSetting;
 
   const groupSettings = readGroupSettings();
   const threadSettings = groupSettings[threadId] || {};
@@ -76,9 +90,6 @@ export async function groupEvents(api, event) {
           break;
       
         case GroupEventType.JOIN:
-          if (idBot === userId && getListGroupSpamWithoutJoin().includes(threadId)) {
-            await api.leaveGroup(threadId);
-          }
           if (threadSettings.welcomeGroup) {
             imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminBot);
           }
@@ -149,7 +160,6 @@ export async function groupEvents(api, event) {
 
   const link = event.data?.info?.group_link || event.data?.link || "";
   const { subType } = event.data;
-  const groupTypeText = groupType === 2 ? "Community" : "Group";
 
   let imagePath = null;
   const actorInfo = await getUserInfoData(api, idAction);
@@ -157,7 +167,36 @@ export async function groupEvents(api, event) {
 
   switch (type) {
     case GroupEventType.UPDATE_SETTING:
-      imagePath = await cv.createUpdateSettingImage(actorInfo, actorName, groupName, groupType);
+      if (groupSetting) {
+        const oldSettings = previousSettings.get(threadId);
+        const changedSetting = detectChangedSetting(oldSettings, groupSetting);
+        
+        if (changedSetting) {
+          imagePath = await cv.createUpdateSettingImage(
+            actorInfo, 
+            actorName, 
+            groupName, 
+            groupType, 
+            creatorId, 
+            idAction,
+            changedSetting.key,
+            changedSetting.value
+          );
+        } else {
+          imagePath = await cv.createUpdateSettingImage(
+            actorInfo, 
+            actorName, 
+            groupName, 
+            groupType, 
+            creatorId, 
+            idAction,
+            null,
+            null
+          );
+        }
+        
+        previousSettings.set(threadId, { ...groupSetting });
+      }
       break;
 
     case GroupEventType.UPDATE:
@@ -167,7 +206,7 @@ export async function groupEvents(api, event) {
     case GroupEventType.NEW_LINK:
       imagePath = await cv.createNewLinkImage(actorInfo, actorName, groupName, groupType);
       if (imagePath && link) {
-        await sendGroupMessage(api, threadId, imagePath, `🔗 Link ${groupTypeText.toLowerCase()} mới: ${link}`);
+        await sendGroupMessage(api, threadId, imagePath, `🔗 Link ${groupType === 2 ? "community" : "group"} mới: ${link}`);
         await cv.clearImagePath(imagePath);
         return;
       }
