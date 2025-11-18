@@ -125,8 +125,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let x1 = xAvatar - widthAvatar / 2 + widthAvatar;
   let x2 = x1 + (width - x1) / 2 - 5;
-  let startY = 70;
-  let lineHeight = 42;
+  let lineHeight = 43;
 
   const texts = [
     message.title,
@@ -134,6 +133,9 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     message.subtitle,
     message.author
   ].filter(text => text);
+
+  const totalHeight = (texts.length - 1) * lineHeight;
+  const startY = (height - totalHeight) / 2;
 
   texts.forEach((text, index) => {
     const y = startY + (index * lineHeight);
@@ -149,7 +151,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     } else if (index === 1) {
       ctx.font = "bold 30px BeVietnamPro";
     } else {
-      ctx.font = "28px BeVietnamPro";
+      ctx.font = "29px BeVietnamPro";
     }
     
     ctx.fillText(text, x2, y);
@@ -176,7 +178,7 @@ export async function createJoinRequestImage(userInfo, groupName, groupType, use
       subtitle: `${isAdmin ? "Sếp " : ""}${userName}`,
       author: `Đã gửi yêu cầu tham gia ${groupTypeText}`,
     },
-    `join_request_${Date.now()}.png`
+    `join_request_${Date.now()}    png`
   );
 }
 
