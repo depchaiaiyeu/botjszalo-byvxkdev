@@ -1,16 +1,16 @@
-import { ZaloApiError } from "../Errors/ZaloApiError.js";
+import { Zalo, ZaloApiError } from "../index.js";
 import { appContext } from "../context.js";
 import { makeURL, encodeAES, request, handleZaloResponse } from "../utils.js";
 
 export function removeGroupBlockedMemberFactory(api) {
-    const serviceURL = makeURL(`${api.zpwServiceMap.group[0]}/api/group/blockedmems/remove`);
+    // THÊM params zpw_ver và zpw_type
+    const serviceURL = makeURL(`${api.zpwServiceMap.group[0]}/api/group/blockedmems/remove`, {
+        zpw_ver: Zalo.API_VERSION,
+        zpw_type: Zalo.API_TYPE,
+    });
 
     /**
      * Remove group blocked member
-     *
-     * @param memberId member id(s)
-     * @param groupId group id
-     *
      * @throws {ZaloApiError}
      */
     return async function removeGroupBlockedMember(memberId, groupId) {
