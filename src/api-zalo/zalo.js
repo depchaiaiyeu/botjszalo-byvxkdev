@@ -263,6 +263,7 @@ class API {
     this.sendVideov2 = sendVideov2Factory(this);
     this.updateProfileAvatar = updateProfileAvatarFactory(this);
     this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
+    this.removeGroupBlockedMember = removeGroupBlockedMemberFactory(this),
     this.sendMessageForward = sendMessageForwardFactory(this);
     this.updateZaloName = updateZaloNameFactory(this);
     this.sendCallVoice = sendCallVoiceFactory(this);
