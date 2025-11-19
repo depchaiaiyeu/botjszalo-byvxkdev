@@ -410,7 +410,7 @@ export async function handleInviteGroupCommand(api, message, aliasCommand) {
           return;
         }
         const group = invitations[index - 1];
-        listIdsToJoin.push(String(group.groupInfo.id));
+        listIdsToJoin.push(String(group.groupInfo.groupId));
         targetName = group.groupInfo.name;
       }
 
