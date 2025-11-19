@@ -156,7 +156,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   let allLines = [];
   
   texts.forEach((text, index) => {
-    let fontSize = text.length > 25 ? 28 : 30;
+    let fontSize = text.length > 25 ? 29 : 31;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
     
@@ -324,24 +324,38 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
 
 function getSettingName(key) {
   const settingsMap = {
-    blockName: "Thành viên được phép sửa thông tin nhóm",
-    signAdminMsg: "Làm nổi tin nhắn từ quản trị viên",
-    addMemberOnly: "Quản trị viên được thêm thành viên",
-    setTopicOnly: "Quản trị viên thay đổi chủ đề",
-    enableMsgHistory: "Thành viên mới xem lịch sử tin nhắn",
-    joinAppr: "Phê duyệt thành viên mới",
-    lockCreatePost: "Thành viên được phép tạo bài viết",
-    lockCreatePoll: "Thành viên được phép tạo bình chọn",
-    lockSendMsg: "Thành viên được phép gửi tin nhắn",
-    lockViewMember: "Thành viên được phép xem thành viên"
+    blockName: "Quyền sửa thông tin nhóm",
+    signAdminMsg: "Làm nổi tin nhắn từ trưởng và phó nhóm",
+    addMemberOnly: "Quyền thêm thành viên",
+    setTopicOnly: "Quyền đổi chủ đề",
+    enableMsgHistory: "Thành viên mới xem được tin gửi gần đây",
+    joinAppr: "Duyệt thành viên",
+    lockCreatePost: "Quyền tạo ghi chú, nhắc hẹn",
+    lockCreatePoll: "Quyền tạo bình chọn",
+    lockSendMsg: "Quyền gửi tin nhắn",
+    lockViewMember: "Quyền xem thành viên",
+    pinMsg: "Quyền ghim tin nhắn"
   };
   return settingsMap[key] || key;
 }
 
 export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType, creatorId, sourceId, settingKey, settingValue) {
   const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const settingName = settingKey ? getSettingName(settingKey) : "Cài Đặt";
-  const status = settingValue === 1 ? "Bật" : "Tắt";
+  const settingName = settingKey ? getSettingName(settingKey) : "Cài Đặt Chung";
+  
+  let statusText = "";
+  
+  const toggleKeys = ["signAdminMsg", "enableMsgHistory", "joinAppr"];
+  const permissionKeys = ["blockName", "addMemberOnly", "setTopicOnly", "lockCreatePost", "lockCreatePoll", "lockSendMsg", "lockViewMember", "pinMsg"];
+
+  if (toggleKeys.includes(settingKey)) {
+      statusText = settingValue === 1 ? "Bật" : "Tắt";
+  } else {
+      statusText = settingValue === 1 ? `Chỉ trưởng và phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
+  }
+
+  if (!settingKey) statusText = "Đã cập nhật";
+
   const isCreator = creatorId === sourceId;
   const actorRole = isCreator ? `Trưởng ${vnGroupType}` : `Phó ${vnGroupType}`;
   
@@ -349,8 +363,8 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
     actorInfo,
     {
       title: groupName,
-      userName: "Cài Đặt Nhóm Đã Được Thay Đổi",
-      subtitle: settingKey ? `${settingName} -> Đã ${status}` : `Cài đặt chung đã cập nhật`,
+      userName: settingName,
+      subtitle: `Đã cập nhật thành: ${statusText}`,
       author: `Thực hiện bởi ${actorRole} ${actorName}`,
     },
     `setting_${Date.now()}.png`
