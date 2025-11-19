@@ -91,19 +91,11 @@ import {
   handleSendMessagePrivate,
   handleSendTaskCommand,
   handleSendToDo,
-  handleUndoMessage,
-  handleSetAvatarFromReply,
-  handleRunDDoSCommand,
-  handleUploadFromReply,
+  handleUndoMessage,,
   handle4KImage,
   spamMessagesInGroup,
   testMediaCommand,
-  handleGetGroupMembers,
-  handleRunPythonCommand,
-  handleSendFriendRequest,
-  handleUpdateProfileName,
   spamCallInGroup,
-  handleCallGroupCommand,
   handleEval,
   handleGetUID,
   handleEncodeParamsCommand,
@@ -818,17 +810,8 @@ export async function handleCommand(
       case "bot":
         isChangeSetting = await handleActiveBotUser(api, message, groupSettings);
         break;
-      case "ddos":
-        await handleRunDDoSCommand(api, message, commandParts);
-        break;
-      case "setavatar":
-        await handleSetAvatarFromReply(api, message, groupInfo);
-        break;
       case "test":
         await testMediaCommand(api, message);
-        break;
-      case "callgroup":
-        await handleCallGroupCommand(api, message);
         break;
       case "eval":
         await handleEval(api, message);
@@ -1305,7 +1288,7 @@ export async function handleCommand(
               case "downloadvoice":
                   await handleSaveVoiceLink (api, message, aliasCommand);
                   break;
-              case "phimvnsapchieu":
+              case "phimvietnamsapchieu":
                 await sendMovieSchedule (api, message);
                 break;
               case "voicecut":
