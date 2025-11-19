@@ -33,7 +33,7 @@ import { removeGroupAdminsFactory } from "./apis/removeGroupAdmins.js";
 import { getQRLinkFactory } from "./apis/getQRZalo.js";
 import { sendBusinessCardFactory } from "./apis/sendBusinessCard.js";
 import { sendFriendRequestFactory } from "./apis/sendFriendRequest.js";
-import { setBotId, reloadAdmins } from "../index.js";
+import { setBotId } from "../index.js";
 import { getGroupMembersJoinRequestFactory } from "./apis/getGroupMembersJoinRequest.js";
 import { handleGroupPendingMembersFactory } from "./apis/handleGroupPendingMembers.js";
 import { changeGroupOwnerFactory } from "./apis/changeGroupOwner.js";
@@ -64,7 +64,9 @@ import { updateProfileFactory } from "./apis/updateProfile.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
 import { uploadToZCloudFactory } from "./apis/zcloudUploadFactory.js";
 import { callGroupFactory } from "./apis/callGroup.js";
-import { acceptFriendRequestFactory } from "./apis/acceptFriendRequest.js"; 
+import { acceptFriendRequestFactory } from "./apis/acceptFriendRequest.js";
+import { joinGroupInviteBoxFactory } from "./apis/joinGroupInviteBox.js";
+import { updateSettingsFactory } from "./apis/updateSettings.js";
 
 import fs from "fs";
 import path from "path";
@@ -271,6 +273,8 @@ class API {
     this.uploadToZCloud = uploadToZCloudFactory(this);
     this.callGroup = callGroupFactory(this);
     this.acceptFriendRequest = acceptFriendRequestFactory(this);
+    this.joinGroupInviteBox = joinGroupInviteBoxFactory(this);
+    this.updateSettings = updateSettingsFactory(this);
   }
 }
 
