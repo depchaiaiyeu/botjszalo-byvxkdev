@@ -117,36 +117,36 @@ export async function handleGetUID(api, message) {
 
 export async function handleEval(api, message) {
   try {
-    const prefix = await getGlobalPrefix();
-    const content = removeMention(message);
+    const prefix = await getGlobalPrefix(); 
+    const appContext = appContext;
+    const content = removeMention(message); 
+
     if (!content.startsWith(`${prefix}eval`)) return false;
 
-    const code = content.replace(`${prefix}eval`, '').trim();
+    const code = content.replace(`${prefix}eval`, "").trim();
+
     if (!code) {
-      await sendMessageComplete(api, message, 'Vui lòng nhập code để thực thi.');
+      await sendMessageComplete(api, message, "Vui lòng nhập code để thực thi.");
       return;
     }
 
-    const senderId = message.data?.uidFrom;
-    const threadId = message.threadId;
-    const senderName = message.data?.dName;
-
     let output;
     try {
-      const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
-      const evalFunc = new AsyncFunction('api', 'message', 'senderId', 'threadId', 'senderName', code);
-      output = await evalFunc(api, message, senderId, threadId, senderName);
+      output = await eval(`(async () => { 
+        ${code} 
+      })()`);
     } catch (err) {
       output = err;
     }
 
     const resultText = inspect(output, { depth: null, maxArrayLength: null, showHidden: false });
 
-    await sendMessageComplete(api, message, resultText);
-    console.log('=== Eval Output ===\n', resultText);
+    await sendMessageComplete(api, message, String(resultText));
+    console.log("=== Eval Output ===\n", resultText);
+
   } catch (err) {
-    console.error('Eval handler error:', err);
-    await sendMessageFailed(api, message, `Lỗi lệnh eval: ${err.message}`);
+    console.error("Eval handler error:", err);
+    await sendMessageFailed(api, message, `Lỗi hệ thống: ${err.message}`);
   }
 }
 
