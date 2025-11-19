@@ -29,8 +29,7 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend] ...
 3. Quản lý bạn bè (Friend):
 • ${prefix}${aliasCommand} friend add @tag [lời nhắn]
 • ${prefix}${aliasCommand} friend remove @tag
-• ${prefix}${aliasCommand} friend accept @tag
-• ${prefix}${aliasCommand} friend reject @tag`;
+• ${prefix}${aliasCommand} friend accept @tag`;
 
     await sendMessageQuery(api, message, helpMessage);
     return;
@@ -183,12 +182,11 @@ ____________________
     const subAction = args[1]?.toLowerCase();
     const mentions = message.data.mentions;
 
-    if (!["add", "remove", "accept", "reject"].includes(subAction)) {
+    if (!["add", "remove", "accept"].includes(subAction)) {
       const friendMenu = `👥 Friend:
 - Thêm bạn: ${prefix}${aliasCommand} friend add @tag [lời nhắn]
 - Xóa bạn: ${prefix}${aliasCommand} friend remove @tag
-- Chấp nhận: ${prefix}${aliasCommand} friend accept @tag
-- Từ chối: ${prefix}${aliasCommand} friend reject @tag`;
+- Chấp nhận: ${prefix}${aliasCommand} friend accept @tag`;
       await sendMessageQuery(api, message, friendMenu);
       return;
     }
@@ -223,8 +221,6 @@ ____________________
           await api.removeFriend(targetId);
         } else if (subAction === "accept") {
           await api.acceptFriendRequest(targetId);
-        } else if (subAction === "reject") {
-          await api.removeFriend(targetId);
         }
         successCount++;
       } catch (error) {
