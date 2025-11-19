@@ -31,7 +31,7 @@ function startTurnTimer(api, message, threadId, isPlayerTurn) {
         if (!game) return;
 
         if (isPlayerTurn) {
-            let caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!"`;
+            let caption = `⏱️ HẾT GIỜ..!\n\n👤 ${game.playerName} không đánh trong vòng 60 giây\n🏆 BOT đã dành chiến thắng ván cờ này!`;
             await sendMessageTag(api, message, { caption }, TTL_LONG);
         } else {
             let caption = `⏱️ HẾT GIỜ..!\n\n🤖 BOT không đánh trong vòng 60 giây\n🏆 ${game.playerName} đã dành chiến thắng ván cờ này!`;
@@ -66,6 +66,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     const O_COLOR = "#0077B6";
     const NUMBER_COLOR = "#888888";
     const BLACK_COLOR = "#000000";
+    const GRID_COLOR = "#DDDDDD";
 
     ctx.font = "bold 24px 'BeVietnamPro'";
 
@@ -89,10 +90,10 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
 
     let boardTop = headerHeight;
 
-    ctx.strokeStyle = BLACK_COLOR;
-    ctx.lineWidth = 2;
-
-    for (let i = 0; i <= size; i++) {
+    ctx.strokeStyle = GRID_COLOR;
+    ctx.lineWidth = 1;
+    
+    for (let i = 1; i < size; i++) {
         ctx.beginPath();
         ctx.moveTo(padding, boardTop + padding + i * cellSize);
         ctx.lineTo(padding + size * cellSize, boardTop + padding + i * cellSize);
@@ -104,7 +105,13 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
         ctx.stroke();
     }
 
-    let numberFont = "18px 'BeVietnamPro'";
+    ctx.strokeStyle = BLACK_COLOR;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.rect(padding, boardTop + padding, size * cellSize, size * cellSize);
+    ctx.stroke();
+
+    let numberFont = "14px 'BeVietnamPro'";
     let markFont = "bold 36px 'BeVietnamPro'";
     let circleWidth = 4;
     let circleRadius = cellSize / 2.8;
@@ -136,7 +143,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
             }
 
             if (i === lastBotMove) {
-                ctx.strokeStyle = "#CC8800";
+                ctx.strokeStyle = "#FFD700";
                 ctx.lineWidth = circleWidth;
                 ctx.beginPath();
                 ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
@@ -149,6 +156,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     if (winningLine && winningLine.length >= winLength) {
         ctx.strokeStyle = "#00FF00";
         ctx.lineWidth = winLineWidth;
+        ctx.lineCap = "round";
 
         let startPos = winningLine[0];
         let endPos = winningLine[winningLine.length - 1];
@@ -172,7 +180,7 @@ async function createCaroBoard(board, size = 16, moveCount = 0, playerMark = "X"
     ctx.font = "bold 18px 'BeVietnamPro'";
     ctx.textAlign = "center";
     ctx.fillStyle = BLACK_COLOR;
-    ctx.fillText(`Nước đi: ${moveCount}/${size * size}`, width / 2, height - 25);
+    ctx.fillText(`Nước đi: ${moveCount}/${size * size} | Mode: ${mode.toUpperCase()}`, width / 2, height - 25);
 
     return canvas.toBuffer("image/png");
 }
@@ -206,127 +214,75 @@ function checkWin(board, size = 16) {
     return null;
 }
 
-function getScoreForLine({ count, openEnds }) {
-    if (count >= 5) return 100000;
+function getPointScore(count, blocked, isCurrentTurn) {
+    if (count >= 5) return 100000000;
+    
     if (count === 4) {
-        if (openEnds === 2) return 10000;
-        if (openEnds === 1) return 1000;
+        if (blocked === 0) return 10000000; 
+        if (blocked === 1) return isCurrentTurn ? 10000000 : 500000; 
+        return 0;
     }
+    
     if (count === 3) {
-        if (openEnds === 2) return 1000;
-        if (openEnds === 1) return 100;
+        if (blocked === 0) return isCurrentTurn ? 50000 : 10000; 
+        if (blocked === 1) return isCurrentTurn ? 1000 : 100;
+        return 0;
     }
+    
     if (count === 2) {
-        if (openEnds === 2) return 100;
-        if (openEnds === 1) return 10;
+        if (blocked === 0) return isCurrentTurn ? 500 : 50;
+        if (blocked === 1) return 10;
+        return 0;
     }
-    return count;
+    
+    if (count === 1) return 1;
+    return 0;
 }
 
-function countConsecutive(board, row, col, dx, dy, player, size) {
-    let count = 1;
-    let openEnds = 0;
-
-    let newRow = row + dx;
-    let newCol = col + dy;
-    while (
-        newRow >= 0 && newRow < size &&
-        newCol >= 0 && newCol < size &&
-        board[newRow * size + newCol] === player
-    ) {
-        count++;
-        newRow += dx;
-        newCol += dy;
-    }
-    if (
-        newRow >= 0 && newRow < size &&
-        newCol >= 0 && newCol < size &&
-        board[newRow * size + newCol] === '.'
-    ) {
-        openEnds++;
-    }
-
-    newRow = row - dx;
-    newCol = col - dy;
-    while (
-        newRow >= 0 && newRow < size &&
-        newCol >= 0 && newCol < size &&
-        board[newRow * size + newCol] === player
-    ) {
-        count++;
-        newRow -= dx;
-        newCol -= dy;
-    }
-    if (
-        newRow >= 0 && newRow < size &&
-        newCol >= 0 && newCol < size &&
-        board[newRow * size + newCol] === '.'
-    ) {
-        openEnds++;
-    }
-
-    return { count, openEnds };
-}
-
-function evaluateAllDirections(board, row, col, player, size) {
-    const directions = [
-        [0, 1],
-        [1, 0],
-        [1, 1],
-        [1, -1]
-    ];
-
+function evaluatePoint(board, idx, mark, size) {
     let totalScore = 0;
+    let row = Math.floor(idx / size);
+    let col = idx % size;
+    const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
-    for (let [dx, dy] of directions) {
-        const lineInfo = countConsecutive(board, row, col, dx, dy, player, size);
-        totalScore += getScoreForLine(lineInfo);
+    for (const [dr, dc] of directions) {
+        let count = 1;
+        let blocked = 0;
+
+        for (let step = 1; step < 5; step++) {
+            let r = row + dr * step;
+            let c = col + dc * step;
+            let i = r * size + c;
+            
+            if (r < 0 || r >= size || c < 0 || c >= size || (board[i] !== "." && board[i] !== mark)) {
+                blocked++;
+                break;
+            }
+            if (board[i] === mark) count++;
+            else break; 
+        }
+
+        for (let step = 1; step < 5; step++) {
+            let r = row - dr * step;
+            let c = col - dc * step;
+            let i = r * size + c;
+
+            if (r < 0 || r >= size || c < 0 || c >= size || (board[i] !== "." && board[i] !== mark)) {
+                blocked++;
+                break;
+            }
+            if (board[i] === mark) count++;
+            else break;
+        }
+
+        totalScore += getPointScore(count, blocked, true);
     }
-
     return totalScore;
 }
 
-function evaluatePosition(board, pos, aiPlayer, opponent, size, mode) {
-    const row = Math.floor(pos / size);
-    const col = pos % size;
-
-    let defensiveWeight;
-    switch (mode) {
-        case 'master':
-            defensiveWeight = 1.4;
-            break;
-        case 'hard':
-            defensiveWeight = 1.2;
-            break;
-        case 'easy':
-        default:
-            defensiveWeight = 0.8;
-            break;
-    }
-
-    board[pos] = aiPlayer;
-    const aiScore = evaluateAllDirections(board, row, col, aiPlayer, size);
-    
-    board[pos] = opponent;
-    const playerScore = evaluateAllDirections(board, row, col, opponent, size);
-
-    board[pos] = '.';
-    
-    return aiScore + playerScore * defensiveWeight;
-}
-
-function isEmptyBoard(board) {
-    return board.every(cell => cell === '.');
-}
-
 function getCandidatePositions(board, size) {
-    if (isEmptyBoard(board)) {
-        const center = Math.floor(size / 2);
-        return [center * size + center];
-    }
-
     const candidates = new Set();
-    const range = 2; 
+    const range = 2;
 
     for (let i = 0; i < size * size; i++) {
         if (board[i] !== '.') {
@@ -337,41 +293,74 @@ function getCandidatePositions(board, size) {
                     if (dr === 0 && dc === 0) continue;
                     const newRow = r + dr;
                     const newCol = c + dc;
-                    const newIdx = newRow * size + newCol;
-                    if (
-                        newRow >= 0 && newRow < size &&
-                        newCol >= 0 && newCol < size &&
-                        board[newIdx] === '.'
-                    ) {
-                        candidates.add(newIdx);
+                    if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
+                        const newIdx = newRow * size + newCol;
+                        if (board[newIdx] === '.') {
+                            candidates.add(newIdx);
+                        }
                     }
                 }
             }
         }
     }
+    
+    if (candidates.size === 0) return [Math.floor((size * size) / 2) + Math.floor(size / 2)];
     return Array.from(candidates);
 }
 
 function getAIMove(game) {
     const { board, botMark, playerMark, size, mode } = game;
     
-    const candidates = getCandidatePositions(board, size);
-    if (candidates.length === 0) return -1;
+    let candidates = getCandidatePositions(board, size);
+    if (candidates.length === 0) return Math.floor((size * size) / 2);
 
     let bestScore = -Infinity;
     let bestMove = candidates[0];
 
-    for (const pos of candidates) {
-        const score = evaluatePosition(board, pos, botMark, playerMark, size, mode);
-        if (score > bestScore) {
-            bestScore = score;
+    let attackFactor = 1.0;
+    let defenseFactor = 1.0;
+    let randomness = 0;
+
+    switch (mode) {
+        case "master":
+            attackFactor = 1.2;
+            defenseFactor = 1.5; 
+            randomness = 0;
+            break;
+        case "hard":
+            attackFactor = 1.0;
+            defenseFactor = 1.0;
+            randomness = 10;
+            break;
+        case "easy":
+        default:
+            attackFactor = 0.8;
+            defenseFactor = 0.5;
+            randomness = 500;
+            break;
+    }
+
+    for (let pos of candidates) {
+        let attackScore = evaluatePoint(board, pos, botMark, size);
+        let defenseScore = evaluatePoint(board, pos, playerMark, size);
+        
+        let totalScore = (attackScore * attackFactor) + (defenseScore * defenseFactor);
+
+        if (attackScore >= 100000000) totalScore = Infinity; 
+        else if (defenseScore >= 100000000) totalScore = 999999999; 
+
+        if (randomness > 0) {
+            totalScore += Math.floor(Math.random() * randomness);
+        }
+
+        if (totalScore > bestScore) {
+            bestScore = totalScore;
             bestMove = pos;
         }
     }
-    
+
     return bestMove;
 }
-
 
 async function handleBotTurn(api, message, initialTurn = false) {
     let threadId = message.threadId;
@@ -383,6 +372,8 @@ async function handleBotTurn(api, message, initialTurn = false) {
 
     game.isProcessing = true;
     startTurnTimer(api, message, threadId, false);
+
+    await new Promise(resolve => setTimeout(resolve, 100)); 
 
     let pos = getAIMove(game);
 
