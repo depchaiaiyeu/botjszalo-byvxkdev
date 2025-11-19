@@ -33,7 +33,6 @@ schedule.scheduleJob("*/5 * * * * *", () => {
 async function handleBatchGroupJoin(api, message, listIdsToJoin, targetName) {
   let successCount = 0;
   let failCount = 0;
-  let waitingCount = 0;
   let resultMessage = "";
 
   for (const groupId of listIdsToJoin) {
@@ -42,18 +41,12 @@ async function handleBatchGroupJoin(api, message, listIdsToJoin, targetName) {
       successCount++;
     } catch (error) {
       failCount++;
-      if (error.message.includes("Waiting for approve")) {
-        waitingCount++;
-      } else if (error.message.includes("đã là thành viên")) {
-        successCount++;
-      }
     }
   }
   
   resultMessage = `Tổng cộng ${targetName} nhóm.\n`;
   resultMessage += `\n- Tham gia thành công: ${successCount}`;
-  if (waitingCount > 0) resultMessage += `\n- Đang chờ duyệt: ${waitingCount}`;
-  if (failCount - waitingCount > 0) resultMessage += `\n- Thất bại: ${failCount - waitingCount}`;
+  if (failCount > 0) resultMessage += `\n- Thất bại: ${failCount}`;
 
   await sendMessageFromSQL(api, message, { success: true, message: resultMessage }, true, 180000);
 }
@@ -224,7 +217,7 @@ export async function handleLeaveGroup(api, message) {
     message,
     {
       success: true,
-      message: "Tạm biệt mọi người!",
+      message: "Tạm biệt mọi người",
     },
     true,
     30000
@@ -373,60 +366,64 @@ export async function handleActionGroupReply(
 }
 
 export async function handleInviteGroupCommand(api, message, aliasCommand) {
-    const prefix = getGlobalPrefix();
-    const content = removeMention(message);
-    const args = content.split(/\s+/);
-    const subcommand = args[1]?.toLowerCase();
-    const senderId = message.data.uidFrom;
+  const content = removeMention(message);
+  const prefix = getGlobalPrefix();
+  
+  let commandBody = content.replace(`${prefix}${aliasCommand}`, "").trim();
+  const args = commandBody.split(/\s+/);
+  
+  try {
+    const response = await api.getGroupInviteBoxList();
+    const invitations = response.invitations || [];
 
-    if (!content.startsWith(`${prefix}${aliasCommand}`)) return;
-
-    try {
-        const response = await api.getGroupInviteBoxList();
-        const invitations = response.invitations || [];
-
-        if (invitations.length === 0) {
-            await sendMessageFromSQL(api, message, { success: false, message: "Không có lời mời tham gia nhóm nào đang chờ duyệt." }, false, 30000);
-            return;
-        }
-
-        if (subcommand === "approve" && args[2]) {
-            const target = args[2].toLowerCase();
-            const listIdsToJoin = [];
-            let targetName = "";
-            
-            if (target === "all") {
-                listIdsToJoin.push(...invitations.map(inv => String(inv.groupInfo.id)));
-                targetName = "toàn bộ";
-            } else {
-                const index = parseInt(target);
-                if (isNaN(index) || index < 1 || index > invitations.length) {
-                    await sendMessageWarningRequest(api, message, { caption: `Index không hợp lệ. Vui lòng chọn từ 1 đến ${invitations.length}.` }, 30000);
-                    return;
-                }
-                const group = invitations[index - 1];
-                listIdsToJoin.push(String(group.groupInfo.id));
-                targetName = group.groupInfo.name;
-            }
-
-            await handleBatchGroupJoin(api, message, listIdsToJoin, targetName);
-            return;
-        }
-
-        let contentMessage = `Danh sách ${invitations.length} lời mời tham gia nhóm:\n`;
-        
-        for (const [index, invite] of invitations.entries()) {
-            const groupName = invite.groupInfo.name;
-            const inviterName = invite.inviterInfo.dName;
-            contentMessage += `${index + 1}. ${groupName} (Được mời bởi: ${inviterName})\n`;
-        }
-
-        contentMessage += `\nSử dụng: ${prefix}${aliasCommand} approve [index/all] để tham gia nhóm theo index/toàn bộ nhóm.`;
-
-        await sendMessageCompleteRequest(api, message, { caption: contentMessage }, timeOutWaitingActionGroup);
-
-    } catch (error) {
-        console.error(error);
-        await sendMessageWarningRequest(api, message, { caption: `Lỗi khi lấy danh sách lời mời: ${error.message}` }, 60000);
+    if (invitations.length === 0) {
+      await sendMessageFromSQL(api, message, { success: false, message: "Hiện tại không có lời mời tham gia nhóm nào." }, false, 30000);
+      return;
     }
+
+    if (args[0] && args[0].toLowerCase() === "approve") {
+      const target = args[1] ? args[1].toLowerCase() : "";
+      const listIdsToJoin = [];
+      let targetName = "";
+
+      if (!target) {
+        await sendMessageWarningRequest(api, message, { caption: `Vui lòng nhập index hoặc 'all'. Ví dụ: ${prefix}${aliasCommand} approve all` }, 30000);
+        return;
+      }
+      
+      if (target === "all") {
+        listIdsToJoin.push(...invitations.map(inv => String(inv.groupInfo.id)));
+        targetName = "toàn bộ";
+      } else {
+        const index = parseInt(target);
+        if (isNaN(index) || index < 1 || index > invitations.length) {
+          await sendMessageWarningRequest(api, message, { caption: `Index không hợp lệ. Vui lòng chọn từ 1 đến ${invitations.length}.` }, 30000);
+          return;
+        }
+        const group = invitations[index - 1];
+        listIdsToJoin.push(String(group.groupInfo.id));
+        targetName = group.groupInfo.name;
+      }
+
+      await handleBatchGroupJoin(api, message, listIdsToJoin, targetName);
+      return;
+    }
+
+    let contentMessage = `📋 Danh sách ${invitations.length} lời mời tham gia nhóm:\n\n`;
+    
+    for (const [index, invite] of invitations.entries()) {
+      const groupName = invite.groupInfo.name;
+      const inviterName = invite.inviterInfo.dName;
+      const totalMember = invite.groupInfo.totalMember || 0;
+      contentMessage += `${index + 1}. ${groupName}\n   • Thành viên: ${totalMember}\n   • Mời bởi: ${inviterName}\n\n`;
+    }
+
+    contentMessage += `👉 Sử dụng: ${prefix}${aliasCommand} approve [index/all] để tham gia.`;
+
+    await sendMessageCompleteRequest(api, message, { caption: contentMessage }, 60000);
+
+  } catch (error) {
+    console.error("Lỗi invite group:", error);
+    await sendMessageWarningRequest(api, message, { caption: `Có lỗi xảy ra: ${error.message}` }, 60000);
+  }
 }
