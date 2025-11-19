@@ -118,7 +118,6 @@ export async function handleGetUID(api, message) {
 export async function handleEval(api, message) {
   try {
     const prefix = await getGlobalPrefix(); 
-    const appContext = appContext;
     const content = removeMention(message); 
 
     if (!content.startsWith(`${prefix}eval`)) return false;
