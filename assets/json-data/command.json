@@ -2334,6 +2334,20 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
-    }
+    },
+    {
+      "name": "invitegroup",
+      "alias": [
+        "ivtgr"
+      ],
+      "description": "Hiển thị toàn bộ danh sách nhóm được mời và tham gia",
+      "syntax": "{p}invitegroup|| {p}invitegroup approve [index/all]",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "🤖",
+      "type": 5,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
   ]
 }
