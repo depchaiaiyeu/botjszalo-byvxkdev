@@ -4,7 +4,6 @@ import {
 } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { appContext } from "../../api-zalo/context.js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
@@ -47,8 +46,10 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
     if (message.data.quote && message.data.quote.attach) {
       try {
-        const attach = JSON.parse(message.data.quote.attach);
-        imageUrl = attach.hdUrl || attach.href || attach.thumbUrl;
+        const attach = typeof message.data.quote.attach === "string" 
+          ? JSON.parse(message.data.quote.attach) 
+          : message.data.quote.attach;
+        imageUrl = attach.hdUrl || attach.href || attach.thumbUrl || attach.url;
       } catch (e) { }
     }
 
@@ -57,12 +58,14 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
     }
 
     if (!imageUrl) {
-      await sendMessageQuery(api, message, "Vui lòng reply một bức ảnh hoặc nhập link ảnh để đổi avatar mới!");
+      await sendMessageQuery(api, message, "Vui lòng reply một bức ảnh hoặc nhập link ảnh để đổi avatar!");
       return;
     }
 
     try {
-      await sendMessageFromSQL(api, message, { message: "Đang tải ảnh và cập nhật avatar..." }, true, 30000);
+      imageUrl = imageUrl.replace(/\/jxl\//g, "/jpg/").replace(/\.jxl/g, ".jpg");
+
+      await sendMessageFromSQL(api, message, { success: true, message: "Đang tải ảnh và cập nhật avatar..." }, true, 30000);
 
       const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
       const tempDir = path.resolve("./assets/temp");
@@ -76,7 +79,7 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
       await api.changeAccountAvatar(tempFilePath);
       
-      await sendMessageFromSQL(api, message, { success: true, message: "Cập nhật avatar thành công!" }, true, 60000);
+      await sendMessageFromSQL(api, message, { success: true, message: "✅ Đã đổi Avatar thành công!" }, true, 60000);
 
       try {
         fs.unlinkSync(tempFilePath);
@@ -134,7 +137,15 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
         return;
       }
 
-      await api.updateProfile({ profile: currentProfile });
+      const finalPayload = {
+        profile: {
+          name: currentProfile.name,
+          gender: currentProfile.gender,
+          dob: `${currentProfile.dob.syear}-${String(currentProfile.dob.smonth).padStart(2, '0')}-${String(currentProfile.dob.sday).padStart(2, '0')}`
+        }
+      };
+
+      await api.updateProfile(finalPayload);
       await sendMessageFromSQL(api, message, { success: true, message: successMsg }, true, 60000);
 
     } catch (error) {
@@ -297,7 +308,7 @@ ____________________
       } catch (error) {
         console.error(`Lỗi thao tác bạn bè với ${targetName}:`, error);
         hasError = true;
-        resultDetails.push(`❌ ${targetName}: Thất bại`);
+        resultDetails.push(`❌ ${targetName}: Thất bại (${error.message})`);
       }
     }
 
