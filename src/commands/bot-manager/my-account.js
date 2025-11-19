@@ -1,0 +1,244 @@
+import { 
+  sendMessageQuery, 
+  sendMessageFromSQL 
+} from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
+import { removeMention } from "../../utils/format-util.js";
+
+export async function handleMyAccountCommand(api, message, aliasCommand) {
+  const prefix = getGlobalPrefix();
+  let content = removeMention(message);
+  content = content.replace(`${prefix}${aliasCommand}`, "").trim();
+  const args = content.split(/\s+/);
+  const action = args[0]?.toLowerCase();
+
+  if (!action) {
+    const helpMessage = `📝 Hướng dẫn sử dụng:
+
+Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend] ...
+
+1. Quản lý thông tin (Info):
+• ${prefix}${aliasCommand} info name <Tên mới>
+• ${prefix}${aliasCommand} info date <dd/mm/yyyy>
+• ${prefix}${aliasCommand} info gender <nam/nu>
+
+2. Cài đặt quyền riêng tư (Setting):
+• ${prefix}${aliasCommand} setting
+(Xem danh sách và thay đổi cài đặt)
+
+3. Quản lý bạn bè (Friend):
+• ${prefix}${aliasCommand} friend add @tag [lời nhắn]
+• ${prefix}${aliasCommand} friend remove @tag
+• ${prefix}${aliasCommand} friend accept @tag
+• ${prefix}${aliasCommand} friend reject @tag`;
+
+    await sendMessageQuery(api, message, helpMessage);
+    return;
+  }
+
+  if (action === "info") {
+    const subAction = args[1]?.toLowerCase();
+    const value = args.slice(2).join(" ");
+
+    if (!subAction || !value) {
+      await sendMessageQuery(api, message, `Vui lòng nhập thông tin cần đổi. Ví dụ: ${prefix}${aliasCommand} info name Nguyen Van A`);
+      return;
+    }
+
+    try {
+      if (subAction === "name") {
+        await api.updateProfile({ name: value });
+        await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật tên hiển thị thành: ${value}` }, true, 60000);
+      } else if (subAction === "date") {
+        const parts = value.split("/");
+        if (parts.length === 3) {
+          const dob = {
+            sday: parseInt(parts[0]),
+            smonth: parseInt(parts[1]),
+            syear: parseInt(parts[2])
+          };
+          await api.updateProfile({ dob });
+          await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật ngày sinh thành: ${value}` }, true, 60000);
+        } else {
+          await sendMessageFromSQL(api, message, { success: false, message: "Định dạng ngày sinh không hợp lệ (dd/mm/yyyy)" }, false, 60000);
+        }
+      } else if (subAction === "gender") {
+        const genderValue = value.toLowerCase() === "nam" ? 0 : 1;
+        await api.updateProfile({ gender: genderValue });
+        await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật giới tính thành: ${value}` }, true, 60000);
+      }
+    } catch (error) {
+      await sendMessageFromSQL(api, message, { success: false, message: `Lỗi cập nhật thông tin: ${error.message}` }, false, 60000);
+    }
+    return;
+  }
+
+  if (action === "setting") {
+    const settingIndex = parseInt(args[1]);
+    const settingValue = parseInt(args[2]);
+
+    if (isNaN(settingIndex) || isNaN(settingValue)) {
+      const menuSettings = `Dùng: ${prefix}${aliasCommand} setting [thứ tự] [giá trị]
+VD: ${prefix}${aliasCommand} setting 1 2
+
+⚙️ Danh sách cài đặt:
+
+1. Hiện Ngày Sinh
+   0 -> Ẩn
+   1 -> Hiển thị tất cả
+『 2 -> Chỉ hiển thị ngày/tháng 』
+____________________
+
+2. Trạng Thái Truy Cập
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+3. Hiện Trạng Thái Đã Xem
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+4. Nhận Tin Nhắn
+『 1 -> Tất Cả 』
+   2 -> Chỉ Bạn Bè
+____________________
+
+5. Nhận Cuộc Gọi Từ Người Lạ
+『 2 -> Bạn Bè 』
+   3 -> Tất Cả
+   4 -> Bạn Bè và Người từng liên hệ
+____________________
+
+6. Kết bạn qua Số Điện Thoại
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+7. Kết bạn qua QR
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+8. Kết bạn qua Nhóm Chung
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+9. Kết bạn qua Danh Thiếp
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+10. Hiển thị trên danh sách bạn bè đề xuất
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+11. Tin Nhắn Nhanh
+   0 -> Tắt
+『 1 -> Mở 』
+____________________
+
+12. Chia mục Ưu tiên và Khác
+   0 -> Tắt
+『 1 -> Mở 』`;
+      
+      await sendMessageQuery(api, message, menuSettings);
+      return;
+    }
+
+    const settingsMap = {
+      1: "view_birthday",
+      2: "show_online_status",
+      3: "display_seen_status",
+      4: "receive_message",
+      5: "accept_stranger_call",
+      6: "add_friend_via_phone",
+      7: "add_friend_via_qr",
+      8: "add_friend_via_group",
+      9: "add_friend_via_contact",
+      10: "display_on_recommend_friend",
+      11: "quickMessageStatus",
+      12: "archivedChatStatus"
+    };
+
+    const apiType = settingsMap[settingIndex];
+
+    if (!apiType) {
+      await sendMessageFromSQL(api, message, { success: false, message: "Số thứ tự cài đặt không hợp lệ (1-12)." }, false, 60000);
+      return;
+    }
+
+    try {
+      await api.updateSettings(apiType, settingValue);
+      await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật cài đặt số ${settingIndex} thành giá trị ${settingValue}!` }, true, 60000);
+    } catch (error) {
+      await sendMessageFromSQL(api, message, { success: false, message: `Lỗi cập nhật cài đặt: ${error.message}` }, false, 60000);
+    }
+    return;
+  }
+
+  if (action === "friend") {
+    const subAction = args[1]?.toLowerCase();
+    const mentions = message.data.mentions;
+
+    if (!["add", "remove", "accept", "reject"].includes(subAction)) {
+      const friendMenu = `👥 Friend:
+- Thêm bạn: ${prefix}${aliasCommand} friend add @tag [lời nhắn]
+- Xóa bạn: ${prefix}${aliasCommand} friend remove @tag
+- Chấp nhận: ${prefix}${aliasCommand} friend accept @tag
+- Từ chối: ${prefix}${aliasCommand} friend reject @tag`;
+      await sendMessageQuery(api, message, friendMenu);
+      return;
+    }
+
+    if (!mentions || mentions.length === 0) {
+      await sendMessageQuery(api, message, "Vui lòng tag (@mention) người dùng cần thực hiện thao tác.");
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    let customMsg = "";
+    if (subAction === "add") {
+      const fullContent = message.data.content;
+      let lastMentionEnd = 0;
+      for (const m of mentions) {
+        if (m.pos + m.len > lastMentionEnd) lastMentionEnd = m.pos + m.len;
+      }
+      customMsg = fullContent.substring(lastMentionEnd).trim();
+      if (!customMsg) customMsg = "Chào bạn, tớ là bot của Vũ Xuân Kiên, hân hạnh được kết bạn nhé!";
+    }
+
+    for (const mention of mentions) {
+      const targetId = mention.uid;
+      const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
+
+      try {
+        if (subAction === "add") {
+          await api.sendFriendRequest(targetId, customMsg);
+        } else if (subAction === "remove") {
+          await api.removeFriend(targetId);
+        } else if (subAction === "accept") {
+          await api.acceptFriendRequest(targetId);
+        } else if (subAction === "reject") {
+          await api.removeFriend(targetId);
+        }
+        successCount++;
+      } catch (error) {
+        console.error(`Lỗi thao tác bạn bè với ${targetName}:`, error);
+        failCount++;
+      }
+    }
+
+    let resultMsg = `Đã thực hiện lệnh Friend ${subAction.toUpperCase()}.\n`;
+    resultMsg += `✅ Thành công: ${successCount}\n`;
+    if (failCount > 0) resultMsg += `❌ Thất bại: ${failCount}`;
+
+    const isSuccess = failCount === 0;
+    await sendMessageFromSQL(api, message, { success: isSuccess, message: resultMsg }, true, 60000);
+    return;
+  }
+}
