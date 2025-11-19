@@ -2345,7 +2345,7 @@
       "permission": "adminLevelHigh",
       "countdown": 5,
       "icon": "🤖",
-      "type": 5,
+      "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
     }
