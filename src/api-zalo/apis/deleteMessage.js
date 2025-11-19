@@ -15,7 +15,7 @@ export function removeMessageFactory(api) {
    *
    * @throws ZaloApiError
    */
-  return async function deleteMessage(message, onlyMe = true) {
+  return async function deleteMessage(message, onlyMe = false) {
     if (!appContext.secretKey || !appContext.imei || !appContext.cookie || !appContext.userAgent)
       throw new ZaloApiError("Missing required app context fields");
     if (!message) throw new ZaloApiError("Missing message");
