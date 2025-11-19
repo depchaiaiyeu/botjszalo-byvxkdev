@@ -91,7 +91,7 @@ import {
   handleSendMessagePrivate,
   handleSendTaskCommand,
   handleSendToDo,
-  handleUndoMessage,,
+  handleUndoMessage,
   handle4KImage,
   spamMessagesInGroup,
   testMediaCommand,
