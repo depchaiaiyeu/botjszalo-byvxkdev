@@ -45,27 +45,45 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend] ...
     }
 
     try {
+      const currentProfile = {
+        name: "Vũ Xuân Kiên",
+        gender: 0,
+        dob: {
+          sday: 12,
+          smonth: 12,
+          syear: 1997
+        }
+      };
+
+      let successMsg = "";
+
       if (subAction === "name") {
-        await api.updateProfile({ name: value });
-        await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật tên hiển thị thành: ${value}` }, true, 60000);
+        currentProfile.name = value;
+        successMsg = `Đã cập nhật tên hiển thị thành: ${value}`;
       } else if (subAction === "date") {
         const parts = value.split("/");
         if (parts.length === 3) {
-          const dob = {
+          currentProfile.dob = {
             sday: parseInt(parts[0]),
             smonth: parseInt(parts[1]),
             syear: parseInt(parts[2])
           };
-          await api.updateProfile({ dob });
-          await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật ngày sinh thành: ${value}` }, true, 60000);
+          successMsg = `Đã cập nhật ngày sinh thành: ${value}`;
         } else {
           await sendMessageFromSQL(api, message, { success: false, message: "Định dạng ngày sinh không hợp lệ (dd/mm/yyyy)" }, false, 60000);
+          return;
         }
       } else if (subAction === "gender") {
-        const genderValue = value.toLowerCase() === "nam" ? 0 : 1;
-        await api.updateProfile({ gender: genderValue });
-        await sendMessageFromSQL(api, message, { success: true, message: `Đã cập nhật giới tính thành: ${value}` }, true, 60000);
+        currentProfile.gender = value.toLowerCase() === "nam" ? 0 : 1;
+        successMsg = `Đã cập nhật giới tính thành: ${value}`;
+      } else {
+        await sendMessageQuery(api, message, "Hành động không hợp lệ (name/date/gender)");
+        return;
       }
+
+      await api.updateProfile({ profile: currentProfile });
+      await sendMessageFromSQL(api, message, { success: true, message: successMsg }, true, 60000);
+
     } catch (error) {
       await sendMessageFromSQL(api, message, { success: false, message: `Lỗi cập nhật thông tin: ${error.message}` }, false, 60000);
     }
@@ -196,9 +214,6 @@ ____________________
       return;
     }
 
-    let successCount = 0;
-    let failCount = 0;
-
     let customMsg = "";
     if (subAction === "add") {
       const fullContent = message.data.content;
@@ -209,6 +224,9 @@ ____________________
       customMsg = fullContent.substring(lastMentionEnd).trim();
       if (!customMsg) customMsg = "Chào bạn, tớ là bot của Vũ Xuân Kiên, hân hạnh được kết bạn nhé!";
     }
+
+    let resultDetails = [];
+    let hasError = false;
 
     for (const mention of mentions) {
       const targetId = mention.uid;
@@ -222,19 +240,22 @@ ____________________
         } else if (subAction === "accept") {
           await api.acceptFriendRequest(targetId);
         }
-        successCount++;
+        resultDetails.push(`✅ ${targetName}: Thành công`);
       } catch (error) {
         console.error(`Lỗi thao tác bạn bè với ${targetName}:`, error);
-        failCount++;
+        hasError = true;
+        resultDetails.push(`❌ ${targetName}: Thất bại`);
       }
     }
 
-    let resultMsg = `Đã thực hiện lệnh Friend ${subAction.toUpperCase()}.\n`;
-    resultMsg += `✅ Thành công: ${successCount}\n`;
-    if (failCount > 0) resultMsg += `❌ Thất bại: ${failCount}`;
+    let titleAction = "";
+    if (subAction === "add") titleAction = "Gửi lời mời kết bạn đến";
+    else if (subAction === "remove") titleAction = "Xóa bạn bè";
+    else if (subAction === "accept") titleAction = "Chấp nhận lời mời từ";
 
-    const isSuccess = failCount === 0;
-    await sendMessageFromSQL(api, message, { success: isSuccess, message: resultMsg }, true, 60000);
+    const finalMessage = `${titleAction}:\n\n${resultDetails.join("\n")}`;
+    
+    await sendMessageFromSQL(api, message, { success: !hasError, message: finalMessage }, true, 60000);
     return;
   }
 }
