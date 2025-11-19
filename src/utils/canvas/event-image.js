@@ -325,16 +325,15 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
 function getSettingName(key) {
   const settingsMap = {
     blockName: "Quyền sửa thông tin nhóm",
-    signAdminMsg: "Làm nổi tin nhắn từ trưởng và phó nhóm",
-    addMemberOnly: "Quyền thêm thành viên",
+    signAdminMsg: "Nổi tin nhắn từ trưởng và phó nhóm",
+    addMemberOnly: "Quyền thêm thành viên (khi tắt link)",
     setTopicOnly: "Quyền đổi chủ đề",
     enableMsgHistory: "Thành viên mới xem được tin gửi gần đây",
-    joinAppr: "Duyệt thành viên",
+    joinAppr: "Chế độ phê duyệt thành viên",
     lockCreatePost: "Quyền tạo ghi chú, nhắc hẹn",
     lockCreatePoll: "Quyền tạo bình chọn",
     lockSendMsg: "Quyền gửi tin nhắn",
-    lockViewMember: "Quyền xem thành viên",
-    pinMsg: "Quyền ghim tin nhắn"
+    lockViewMember: "Quyền xem thành viên"
   };
   return settingsMap[key] || key;
 }
@@ -351,7 +350,7 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
   if (toggleKeys.includes(settingKey)) {
       statusText = settingValue === 1 ? "Bật" : "Tắt";
   } else {
-      statusText = settingValue === 1 ? `Chỉ trưởng và phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
+      statusText = settingValue === 1 ? `Chỉ trưởng / phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
   }
 
   if (!settingKey) statusText = "Đã cập nhật";
