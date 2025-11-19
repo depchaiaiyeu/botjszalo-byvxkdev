@@ -2275,6 +2275,20 @@
       "active": true
     },
     {
+      "name": "myaccount",
+      "alias": [
+        "myacc"
+      ],
+      "description": "Hiển thị toàn bộ danh sách setting của tài khoản và thay đổi chúng",
+      "syntax": "{p}myaccount",
+      "permission": "adminLevelHigh",
+      "countdown": 5,
+      "icon": "👤",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
+    {
       "name": "invitegroup",
       "alias": [
         "ivtgr"
