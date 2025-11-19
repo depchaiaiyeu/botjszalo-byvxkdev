@@ -906,6 +906,46 @@ function getHelpMessage() {
 `;
 }
 
+async function autoBotMonitor() {
+    try {
+        const files = await fs.readdir(paths.myBotDataDir);
+        const pm2Map = await getPm2ProcessMap();
+        const indexPath = path.resolve("src/index.js");
+
+        for (const file of files) {
+            if (!file.endsWith(".json") || ["defaultCommand.json", "mybots.json"].includes(file)) continue;
+
+            const botId = file.replace(".json", "");
+            const botConfig = await getBotConfig(botId);
+            if (!botConfig) continue;
+
+            const processName = `mybot-${botId}`;
+            const pm2Info = pm2Map.get(processName);
+            const isPm2Online = pm2Info && (pm2Info.status === 'online' || pm2Info.status === 'launching');
+
+            const isExpired = botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now();
+
+            if (isExpired && isPm2Online) {
+                console.log(`[MyBot Monitor] ⏳ Bot ${botId} hết hạn. Đang dừng...`);
+                await execAsync(`pm2 stop ${processName}`);
+                botConfig.isRunning = false;
+                await saveBotConfig(botId, botConfig);
+                continue;
+            }
+
+            if (!isExpired && botConfig.isRunning && !isPm2Online) {
+                console.log(`[MyBot Monitor] ⚠️ Bot ${botId} bị tắt đột ngột (có thể do lỗi hoặc reset). Đang khởi động lại...`);
+                await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
+                console.log(`[MyBot Monitor] ✅ Đã khởi động lại bot ${botId}`);
+            }
+        }
+    } catch (error) {
+        console.error("[MyBot Monitor] Error:", error);
+    }
+}
+
+setInterval(autoBotMonitor, 60000);
+
 export async function handleMyBotCommands(api, message) {
     const prefix = getGlobalPrefix();
     const content = removeMention(message);
