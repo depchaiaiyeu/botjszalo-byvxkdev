@@ -48,15 +48,15 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   let backgroundImage;
   let fluent = 0.8;
   
-  if (fileName.includes("goodbye")) {
+  if (fileName.includes("goodbye") || fileName.includes("remove_admin")) {
     typeImage = 1;
-    fluent = 0.6;
+    fluent = 0.7;
   } else if (["blocked", "kicked"].some(keyword => fileName.includes(keyword))) {
     typeImage = 2;
     fluent = 0.85;
-  } else if (["setting", "update", "link", "board", "admin"].some(keyword => fileName.includes(keyword))) {
+  } else if (["setting", "add_admin"].some(keyword => fileName.includes(keyword))) {
     typeImage = 3; 
-    fluent = 0.6;
+    fluent = 0.7;
   } else {
     typeImage = 0;
     fluent = 0.6;
@@ -92,7 +92,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   if (typeImage === 0) {
     gradientColors = ["#00ffcc", "#00ff95", "#00ff80", "#1aff8c", "#33ff99"];
   } else if (typeImage === 1) {
-    gradientColors = ["#FFFFFF", "#F0F0F0", "#FAFAFF", "#F8FBFF", "#EAEAFF", "#FFF5FA", "#FFFFFF"];
+    gradientColors = ["#D3D3D3", "#C0C0C0", "#A9A9A9", "#808080", "#F5F5F5", "#FFFFFF"];
   } else if (typeImage === 2) {
     gradientColors = ["#ff0000", "#ff1111", "#ff2200", "#ff0022", "#ff3300"];
   } else if (typeImage === 3) {
@@ -154,11 +154,9 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   ].filter(text => text);
 
   let allLines = [];
-  let baseFontSize = 31;
-  let smallFontSize = 29;
-
+  
   texts.forEach((text, index) => {
-    let fontSize = (index === 0 || index === 1) ? baseFontSize : smallFontSize;
+    let fontSize = text.length > 25 ? 28 : 30;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
     
@@ -173,16 +171,27 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     }
   });
 
-  const lineHeight = 38;
+  const lineHeight = 40;
   const totalHeight = (allLines.length - 1) * lineHeight;
   const startY = (height - totalHeight) / 2;
 
   allLines.forEach((lineObj, index) => {
-    const y = startY + (index * lineHeight);
+    const y = startY + (index * lineHeight) + 10;
     const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
-    shuffledColors.slice(lineObj.colorIndex, lineObj.colorIndex + 3).forEach((color, colorIndex) => {
-      textGradient.addColorStop(colorIndex / 2, color);
-    });
+    
+    if (typeImage === 3 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
+        textGradient.addColorStop(0, "#FFD700");
+        textGradient.addColorStop(0.5, "#FFA500");
+        textGradient.addColorStop(1, "#FFC72C");
+    } else if (typeImage === 1 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
+        textGradient.addColorStop(0, "#FFFFFF");
+        textGradient.addColorStop(1, "#D3D3D3");
+    } else {
+        shuffledColors.slice(0, 3).forEach((color, colorIndex) => {
+            textGradient.addColorStop(colorIndex / 2, color);
+        });
+    }
+
     ctx.fillStyle = textGradient;
     ctx.textAlign = "center";
     ctx.font = `${lineObj.fontWeight} ${lineObj.fontSize}px BeVietnamPro`;
@@ -198,21 +207,6 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     out.on("finish", () => resolve(filePath));
     out.on("error", reject);
   });
-}
-
-export async function createJoinRequestImage(userInfo, groupName, groupType, userActionName, isAdmin) {
-  const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  const userName = userInfo.name || "";
-  return createImage(
-    userInfo,
-    {
-      title: `Join Request ${groupType === 2 ? "Community" : "Group"}`,
-      userName: groupName,
-      subtitle: `${isAdmin ? "Sếp " : ""}${userName}`,
-      author: `Đã gửi yêu cầu tham gia ${groupTypeText}`,
-    },
-    `join_request_${Date.now()}.png`
-  );
 }
 
 export async function createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdmin) {
@@ -330,16 +324,16 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
 
 function getSettingName(key) {
   const settingsMap = {
-    blockName: "Chặn sửa thông tin nhóm",
-    signAdminMsg: "Làm nổi tin nhắn từ Admin",
-    addMemberOnly: "Admin phê duyệt thành viên mới",
-    setTopicOnly: "Chỉ Admin được đổi chủ đề",
+    blockName: "Thành viên được phép sửa thông tin nhóm",
+    signAdminMsg: "Làm nổi tin nhắn từ quản trị viên",
+    addMemberOnly: "Quản trị viên được thêm thành viên",
+    setTopicOnly: "Quản trị viên thay đổi chủ đề",
     enableMsgHistory: "Thành viên mới xem lịch sử tin nhắn",
     joinAppr: "Phê duyệt thành viên mới",
-    lockCreatePost: "Khóa tạo bài viết",
-    lockCreatePoll: "Khóa tạo bình chọn",
-    lockSendMsg: "Chặn gửi tin nhắn",
-    lockViewMember: "Chặn thành viên xem thành viên"
+    lockCreatePost: "Thành viên được phép tạo bài viết",
+    lockCreatePoll: "Thành viên được phép tạo bình chọn",
+    lockSendMsg: "Thành viên được phép gửi tin nhắn",
+    lockViewMember: "Thành viên được phép xem thành viên"
   };
   return settingsMap[key] || key;
 }
@@ -349,59 +343,17 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
   const settingName = settingKey ? getSettingName(settingKey) : "Cài Đặt";
   const status = settingValue === 1 ? "Bật" : "Tắt";
   const isCreator = creatorId === sourceId;
-  const actorRole = isCreator ? `Trưởng ${vnGroupType}` : `Quản Trị ${vnGroupType}`;
+  const actorRole = isCreator ? `Trưởng ${vnGroupType}` : `Phó ${vnGroupType}`;
   
   return createImage(
     actorInfo,
     {
       title: groupName,
-      userName: settingKey ? settingName : `Cài đặt ${vnGroupType} đã được cập nhật`,
-      subtitle: settingKey ? `Đã được ${status.toLowerCase()}` : `Thực hiện bởi ${actorRole.toLowerCase()}`,
-      author: settingKey ? `Thực hiện bởi ${actorRole} ${actorName}` : actorName,
+      userName: "Cài Đặt Nhóm Đã Được Thay Đổi",
+      subtitle: settingKey ? `${settingName} -> Đã ${status}` : `Cài đặt chung đã cập nhật`,
+      author: `Thực hiện bởi ${actorRole} ${actorName}`,
     },
     `setting_${Date.now()}.png`
-  );
-}
-
-export async function createUpdateDescImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  return createImage(
-    actorInfo,
-    {
-      title: groupName,
-      userName: `Mô tả ${vnGroupType} đã được cập nhật`,
-      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
-      author: actorName,
-    },
-    `update_${Date.now()}.png`
-  );
-}
-
-export async function createNewLinkImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  return createImage(
-    actorInfo,
-    {
-      title: groupName,
-      userName: `Link mời ${vnGroupType} đã được tạo mới`,
-      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
-      author: actorName,
-    },
-    `link_${Date.now()}.png`
-  );
-}
-
-export async function createUpdateBoardImage(actorInfo, actorName, groupName, groupType) {
-  const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  return createImage(
-    actorInfo,
-    {
-      title: groupName,
-      userName: `Bảng thông báo ${vnGroupType} đã được cập nhật`,
-      subtitle: `Thực hiện bởi quản trị ${vnGroupType}`,
-      author: actorName,
-    },
-    `board_${Date.now()}.png`
   );
 }
 
@@ -409,10 +361,10 @@ export async function createAdminChangeImage(targetUserInfo, actorName, targetNa
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   
   const titleText = groupName;
-  const userNameText = isAdd ? `Chúc mừng ${targetName}` : `Chia buồn cùng ${targetName}`;
+  const userNameText = isAdd ? `Chúc mừng ${targetName}` : `Rất Tiếc, ${targetName}`;
   const subtitleText = isAdd 
-    ? `Đã được phong làm Phó ${groupTypeText}`
-    : `Đã bị tước quyền Phó ${groupTypeText}`;
+    ? `Đã Được Phong Làm Phó ${groupTypeText}`
+    : `Đã Bị Cắt Chức Phó ${groupTypeText}`;
   const authorText = `Thực hiện bởi Trưởng ${groupTypeText} ${actorName}`;
 
   return createImage(
