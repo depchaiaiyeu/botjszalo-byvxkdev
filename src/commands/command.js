@@ -22,7 +22,7 @@ import { handleCreateQRCommand } from "../service-hahuyhoang/tien-ich/qr-create.
 import { handleScanQRCommand } from "../service-hahuyhoang/tien-ich/qr-scan.js";
 import { handleCheckPhatNguoiCommand } from "../service-hahuyhoang/tien-ich/check-phat-nguoi.js";
 import { handleCheckSimPhongThuyCommand } from "../service-hahuyhoang/tien-ich/phong-thuy-sim.js";
-import { duyenphan , tamdauyhop, tuonglai } from "../service-hahuyhoang/tien-ich/boi-tinh-yeu.js";
+import { duyenphan, tamdauyhop, tuonglai } from "../service-hahuyhoang/tien-ich/boi-tinh-yeu.js";
 import { handleSpeedTestCommand } from "../service-hahuyhoang/tien-ich/speedtest.js";
 import { handleCPUBenchmarkCommand } from "../service-hahuyhoang/tien-ich/cpu-benchmark.js";
 import { handleCustomCanvasCommand } from "../service-hahuyhoang/tien-ich/status.js";
@@ -128,7 +128,7 @@ import { handleTopChartZingMp3, handleZingMp3Command } from "../service-hahuyhoa
 import { handleVietlott655Command } from "../service-hahuyhoang/game-service/vietlott/vietlott655.js";
 import { startGame } from "../service-hahuyhoang/game-service/mini-game/index.js";
 import { handleYoutubeCommand } from "../service-hahuyhoang/api-crawl/youtube/youtube-service.js";
-import { handleJoinGroup, handleLeaveGroup, handleShowGroupsList } from "./bot-manager/remote-action-group.js";
+import { handleJoinGroup, handleLeaveGroup, handleShowGroupsList, handleInviteGroupCommand } from "./bot-manager/remote-action-group.js";
 import { handleNhacCuaTuiCommand } from "../service-hahuyhoang/api-crawl/music/nhaccuatui.js";
 import { removeMention } from "../utils/format-util.js";
 import { handleWhiteList } from "../service-hahuyhoang/anti-service/white-list.js";
@@ -1373,7 +1373,10 @@ export async function handleCommand(
                 break;
               case "meme":
                 await handleStkmemeCommand (api, message, aliasCommand);
-                break;                
+                break; 
+              case "invitegroup":
+                await handleInviteGroupCommand(api, message, aliasCommand);
+                break;
             }
           } else {
             if (isAdminBot) {
