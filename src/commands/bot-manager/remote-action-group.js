@@ -365,29 +365,36 @@ export async function handleActionGroupReply(
   }
 }
 
+
 export async function handleInviteGroupCommand(api, message, aliasCommand) {
-  const content = removeMention(message);
   const prefix = getGlobalPrefix();
+  let content = removeMention(message);
+  content = content.replace(`${prefix}${aliasCommand}`, "").trim();
   
-  let commandBody = content.replace(`${prefix}${aliasCommand}`, "").trim();
-  const args = commandBody.split(/\s+/);
+  const args = content.split(" ");
+  const action = args[0]?.toLowerCase();
   
   try {
     const response = await api.getGroupInviteBoxList();
     const invitations = response.invitations || [];
 
     if (invitations.length === 0) {
-      await sendMessageFromSQL(api, message, { success: false, message: "Hiện tại không có lời mời tham gia nhóm nào." }, false, 30000);
+      await sendMessageFromSQL(api, message, { 
+        success: false, 
+        message: "Hiện tại không có lời mời tham gia nhóm nào." 
+      }, false, 30000);
       return;
     }
 
-    if (args[0] && args[0].toLowerCase() === "approve") {
+    if (action === "approve") {
       const target = args[1] ? args[1].toLowerCase() : "";
       const listIdsToJoin = [];
       let targetName = "";
 
       if (!target) {
-        await sendMessageWarningRequest(api, message, { caption: `Vui lòng nhập index hoặc 'all'. Ví dụ: ${prefix}${aliasCommand} approve all` }, 30000);
+        await sendMessageWarningRequest(api, message, { 
+          caption: `Vui lòng nhập index hoặc 'all'. Ví dụ: ${prefix}${aliasCommand} approve all` 
+        }, 30000);
         return;
       }
       
@@ -397,7 +404,9 @@ export async function handleInviteGroupCommand(api, message, aliasCommand) {
       } else {
         const index = parseInt(target);
         if (isNaN(index) || index < 1 || index > invitations.length) {
-          await sendMessageWarningRequest(api, message, { caption: `Index không hợp lệ. Vui lòng chọn từ 1 đến ${invitations.length}.` }, 30000);
+          await sendMessageWarningRequest(api, message, { 
+            caption: `Index không hợp lệ. Vui lòng chọn từ 1 đến ${invitations.length}.` 
+          }, 30000);
           return;
         }
         const group = invitations[index - 1];
@@ -414,8 +423,7 @@ export async function handleInviteGroupCommand(api, message, aliasCommand) {
     for (const [index, invite] of invitations.entries()) {
       const groupName = invite.groupInfo.name;
       const inviterName = invite.inviterInfo.dName;
-      const totalMember = invite.groupInfo.totalMember || 0;
-      contentMessage += `${index + 1}. ${groupName}\n   • Thành viên: ${totalMember}\n   • Mời bởi: ${inviterName}\n\n`;
+      contentMessage += `${index + 1}. ${groupName}\n   • Mời bởi: ${inviterName}\n\n`;
     }
 
     contentMessage += `👉 Sử dụng: ${prefix}${aliasCommand} approve [index/all] để tham gia.`;
@@ -424,6 +432,8 @@ export async function handleInviteGroupCommand(api, message, aliasCommand) {
 
   } catch (error) {
     console.error("Lỗi invite group:", error);
-    await sendMessageWarningRequest(api, message, { caption: `Có lỗi xảy ra: ${error.message}` }, 60000);
+    await sendMessageWarningRequest(api, message, { 
+      caption: `Có lỗi xảy ra khi xử lý lời mời nhóm: ${error.message}` 
+    }, 60000);
   }
 }
