@@ -4,6 +4,10 @@ import {
 } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
+import { appContext } from "../../context.js";
+import axios from "axios";
+import fs from "fs";
+import path from "path";
 
 export async function handleMyAccountCommand(api, message, aliasCommand) {
   const prefix = getGlobalPrefix();
@@ -15,23 +19,72 @@ export async function handleMyAccountCommand(api, message, aliasCommand) {
   if (!action) {
     const helpMessage = `📝 Hướng dẫn sử dụng:
 
-Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend] ...
+Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
 1. Quản lý thông tin (Info):
 • ${prefix}${aliasCommand} info name <Tên mới>
 • ${prefix}${aliasCommand} info date <dd/mm/yyyy>
 • ${prefix}${aliasCommand} info gender <nam/nu>
 
-2. Cài đặt quyền riêng tư (Setting):
+2. Đổi Avatar:
+• ${prefix}${aliasCommand} avatar (Reply ảnh hoặc gửi kèm link)
+
+3. Cài đặt quyền riêng tư (Setting):
 • ${prefix}${aliasCommand} setting
 (Xem danh sách và thay đổi cài đặt)
 
-3. Quản lý bạn bè (Friend):
+4. Quản lý bạn bè (Friend):
 • ${prefix}${aliasCommand} friend add @tag [lời nhắn]
 • ${prefix}${aliasCommand} friend remove @tag
 • ${prefix}${aliasCommand} friend accept @tag`;
 
     await sendMessageQuery(api, message, helpMessage);
+    return;
+  }
+
+  if (action === "avatar") {
+    let imageUrl = null;
+
+    if (message.data.quote && message.data.quote.attach) {
+      try {
+        const attach = JSON.parse(message.data.quote.attach);
+        imageUrl = attach.hdUrl || attach.href || attach.thumbUrl;
+      } catch (e) { }
+    }
+
+    if (!imageUrl && args[1] && args[1].startsWith("http")) {
+      imageUrl = args[1];
+    }
+
+    if (!imageUrl) {
+      await sendMessageQuery(api, message, "Vui lòng reply một bức ảnh hoặc nhập link ảnh để đổi avatar mới!");
+      return;
+    }
+
+    try {
+      await sendMessageFromSQL(api, message, { message: "Đang tải ảnh và cập nhật avatar..." }, true, 30000);
+
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const tempDir = path.resolve("./assets/temp");
+      
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const tempFilePath = path.join(tempDir, `avatar_${Date.now()}.jpg`);
+      fs.writeFileSync(tempFilePath, response.data);
+
+      await api.changeAccountAvatar(tempFilePath);
+      
+      await sendMessageFromSQL(api, message, { success: true, message: "Cập nhật avatar thành công!" }, true, 60000);
+
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (e) {}
+
+    } catch (error) {
+      await sendMessageFromSQL(api, message, { success: false, message: `Lỗi đổi avatar: ${error.message}` }, false, 60000);
+    }
     return;
   }
 
@@ -44,51 +97,44 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend] ...
       return;
     }
 
-    // Giá trị mặc định cố định
-    let defaultName = "Vũ Xuân Kiên";
-    let defaultGender = 0; // 0: Nam
-    let defaultDob = "1997-12-12"; // YYYY-MM-DD
-
     try {
-      // Chuẩn bị object profile để gửi đi
-      const profilePayload = {
-        name: defaultName,
-        gender: defaultGender,
-        dob: defaultDob
+      const currentProfile = {
+        name: "Vũ Xuân Kiên",
+        gender: 0,
+        dob: {
+          sday: 12,
+          smonth: 12,
+          syear: 1997
+        }
       };
 
       let successMsg = "";
 
       if (subAction === "name") {
-        profilePayload.name = value;
+        currentProfile.name = value;
         successMsg = `Đã cập nhật tên hiển thị thành: ${value}`;
       } else if (subAction === "date") {
-        // Chuyển đổi dd/mm/yyyy -> yyyy-mm-dd
         const parts = value.split("/");
         if (parts.length === 3) {
-          const day = parts[0].padStart(2, '0');
-          const month = parts[1].padStart(2, '0');
-          const year = parts[2];
-          profilePayload.dob = `${year}-${month}-${day}`;
+          currentProfile.dob = {
+            sday: parseInt(parts[0]),
+            smonth: parseInt(parts[1]),
+            syear: parseInt(parts[2])
+          };
           successMsg = `Đã cập nhật ngày sinh thành: ${value}`;
         } else {
           await sendMessageFromSQL(api, message, { success: false, message: "Định dạng ngày sinh không hợp lệ (dd/mm/yyyy)" }, false, 60000);
           return;
         }
       } else if (subAction === "gender") {
-        profilePayload.gender = value.toLowerCase() === "nam" ? 0 : 1;
+        currentProfile.gender = value.toLowerCase() === "nam" ? 0 : 1;
         successMsg = `Đã cập nhật giới tính thành: ${value}`;
       } else {
         await sendMessageQuery(api, message, "Hành động không hợp lệ (name/date/gender)");
         return;
       }
 
-      // Gọi API với đúng cấu trúc payload.profile
-      await api.updateProfile({ 
-        profile: profilePayload,
-        biz: {} // Gửi object rỗng để giữ nguyên hoặc xóa category tùy logic API
-      });
-
+      await api.updateProfile({ profile: currentProfile });
       await sendMessageFromSQL(api, message, { success: true, message: successMsg }, true, 60000);
 
     } catch (error) {
