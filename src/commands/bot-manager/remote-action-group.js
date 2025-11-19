@@ -44,7 +44,7 @@ async function handleBatchGroupJoin(api, message, listIdsToJoin, targetName) {
     }
   }
   
-  resultMessage = `Tổng cộng ${targetName} nhóm.\n`;
+  resultMessage = `Nhóm: ${targetName}\n`;
   resultMessage += `\n- Tham gia thành công: ${successCount}`;
   if (failCount > 0) resultMessage += `\n- Thất bại: ${failCount}`;
 
