@@ -162,6 +162,7 @@ import { handleCheckTcpCommand } from "../service-hahuyhoang/tien-ich/check-tcp.
 import { handleCheckOrderCommand } from "../service-hahuyhoang/tien-ich/check-order.js";
 import { handleStkmemeCommand } from "../service-hahuyhoang/chat-zalo/chat-special/send-sticker/stkmeme-utils.js";
 
+import { handleMyAccountCommand } from "./bot-manager/my-account.js";
 const lastCommandUsage = {};
 
 export const permissionLevels = {
@@ -1359,6 +1360,9 @@ export async function handleCommand(
                 break; 
               case "invitegroup":
                 await handleInviteGroupCommand(api, message, aliasCommand);
+                break;
+              case "myaccount":
+                await handleMyAccountCommand(api, message, aliasCommand);
                 break;
             }
           } else {
