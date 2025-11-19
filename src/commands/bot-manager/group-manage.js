@@ -452,7 +452,8 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
         `\n- name <tên mới>: Đổi tên nhóm` +
         `\n\n[Danh sách Chặn]:` +
         `\n- block: Xem danh sách thành viên bị chặn` +
-        `\n- block remove <index>: Gỡ chặn thành viên theo số thứ tự`
+        `\n- block remove <index>: Gỡ chặn thành viên theo số thứ tự` +
+        `\n- block remove all: Gỡ chặn toàn bộ thành viên`
     };
     await sendMessageFromSQL(api, message, result, false, 60000);
     return;
@@ -463,13 +464,36 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
 
   if (settingType === "block") {
     if (args[1] === "remove" && args[2]) {
-      const index = parseInt(args[2]) - 1;
-
       try {
         const response = await api.getBlockedGroupMembers(threadId);
+        console.log(">>> DEBUG FULL RESPONSE:", JSON.stringify(response, null, 2));
+
         const blockedMembers = response?.blocked_members || [];
 
-        if (index < 0 || index >= blockedMembers.length) {
+        if (blockedMembers.length === 0) {
+          await sendMessageStateQuote(api, message, "Danh sách chặn đang trống.", false, 60000);
+          return;
+        }
+
+        if (args[2].toLowerCase() === "all") {
+          const allMemberIds = blockedMembers
+            .map(m => m.uid || m.userId || m.id || m.zaloId)
+            .filter(id => id)
+            .map(id => String(id));
+
+          if (allMemberIds.length === 0) {
+            await sendMessageStateQuote(api, message, "Không tìm thấy ID hợp lệ nào để gỡ chặn.", false, 60000);
+            return;
+          }
+
+          await api.removeGroupBlockedMember(allMemberIds, threadId);
+          await sendMessageStateQuote(api, message, `Đã gỡ chặn toàn bộ ${allMemberIds.length} thành viên.`, true, 60000);
+          return;
+        }
+
+        const index = parseInt(args[2]) - 1;
+
+        if (isNaN(index) || index < 0 || index >= blockedMembers.length) {
           await sendMessageStateQuote(
             api,
             message,
@@ -481,8 +505,17 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
         }
 
         const memberToUnblock = blockedMembers[index];
-        const memberIds = [memberToUnblock.uid];
-        
+        console.log(">>> Member to unblock:", memberToUnblock);
+
+        const rawId = memberToUnblock.uid || memberToUnblock.userId || memberToUnblock.id || memberToUnblock.zaloId;
+
+        if (!rawId) {
+          await sendMessageStateQuote(api, message, `Lỗi: Không tìm thấy ID của thành viên ${memberToUnblock.dName || "Unknown"}`, false, 60000);
+          return;
+        }
+
+        const memberIds = [String(rawId)];
+
         await api.removeGroupBlockedMember(memberIds, threadId);
 
         await sendMessageStateQuote(
@@ -522,7 +555,7 @@ export async function handleSettingGroupCommand(api, message, groupInfo, aliasCo
       blockedMembers.forEach((member, index) => {
         responseMsg += `${index + 1}. ${member.dName}\n`;
       });
-      responseMsg += `\nSử dụng: ${prefix}${aliasCommand} block remove <index> để gỡ chặn`;
+      responseMsg += `\nSử dụng: ${prefix}${aliasCommand} block remove <index> (hoặc all) để gỡ chặn`;
 
       const result = {
         success: true,
