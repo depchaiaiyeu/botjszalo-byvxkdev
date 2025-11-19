@@ -1479,31 +1479,6 @@
       "active": true
     },
     {
-      "name": "setavt",
-      "description": "Đổi ảnh đại diện nhóm",
-      "syntax": "{p}setavt",
-      "permission": "adminLevelHigh",
-      "countdown": 5,
-      "icon": "💮",
-      "type": 3,
-      "author": "Vũ Xuân Kiên",
-      "active": true
-    },
-    {
-      "name": "data",
-      "description": "Lấy data để lưu cho file video(vdgirl, vdcosplay, v.v)",
-      "syntax": "{p}data <quote>",
-      "permission": "adminLevelHigh",
-      "countdown": 5,
-      "icon": "💾",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true,
-      "alias": [
-        "dt"
-      ]
-    },
-    {
       "name": "admin",
       "description": "Thêm người dùng làm Quản Trị Nhóm",
       "syntax": "{p}admin add/remove/list @metions",
@@ -1613,31 +1588,6 @@
       "permission": "all",
       "countdown": 5,
       "icon": "💝",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true
-    },
-    {
-      "name": "sms",
-      "description": "Spam SMS",
-      "syntax": "{p}sms",
-      "permission": "all",
-      "countdown": 30,
-      "icon": "☎️",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true,
-      "alias": [
-        "spamsms"
-      ]
-    },
-    {
-      "name": "setname",
-      "description": "Thay đổi tên tài khoản của Bot",
-      "syntax": "{p}setname",
-      "permission": "adminLevelHigh",
-      "countdown": 5,
-      "icon": "👤",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
@@ -1834,7 +1784,7 @@
       ]
     },
     {
-      "name": "phimvnsapchieu",
+      "name": "phimvietnamsapchieu",
       "description": "Gửi Phim VN sắp chiếu",
       "syntax": "{p}phimvnsapchieu",
       "permission": "all",
@@ -2120,17 +2070,6 @@
       "active": true
     },
     {
-      "name": "callgroup",
-      "description": "Gọi đến người dùng trong group",
-      "syntax": "{p}callgroup <@mention> <count>",
-      "permission": "adminLevelHigh",
-      "countdown": 30,
-      "icon": "☎",
-      "type": 5,
-      "author": "Vũ Xuân Kiên",
-      "active": true
-    },
-    {
       "name": "autodownload",
       "description": "Bật/tắt chức năng tự động tải link",
       "syntax": "{p}autodownload",
@@ -2173,7 +2112,7 @@
       "permission": "adminLevelHigh",
       "countdown": 1,
       "icon": "▶",
-      "type": 5,
+      "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
     },
