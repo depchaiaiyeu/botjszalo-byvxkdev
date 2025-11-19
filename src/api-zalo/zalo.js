@@ -68,6 +68,7 @@ import { acceptFriendRequestFactory } from "./apis/acceptFriendRequest.js";
 import { joinGroupInviteBoxFactory } from "./apis/joinGroupInviteBox.js";
 import { updateSettingsFactory } from "./apis/updateSettings.js";
 import { getGroupInviteBoxListFactory } from "./apis/getGroupInviteBoxList.js"; 
+import { removeFriendFactory } from "./apis/removeFriend.js";
 
 import fs from "fs";
 import path from "path";
@@ -277,6 +278,7 @@ class API {
     this.joinGroupInviteBox = joinGroupInviteBoxFactory(this);
     this.updateSettings = updateSettingsFactory(this);
     this.getGroupInviteBoxList = getGroupInviteBoxListFactory(this); 
+    this.removeFriend = removeFriendFactory(this);
   }
 }
 
