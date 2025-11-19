@@ -4,7 +4,7 @@ import {
 } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { appContext } from "../../context.js";
+import { appContext } from "../../api-zalo/context.js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
