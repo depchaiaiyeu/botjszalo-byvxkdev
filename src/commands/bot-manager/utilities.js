@@ -34,6 +34,24 @@ export function stopTodo() {
   activeTodo = false;
 }
 
+export async function handleUpgradeCommunityCommand(api, message) {
+  const threadId = message.threadId;
+  const prefix = getGlobalPrefix();
+
+  try {
+    await api.upgradeGroupToCommunity(threadId);
+
+    await sendMessageFromSQL(api, message, {
+      success: true,
+      message: "Nâng cấp nhóm lên Cộng Đồng thành công!"
+    }, true, 60000);
+
+  } catch (error) {
+    console.error("Lỗi nâng cấp nhóm:", error);
+    await sendMessageFailed(api, message, `Lỗi khi nâng cấp: ${error.message}`);
+  }
+}
+
 export async function handleEncodeParamsCommand(api, message) {
   const threadId = message.threadId;
   const rawContent = message?.data?.content;
