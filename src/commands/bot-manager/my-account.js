@@ -5,10 +5,25 @@ import {
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
 import { getBotId } from "../../index.js";
-import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
+
+function getFormatGender(gender) {
+  if (gender === 0) return "Nam 👨";
+  if (gender === 1) return "Nữ 👩";
+  return "Không xác định 🤖";
+}
+
+function formatDate(sday, smonth, syear) {
+  if (!sday || !smonth || !syear) return "Ẩn";
+  return `${String(sday).padStart(2, '0')}/${String(smonth).padStart(2, '0')}/${syear}`;
+}
+
+async function getRawUserInfo(api, userId) {
+  const rawResponse = await api.getUserInfo(userId);
+  return rawResponse.changed_profiles?.[userId] || rawResponse.unchanged_profiles?.[userId] || {};
+}
 
 export async function handleMyAccountCommand(api, message, aliasCommand) {
   const prefix = getGlobalPrefix();
@@ -16,6 +31,7 @@ export async function handleMyAccountCommand(api, message, aliasCommand) {
   content = content.replace(`${prefix}${aliasCommand}`, "").trim();
   const args = content.split(/\s+/);
   const action = args[0]?.toLowerCase();
+  const botId = getBotId();
 
   if (!action) {
     const helpMessage = `📝 Hướng dẫn sử dụng:
@@ -96,15 +112,21 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
   if (action === "info") {
     const subAction = args[1]?.toLowerCase();
-    const botId = getBotId(); // Lấy ID bot từ index.js
-
+    
     if (!subAction) {
       try {
-        const userInfo = await getUserInfoData(api, botId);
+        const rawInfo = await getRawUserInfo(api, botId);
+        
+        const name = rawInfo.zaloName || rawInfo.displayName || "Vũ Xuân Kiên";
+        const sday = parseInt(rawInfo.sdob);
+        const smonth = parseInt(rawInfo.smonth);
+        const syear = parseInt(rawInfo.syear);
+        const genderCode = parseInt(rawInfo.gender);
+
         const infoMsg = `💁 Thông tin hiện tại:
-- Tên: ${userInfo.name}
-- Ngày sinh: ${userInfo.birthday}
-- Giới tính: ${userInfo.gender}
+- Tên: ${name}
+- Ngày sinh: ${formatDate(sday, smonth, syear)}
+- Giới tính: ${getFormatGender(genderCode)}
 
 Cập nhật:
 - ${prefix}${aliasCommand} info name [tên]
@@ -125,15 +147,15 @@ Cập nhật:
     }
 
     try {
-      const rawInfo = await api.getUserInfo(botId); // Dùng botId
+      const rawInfo = await getRawUserInfo(api, botId);
       
       const currentProfile = {
-        name: rawInfo.name,
-        gender: parseInt(rawInfo.gender),
+        name: rawInfo.zaloName || rawInfo.displayName || "Vũ Xuân Kiên",
+        gender: rawInfo.gender !== undefined ? parseInt(rawInfo.gender) : 0,
         dob: {
-          sday: parseInt(rawInfo.sdob),
-          smonth: parseInt(rawInfo.smonth),
-          syear: parseInt(rawInfo.syear)
+          sday: parseInt(rawInfo.sdob) || 12,
+          smonth: parseInt(rawInfo.smonth) || 12,
+          syear: parseInt(rawInfo.syear) || 1997
         }
       };
 
@@ -165,13 +187,13 @@ Cập nhật:
         }
       } else if (subAction === "gender") {
         const lowerValue = value.toLowerCase();
-        if (lowerValue === "nam" || lowerValue === "male") currentProfile.gender = 0;
-        else if (lowerValue === "nữ" || lowerValue === "nu" || lowerValue === "female") currentProfile.gender = 1;
+        if (["nam", "male", "trai", "men"].includes(lowerValue)) currentProfile.gender = 0;
+        else if (["nữ", "nu", "female", "gái", "women"].includes(lowerValue)) currentProfile.gender = 1;
         else {
              await sendMessageFromSQL(api, message, { success: false, message: "Giới tính không hợp lệ (Nam/Nữ)" }, false, 60000);
              return;
         }
-        successMsg = `Đã cập nhật giới tính thành: ${value}`;
+        successMsg = `Đã cập nhật giới tính thành: ${value} (${getFormatGender(currentProfile.gender)})`;
       } else {
         await sendMessageQuery(api, message, "Hành động không hợp lệ (name/date/gender)");
         return;
