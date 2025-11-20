@@ -67,9 +67,11 @@ import { callGroupFactory } from "./apis/callGroup.js";
 import { acceptFriendRequestFactory } from "./apis/acceptFriendRequest.js";
 import { joinGroupInviteBoxFactory } from "./apis/joinGroupInviteBox.js";
 import { updateSettingsFactory } from "./apis/updateSettings.js";
-import { getGroupInviteBoxListFactory } from "./apis/getGroupInviteBoxList.js"; 
+import { getGroupInviteBoxListFactory } from "./apis/getGroupInviteBoxList.js";
 import { removeFriendFactory } from "./apis/removeFriend.js";
 import { changeAccountAvatarFactory } from "./apis/changeAccountAvatar.js";
+import { getAvatarListFactory } from "./apis/getAvatarList.js";
+import { reuseAvatarFactory } from "./apis/reuseAvatar.js";
 
 import fs from "fs";
 import path from "path";
@@ -278,9 +280,11 @@ class API {
     this.acceptFriendRequest = acceptFriendRequestFactory(this);
     this.joinGroupInviteBox = joinGroupInviteBoxFactory(this);
     this.updateSettings = updateSettingsFactory(this);
-    this.getGroupInviteBoxList = getGroupInviteBoxListFactory(this); 
+    this.getGroupInviteBoxList = getGroupInviteBoxListFactory(this);
     this.removeFriend = removeFriendFactory(this);
     this.changeAccountAvatar = changeAccountAvatarFactory(this);
+    this.getAvatarList = getAvatarListFactory(this);
+    this.reuseAvatar = reuseAvatarFactory(this);
   }
 }
 
