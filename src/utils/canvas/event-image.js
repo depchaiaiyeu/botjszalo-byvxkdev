@@ -179,7 +179,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     }
   });
 
-  const lineHeight = 46;
+  const lineHeight = 44;
   const totalHeight = (allLines.length - 1) * lineHeight;
   const startY = (height - totalHeight) / 2;
 
