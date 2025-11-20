@@ -4,7 +4,7 @@ import {
 } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
-import { appContext } from "../../context.js";
+import { getBotId } from "../../index.js";
 import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import axios from "axios";
 import fs from "fs";
@@ -96,10 +96,11 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
   if (action === "info") {
     const subAction = args[1]?.toLowerCase();
-    
+    const botId = getBotId(); // Lấy ID bot từ index.js
+
     if (!subAction) {
       try {
-        const userInfo = await getUserInfoData(api, appContext.uid);
+        const userInfo = await getUserInfoData(api, botId);
         const infoMsg = `💁 Thông tin hiện tại:
 - Tên: ${userInfo.name}
 - Ngày sinh: ${userInfo.birthday}
@@ -124,7 +125,7 @@ Cập nhật:
     }
 
     try {
-      const rawInfo = await api.getUserInfo(appContext.uid);
+      const rawInfo = await api.getUserInfo(botId); // Dùng botId
       
       const currentProfile = {
         name: rawInfo.name,
