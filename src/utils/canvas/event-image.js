@@ -156,7 +156,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   let allLines = [];
   
   texts.forEach((text, index) => {
-    let fontSize = text.length > 25 ? 29 : 31;
+    let fontSize = text.length > 27 ? 29 : 31;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
     
