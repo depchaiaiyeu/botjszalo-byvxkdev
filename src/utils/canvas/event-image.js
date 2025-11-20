@@ -142,7 +142,8 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let x1 = xAvatar - widthAvatar / 2 + widthAvatar;
   let x2 = x1 + (width - x1) / 2 - 5;
-  let maxWidth = width - x1 - 80;
+  
+  let maxWidth = width - x1 - 40;
 
   const texts = [
     message.title,
@@ -185,7 +186,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   allLines.forEach((lineObj, index) => {
     const y = startY + (index * lineHeight) + 12;
-    const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
+    const textGradient = ctx.createLinearGradient(x2 - 200, y - 30, x2 + 200, y);
 
     if (typeImage === 3 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
       textGradient.addColorStop(0, "#FFD700");
