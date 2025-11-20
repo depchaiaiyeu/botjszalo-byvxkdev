@@ -36,27 +36,20 @@ export async function handleMyAccountCommand(api, message, aliasCommand) {
   if (!action) {
     const helpMessage = `📝 Hướng dẫn sử dụng:
 
-Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
+Cú pháp chung: ${prefix}${aliasCommand} [setting|info|avatar|friend] ...
 
-1. Quản lý thông tin (Info):
-• ${prefix}${aliasCommand} info (Xem thông tin hiện tại)
-• ${prefix}${aliasCommand} info name <Tên mới>
-• ${prefix}${aliasCommand} info date <dd/mm/yyyy>
-• ${prefix}${aliasCommand} info gender <nam/nu>
+- info: xem/cập nhật tên, ngày sinh, giới tính
+- setting: xem/cập nhật cài đặt quyền riêng tư
+- avatar: cập nhật avatar hoặc quản lý avatar cũ
+- friend: quản lý kết bạn (thêm, xóa, chấp nhận, từ chối)
 
-2. Quản lý Avatar:
-• ${prefix}${aliasCommand} avatar (Reply ảnh hoặc gửi kèm link để đổi mới)
-• ${prefix}${aliasCommand} avatar list (Xem danh sách avatar cũ)
-• ${prefix}${aliasCommand} avatar <số thứ tự> (Quay về avatar cũ)
-
-3. Cài đặt quyền riêng tư (Setting):
+Ví dụ:
+• ${prefix}${aliasCommand} info name Nguyễn Văn A
+• ${prefix}${aliasCommand} info date 01/01/2000
+• ${prefix}${aliasCommand} info gender Nam
 • ${prefix}${aliasCommand} setting
-(Xem danh sách và thay đổi cài đặt)
-
-4. Quản lý bạn bè (Friend):
-• ${prefix}${aliasCommand} friend add @tag [lời nhắn]
-• ${prefix}${aliasCommand} friend remove @tag
-• ${prefix}${aliasCommand} friend accept @tag`;
+• ${prefix}${aliasCommand} avatar
+• ${prefix}${aliasCommand} avatar list`;
 
     await sendMessageQuery(api, message, helpMessage);
     return;
@@ -77,7 +70,7 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
         let msg = "📷 Danh sách avatar đã được bot sử dụng:\n\n";
         photos.forEach((photo, index) => {
-           msg += `#${index + 1}\n🆔 Photo ID: ${photo.photoId}\n\n`;
+           msg += `#${index + 1}\n🆔 Photo ID: ${photo.photoId}\n🔗 Link: ${photo.url}\n\n`;
         });
         msg += `👉 Dùng lệnh: ${prefix}${aliasCommand} avatar [index] để set avatar theo số thứ tự.`;
 
@@ -374,11 +367,12 @@ ____________________
     const subAction = args[1]?.toLowerCase();
     const mentions = message.data.mentions;
 
-    if (!["add", "remove", "accept"].includes(subAction)) {
+    if (!["add", "remove", "accept", "reject"].includes(subAction)) {
       const friendMenu = `👥 Friend:
 - Thêm bạn: ${prefix}${aliasCommand} friend add @tag [lời nhắn]
 - Xóa bạn: ${prefix}${aliasCommand} friend remove @tag
-- Chấp nhận: ${prefix}${aliasCommand} friend accept @tag`;
+- Chấp nhận: ${prefix}${aliasCommand} friend accept @tag
+- Từ chối: ${prefix}${aliasCommand} friend reject @tag`;
       await sendMessageQuery(api, message, friendMenu);
       return;
     }
@@ -413,6 +407,8 @@ ____________________
           await api.removeFriend(targetId);
         } else if (subAction === "accept") {
           await api.acceptFriendRequest(targetId);
+        } else if (subAction === "reject") {
+          await api.rejectFriendRequest(targetId);
         }
         resultDetails.push(`• ${targetName}: Thành công`);
       } catch (error) {
@@ -426,6 +422,7 @@ ____________________
     if (subAction === "add") titleAction = "Gửi lời mời kết bạn đến";
     else if (subAction === "remove") titleAction = "Xóa bạn bè";
     else if (subAction === "accept") titleAction = "Chấp nhận lời mời từ";
+    else if (subAction === "reject") titleAction = "Từ chối lời mời từ";
 
     const finalMessage = `${titleAction}:\n\n${resultDetails.join("\n")}`;
     
