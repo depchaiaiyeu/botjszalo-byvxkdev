@@ -34,6 +34,19 @@ export function stopTodo() {
   activeTodo = false;
 }
 
+export async function handleDisperseGroupCommand(api, message) {
+  const threadId = message.threadId;
+  const prefix = getGlobalPrefix();
+
+  try {
+    await api.disperseGroup(threadId);
+
+  } catch (error) {
+    console.error("Lỗi giải tán nhóm:", error);
+    await sendMessageFailed(api, message, `Lỗi khi giải tán: ${error.message}`);
+  }
+}
+
 export async function handleUpgradeCommunityCommand(api, message) {
   const threadId = message.threadId;
   const prefix = getGlobalPrefix();
