@@ -73,6 +73,7 @@ import { changeAccountAvatarFactory } from "./apis/changeAccountAvatar.js";
 import { getAvatarListFactory } from "./apis/getAvatarList.js";
 import { reuseAvatarFactory } from "./apis/reuseAvatar.js";
 import { upgradeGroupToCommunityFactory } from "./apis/upgradeGroupToCommunity.js";
+import { disperseGroupFactory } from "./apis/disperseGroup.js";
 
 import fs from "fs";
 import path from "path";
@@ -287,6 +288,7 @@ class API {
     this.getAvatarList = getAvatarListFactory(this);
     this.reuseAvatar = reuseAvatarFactory(this);
     this.upgradeGroupToCommunity = upgradeGroupToCommunityFactory(this);
+    this.disperseGroup = disperseGroupFactory(this);
   }
 }
 
