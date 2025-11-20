@@ -12,7 +12,7 @@ export async function handlePrefixCommand(api, message, threadId, isAdmin) {
   const args = content.slice(content.startsWith(currentPrefix) ? currentPrefix.length + 6 : 6).trim()
   if (!args) {
     if (!isAdmin) return true
-    await sendMessageFromSQL(api, message, { message: `Prefix hiện tại của bot là: ${currentPrefix === "" ? "  " : currentPrefix}`, success: true }, true, 30000)
+    await sendMessageFromSQL(api, message, { message: `Prefix hiện tại của bot là: ${currentPrefix === "" ? "  " : currentPrefix}` }, true, 30000)
     return true
   }
   if (!isAdmin) return true
