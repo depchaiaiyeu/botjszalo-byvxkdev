@@ -100,6 +100,7 @@ import {
   handleGetUID,
   handleEncodeParamsCommand,
   handleUpgradeCommunityCommand,
+  handleDisperseGroupCommand,
 } from "./bot-manager/utilities.js";
 import { handleBauCua } from "../service-hahuyhoang/game-service/bau-cua/bau-cua.js";
 import { handleKBBCommand } from "../service-hahuyhoang/game-service/keobuabao/keobuabao.js";
@@ -1367,6 +1368,9 @@ export async function handleCommand(
                 break;
               case "upgradecommunity":
                 await handleUpgradeCommunityCommand(api, message);
+                break;
+              case "dispersegroup":
+                await handleDisperseGroupCommand(api, message);
                 break;
             }
           } else {
