@@ -74,6 +74,7 @@ import { getAvatarListFactory } from "./apis/getAvatarList.js";
 import { reuseAvatarFactory } from "./apis/reuseAvatar.js";
 import { upgradeGroupToCommunityFactory } from "./apis/upgradeGroupToCommunity.js";
 import { disperseGroupFactory } from "./apis/disperseGroup.js";
+import { rejectFriendRequestFactory } from "./apis/rejectFriendRequest.js";
 
 import fs from "fs";
 import path from "path";
@@ -289,6 +290,7 @@ class API {
     this.reuseAvatar = reuseAvatarFactory(this);
     this.upgradeGroupToCommunity = upgradeGroupToCommunityFactory(this);
     this.disperseGroup = disperseGroupFactory(this);
+    this.rejectFriendRequest = rejectFriendRequestFactory(this);
   }
 }
 
