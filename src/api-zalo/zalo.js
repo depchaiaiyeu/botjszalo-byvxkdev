@@ -58,7 +58,6 @@ import { uploadThumbnailFactory } from "./apis/uploadThumbnail.js";
 import { sendVideov2Factory } from "./apis/sendVideov2.js";
 import { updateProfileAvatarFactory } from "./apis/updateProfileAvatarFactory.js";
 import { getBlockedGroupMembersFactory } from "./apis/getBlockMemberList.js";
-import { removeGroupBlockedMemberFactory } from "./apis/removeGroupBlockedMember.js";
 import { sendMessageForwardFactory } from "./apis/sendMessageForward.js";
 import { updateProfileFactory } from "./apis/updateProfile.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
