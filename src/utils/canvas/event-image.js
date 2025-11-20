@@ -22,8 +22,8 @@ export async function getLinkBackgroundDefault(userInfo) {
 
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
-  const lines = [];
   let currentLine = words[0];
+  const lines = [];
 
   for (let i = 1; i < words.length; i++) {
     const word = words[i];
@@ -31,8 +31,8 @@ function wrapText(ctx, text, maxWidth) {
     if (width < maxWidth) {
       currentLine += " " + word;
     } else {
-      lines.push(currentLine);
-      currentLine = word;
+      currentLine += "...";
+      break; 
     }
   }
   lines.push(currentLine);
@@ -156,7 +156,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   let allLines = [];
   
   texts.forEach((text, index) => {
-    let fontSize = text.length > 27 ? 29 : 31;
+    let fontSize = 30;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
     
