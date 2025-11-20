@@ -4,6 +4,8 @@ import {
 } from "../../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { getGlobalPrefix } from "../../service-hahuyhoang/service.js";
 import { removeMention } from "../../utils/format-util.js";
+import { appContext } from "../../context.js";
+import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
@@ -21,6 +23,7 @@ export async function handleMyAccountCommand(api, message, aliasCommand) {
 Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
 1. Quản lý thông tin (Info):
+• ${prefix}${aliasCommand} info (Xem thông tin hiện tại)
 • ${prefix}${aliasCommand} info name <Tên mới>
 • ${prefix}${aliasCommand} info date <dd/mm/yyyy>
 • ${prefix}${aliasCommand} info gender <nam/nu>
@@ -93,21 +96,43 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 
   if (action === "info") {
     const subAction = args[1]?.toLowerCase();
-    const value = args.slice(2).join(" ");
+    
+    if (!subAction) {
+      try {
+        const userInfo = await getUserInfoData(api, appContext.uid);
+        const infoMsg = `💁 Thông tin hiện tại:
+- Tên: ${userInfo.name}
+- Ngày sinh: ${userInfo.birthday}
+- Giới tính: ${userInfo.gender}
 
-    if (!subAction || !value) {
-      await sendMessageQuery(api, message, `Vui lòng nhập thông tin cần đổi. Ví dụ: ${prefix}${aliasCommand} info name Nguyen Van A`);
+Cập nhật:
+- ${prefix}${aliasCommand} info name [tên]
+- ${prefix}${aliasCommand} info date [dd/mm/yyyy]
+- ${prefix}${aliasCommand} info gender [Nam|Nữ]`;
+        
+        await sendMessageQuery(api, message, infoMsg);
+      } catch (error) {
+        await sendMessageFromSQL(api, message, { success: false, message: `Lỗi lấy thông tin: ${error.message}` }, false, 60000);
+      }
+      return;
+    }
+
+    const value = args.slice(2).join(" ");
+    if (!value) {
+      await sendMessageQuery(api, message, `Vui lòng nhập giá trị cần đổi.`);
       return;
     }
 
     try {
+      const rawInfo = await api.getUserInfo(appContext.uid);
+      
       const currentProfile = {
-        name: "Vũ Xuân Kiên",
-        gender: 0,
+        name: rawInfo.name,
+        gender: parseInt(rawInfo.gender),
         dob: {
-          sday: 12,
-          smonth: 12,
-          syear: 1997
+          sday: parseInt(rawInfo.sdob),
+          smonth: parseInt(rawInfo.smonth),
+          syear: parseInt(rawInfo.syear)
         }
       };
 
@@ -117,20 +142,34 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
         currentProfile.name = value;
         successMsg = `Đã cập nhật tên hiển thị thành: ${value}`;
       } else if (subAction === "date") {
-        const parts = value.split("/");
-        if (parts.length === 3) {
-          currentProfile.dob = {
-            sday: parseInt(parts[0]),
-            smonth: parseInt(parts[1]),
-            syear: parseInt(parts[2])
-          };
-          successMsg = `Đã cập nhật ngày sinh thành: ${value}`;
+        let sday, smonth, syear;
+        if (value.includes("/")) {
+            const parts = value.split("/");
+            sday = parseInt(parts[0]);
+            smonth = parseInt(parts[1]);
+            syear = parseInt(parts[2]);
+        } else if (value.includes("-")) {
+            const parts = value.split("-");
+            syear = parseInt(parts[0]);
+            smonth = parseInt(parts[1]);
+            sday = parseInt(parts[2]);
+        }
+
+        if (sday && smonth && syear) {
+            currentProfile.dob = { sday, smonth, syear };
+            successMsg = `Đã cập nhật ngày sinh thành: ${value}`;
         } else {
-          await sendMessageFromSQL(api, message, { success: false, message: "Định dạng ngày sinh không hợp lệ (dd/mm/yyyy)" }, false, 60000);
-          return;
+            await sendMessageFromSQL(api, message, { success: false, message: "Định dạng ngày sinh không hợp lệ (dd/mm/yyyy)" }, false, 60000);
+            return;
         }
       } else if (subAction === "gender") {
-        currentProfile.gender = value.toLowerCase() === "nam" ? 0 : 1;
+        const lowerValue = value.toLowerCase();
+        if (lowerValue === "nam" || lowerValue === "male") currentProfile.gender = 0;
+        else if (lowerValue === "nữ" || lowerValue === "nu" || lowerValue === "female") currentProfile.gender = 1;
+        else {
+             await sendMessageFromSQL(api, message, { success: false, message: "Giới tính không hợp lệ (Nam/Nữ)" }, false, 60000);
+             return;
+        }
         successMsg = `Đã cập nhật giới tính thành: ${value}`;
       } else {
         await sendMessageQuery(api, message, "Hành động không hợp lệ (name/date/gender)");
@@ -304,11 +343,11 @@ ____________________
         } else if (subAction === "accept") {
           await api.acceptFriendRequest(targetId);
         }
-        resultDetails.push(`✅ ${targetName}: Thành công`);
+        resultDetails.push(`• ${targetName}: Thành công`);
       } catch (error) {
         console.error(`Lỗi thao tác bạn bè với ${targetName}:`, error);
         hasError = true;
-        resultDetails.push(`❌ ${targetName}: Thất bại (${error.message})`);
+        resultDetails.push(`• ${targetName}: Thất bại`);
       }
     }
 
