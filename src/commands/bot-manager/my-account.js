@@ -44,8 +44,10 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
 • ${prefix}${aliasCommand} info date <dd/mm/yyyy>
 • ${prefix}${aliasCommand} info gender <nam/nu>
 
-2. Đổi Avatar:
-• ${prefix}${aliasCommand} avatar (Reply ảnh hoặc gửi kèm link)
+2. Quản lý Avatar:
+• ${prefix}${aliasCommand} avatar (Reply ảnh hoặc gửi kèm link để đổi mới)
+• ${prefix}${aliasCommand} avatar list (Xem danh sách avatar cũ)
+• ${prefix}${aliasCommand} avatar <số thứ tự> (Quay về avatar cũ)
 
 3. Cài đặt quyền riêng tư (Setting):
 • ${prefix}${aliasCommand} setting
@@ -61,6 +63,52 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
   }
 
   if (action === "avatar") {
+    const subOption = args[1] ? args[1].toLowerCase() : "";
+
+    if (subOption === "list") {
+      try {
+        const response = await api.getAvatarList();
+        const photos = response.photos || [];
+
+        if (photos.length === 0) {
+          await sendMessageFromSQL(api, message, { success: false, message: "Không tìm thấy avatar nào trong lịch sử." }, false, 30000);
+          return;
+        }
+
+        let msg = "📷 Danh sách avatar đã được bot sử dụng:\n\n";
+        photos.forEach((photo, index) => {
+           msg += `#${index + 1}\n🆔 Photo ID: ${photo.photoId}\n\n`;
+        });
+        msg += `👉 Dùng lệnh: ${prefix}${aliasCommand} avatar [index] để set avatar theo số thứ tự.`;
+
+        await sendMessageQuery(api, message, msg);
+      } catch (error) {
+        await sendMessageFromSQL(api, message, { success: false, message: `Lỗi lấy danh sách avatar: ${error.message}` }, false, 30000);
+      }
+      return;
+    }
+
+    const index = parseInt(subOption);
+    if (!isNaN(index)) {
+      try {
+        const response = await api.getAvatarList();
+        const photos = response.photos || [];
+
+        if (index < 1 || index > photos.length) {
+          await sendMessageFromSQL(api, message, { success: false, message: `Số thứ tự không hợp lệ. Vui lòng chọn từ 1 đến ${photos.length}.` }, false, 30000);
+          return;
+        }
+
+        const targetPhoto = photos[index - 1];
+        await api.reuseAvatar(String(targetPhoto.photoId));
+        
+        await sendMessageFromSQL(api, message, { success: true, message: `✅ Đã đổi lại avatar thành công!\n(ID: ${targetPhoto.photoId})` }, true, 60000);
+      } catch (error) {
+        await sendMessageFromSQL(api, message, { success: false, message: `Lỗi reuse avatar: ${error.message}` }, false, 60000);
+      }
+      return;
+    }
+
     let imageUrl = null;
 
     if (message.data.quote && message.data.quote.attach) {
@@ -77,7 +125,7 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|friend|avatar] ...
     }
 
     if (!imageUrl) {
-      await sendMessageQuery(api, message, "Vui lòng reply một bức ảnh hoặc nhập link ảnh để đổi avatar!");
+      await sendMessageQuery(api, message, "Vui lòng reply một bức ảnh, nhập link ảnh, hoặc dùng 'avatar list' để xem lịch sử.");
       return;
     }
 
