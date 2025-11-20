@@ -55,10 +55,10 @@ import { checkImageFactory } from "./apis/checkImage.js";
 import { sendImageFactory } from "./apis/sendImage.js";
 import { sendFileFactory } from "./apis/sendFile.js";
 import { uploadThumbnailFactory } from "./apis/uploadThumbnail.js";
-import { addFriendFactory } from "./apis/addFriend.js";
 import { sendVideov2Factory } from "./apis/sendVideov2.js";
 import { updateProfileAvatarFactory } from "./apis/updateProfileAvatarFactory.js";
 import { getBlockedGroupMembersFactory } from "./apis/getBlockMemberList.js";
+import { removeGroupBlockedMemberFactory } from "./apis/removeGroupBlockedMember.js";
 import { sendMessageForwardFactory } from "./apis/sendMessageForward.js";
 import { updateProfileFactory } from "./apis/updateProfile.js";
 import { sendCallVoiceFactory } from "./apis/sendCallVoice.js";
@@ -75,6 +75,9 @@ import { reuseAvatarFactory } from "./apis/reuseAvatar.js";
 import { upgradeGroupToCommunityFactory } from "./apis/upgradeGroupToCommunity.js";
 import { disperseGroupFactory } from "./apis/disperseGroup.js";
 import { rejectFriendRequestFactory } from "./apis/rejectFriendRequest.js";
+import { undoFriendRequestFactory } from "./apis/undoFriendRequest.js";
+import { blockUserFactory } from "./apis/blockUser.js";
+import { unblockUserFactory } from "./apis/unblockUser.js";
 
 import fs from "fs";
 import path from "path";
@@ -270,7 +273,6 @@ class API {
     this.checkImage = checkImageFactory();
     this.sendImage = sendImageFactory(this);
     this.sendFile = sendFileFactory(this);
-    this.addFriend = addFriendFactory(this);
     this.sendVideov2 = sendVideov2Factory(this);
     this.updateProfileAvatar = updateProfileAvatarFactory(this);
     this.getBlockedGroupMembers = getBlockedGroupMembersFactory(this);
@@ -291,6 +293,9 @@ class API {
     this.upgradeGroupToCommunity = upgradeGroupToCommunityFactory(this);
     this.disperseGroup = disperseGroupFactory(this);
     this.rejectFriendRequest = rejectFriendRequestFactory(this);
+    this.undoFriendRequest = undoFriendRequestFactory(this);
+    this.blockUser = blockUserFactory(this);
+    this.unblockUser = unblockUserFactory(this);
   }
 }
 
