@@ -99,6 +99,7 @@ import {
   handleEval,
   handleGetUID,
   handleEncodeParamsCommand,
+  handleUpgradeCommunityCommand,
 } from "./bot-manager/utilities.js";
 import { handleBauCua } from "../service-hahuyhoang/game-service/bau-cua/bau-cua.js";
 import { handleKBBCommand } from "../service-hahuyhoang/game-service/keobuabao/keobuabao.js";
@@ -594,7 +595,7 @@ export async function handleCommandPrivate(api, message) {
             await handleCustomCanvasCommand(api, message);
             return 0;
             case "data":
-              await handleUploadFromReply (api, message, aliasCommand);
+              await handleUploadFromReply(api, message, aliasCommand);
             return 0;
             case "4k":
             await handle4KImage(api, message);
@@ -603,13 +604,13 @@ export async function handleCommandPrivate(api, message) {
             await handlePexelsCommand(api, message, aliasCommand);
             return 0;
           case "speedtest":
-            await handleSpeedTestCommand (api, message);
+            await handleSpeedTestCommand(api, message);
             return 0;
           case "cpubenchmark":
-            await handleCPUBenchmarkCommand (api, message);
+            await handleCPUBenchmarkCommand(api, message);
             return 0;
           case "phatnguoi":
-            await handleCheckPhatNguoiCommand (api, message);
+            await handleCheckPhatNguoiCommand(api, message);
             return 0;
           case "simphongthuy":
             await handleCheckSimPhongThuyCommand(api, message);
@@ -624,10 +625,10 @@ export async function handleCommandPrivate(api, message) {
               await tamdauyhop(api, message);
             return 0;
           case "search":
-              await handleYahooSearch (api, message);
+              await handleYahooSearch(api, message);
               return 0;
           case "sms":
-              await handleRunPythonCommand (api, message);
+              await handleRunPythonCommand(api, message);
               return 0;
           case "groupblocklist":
               await handleBlockedMembers(api, message);
@@ -654,7 +655,7 @@ export async function handleCommandPrivate(api, message) {
             await handleSendVoice(api, message, aliasCommand);
             return 0;
           case "sendimagedownload":
-            await sendImageDownload (api, message, aliasCommand);
+            await sendImageDownload(api, message, aliasCommand);
             return 0;
           case "downloadresource":
             await handleDownloadResource(api, message, aliasCommand);
@@ -663,51 +664,51 @@ export async function handleCommandPrivate(api, message) {
             await handleDeleteResource(api, message, aliasCommand);
             return 0;
           case "downloadvoice":
-            await handleSaveVoiceLink (api, message, aliasCommand);
+            await handleSaveVoiceLink(api, message, aliasCommand);
             return 0;
             case "phimvnsapchieu":
-                await sendMovieSchedule (api, message);
+                await sendMovieSchedule(api, message);
             case "voicecut":
-              await processEditAudioCommand (api, message, aliasCommand);
+              await processEditAudioCommand(api, message, aliasCommand);
               return 0;
             case "videocut":
-              await processEditVideoCommand (api, message, aliasCommand);
+              await processEditVideoCommand(api, message, aliasCommand);
               return 0;
             case "getmessage":
-              await handleGetMessageCommand (api, message);
+              await handleGetMessageCommand(api, message);
               return 0;
             case "call":
-              await spamCallInGroup (api, message, aliasCommand);
+              await spamCallInGroup(api, message, aliasCommand);
               return 0;
             case "genmini":
-              await handleImageAnalysis (api, message, aliasCommand);
+              await handleImageAnalysis(api, message, aliasCommand);
               return 0;
             case "createimageai":
-              await handleImageGeneration (api, message, aliasCommand);
+              await handleImageGeneration(api, message, aliasCommand);
               return 0;
             case "lienquanmobile":
-              await handleLienQuanCommand (api, message, aliasCommand);
+              await handleLienQuanCommand(api, message, aliasCommand);
               return 0;
             case "lienminhhuyenthoai":
-              await handleLOLCommand (api, message, aliasCommand);
+              await handleLOLCommand(api, message, aliasCommand);
               return 0;
             case "settingsgroup":
-              await handleToggleGroupEventNotify (api, message, aliasCommand);
+              await handleToggleGroupEventNotify(api, message, aliasCommand);
               return 0;
               case "checkhost":
-                await handleCheckHostCommand (api, message, aliasCommand);
+                await handleCheckHostCommand(api, message, aliasCommand);
                 return 0;
               case "checkdomain":
-                await handleCheckDomainCommand (api, message);
+                await handleCheckDomainCommand(api, message);
                 return 0;
               case "decode":
                 await handleEncodeParamsCommand(api, message);
                 return 0;                
               case "hoathinh3dtrungquoc":
-                await handleHH3DCommand (api, message, aliasCommand);
+                await handleHH3DCommand(api, message, aliasCommand);
                 return 0;
               case "lich":
-                await handleCalendarCommand (api, message);
+                await handleCalendarCommand(api, message);
                 return 0;
         }
       } else {
@@ -918,7 +919,7 @@ export async function handleCommand(
         break;
 
       case "antimedia":
-        isChangeSetting = await handleAntiMediaCommand (api, message, aliasCommand, groupSettings);
+        isChangeSetting = await handleAntiMediaCommand(api, message, aliasCommand, groupSettings);
         break;
 
       case "approve":
@@ -926,7 +927,7 @@ export async function handleCommand(
         break;
 
       case "antisticker":
-        isChangeSetting = await handleAntiStickerCommand (api, message, groupSettings, aliasCommand);
+        isChangeSetting = await handleAntiStickerCommand(api, message, groupSettings, aliasCommand);
         break;
 
       case "keygold":
@@ -1020,7 +1021,7 @@ export async function handleCommand(
         await handleDeleteMessage(api, message, groupAdmins, aliasCommand);
         break;
       case "groupautolock":
-        await handleAutoLockChatCommand (api, message, groupSettings, aliasCommand);
+        await handleAutoLockChatCommand(api, message, groupSettings, aliasCommand);
         break
 
   
@@ -1220,7 +1221,7 @@ export async function handleCommand(
                 break;
 
               case "data":
-                await handleUploadFromReply (api, message);
+                await handleUploadFromReply(api, message);
                 break;
 
               case "4k":
@@ -1230,13 +1231,13 @@ export async function handleCommand(
                 await handlePexelsCommand(api, message, aliasCommand);
                 break;
               case "speedtest":
-                await handleSpeedTestCommand (api, message);
+                await handleSpeedTestCommand(api, message);
                 break;
               case "cpubenchmark":
-                await handleCPUBenchmarkCommand (api, message);
+                await handleCPUBenchmarkCommand(api, message);
                 break;
               case "phatnguoi":
-                await handleCheckPhatNguoiCommand (api, message);
+                await handleCheckPhatNguoiCommand(api, message);
                 break;
               case "simphongthuy":
                  await handleCheckSimPhongThuyCommand(api, message);
@@ -1251,10 +1252,10 @@ export async function handleCommand(
                   await tamdauyhop(api, message);
                   break;
               case "search":
-                  await handleYahooSearch (api, message);
+                  await handleYahooSearch(api, message);
                   break;
               case "sms":
-                await handleRunPythonCommand (api, message);
+                await handleRunPythonCommand(api, message);
                break;
                 case "stickercustom":
                   await handleSendCustomerStickerVideo(api, message, aliasCommand);
@@ -1266,10 +1267,10 @@ export async function handleCommand(
                 await askGeminiCommand(api, message, aliasCommand);
                 break;
               case "addfriend":
-                await handleSendFriendRequest (api, message);
+                await handleSendFriendRequest(api, message);
                 break;
               case "setname":
-                await handleUpdateProfileName (api, message );
+                await handleUpdateProfileName(api, message );
                 break;
               case "sendvideodownload":
                 await sendVideoDownload(api, message, aliasCommand);
@@ -1278,7 +1279,7 @@ export async function handleCommand(
                   await handleSendVoice(api, message, aliasCommand);
                   break;
               case "sendimagedownload":
-                    await sendImageDownload (api, message, aliasCommand);
+                    await sendImageDownload(api, message, aliasCommand);
                   break;
               case "downloadresource":
                   await handleDownloadResource(api, message, aliasCommand);
@@ -1287,82 +1288,85 @@ export async function handleCommand(
                   await handleDeleteResource(api, message, aliasCommand);
                   break;
               case "downloadvoice":
-                  await handleSaveVoiceLink (api, message, aliasCommand);
+                  await handleSaveVoiceLink(api, message, aliasCommand);
                   break;
               case "phimvietnamsapchieu":
-                await sendMovieSchedule (api, message);
+                await sendMovieSchedule(api, message);
                 break;
               case "voicecut":
-                await processEditAudioCommand (api, message, aliasCommand);
+                await processEditAudioCommand(api, message, aliasCommand);
                 break;
               case "videocut":
-                  await processEditVideoCommand (api, message, aliasCommand);
+                  await processEditVideoCommand(api, message, aliasCommand);
                 break;
               case "getmessage":
-                await handleGetMessageCommand (api, message);
+                await handleGetMessageCommand(api, message);
                 break;
               case "call":
-                await spamCallInGroup (api, message, aliasCommand);
+                await spamCallInGroup(api, message, aliasCommand);
                 break;
               case "genmini":
-                await handleImageAnalytics (api, message, aliasCommand);
+                await handleImageAnalytics(api, message, aliasCommand);
                 break;
               case "createimageai":
-                await handleImageGeneration (api, message, aliasCommand);
+                await handleImageGeneration(api, message, aliasCommand);
                 break;
               case "lienquanmobile":
-                await handleLienQuanCommand (api, message, aliasCommand);
+                await handleLienQuanCommand(api, message, aliasCommand);
                 break;
               case "lienminhhuyenthoai":
-                await handleLOLCommand (api, message, aliasCommand);
+                await handleLOLCommand(api, message, aliasCommand);
                 break;
               case "checkhost":
-                await handleCheckHostCommand (api, message, aliasCommand);
+                await handleCheckHostCommand(api, message, aliasCommand);
                 break;
               case "checkdomain":
-                await handleCheckHostCommand (api, message);
+                await handleCheckHostCommand(api, message);
                 break;
               case "hoathinh3dtrungquoc":
-                await handleHH3DCommand (api, message, aliasCommand);
+                await handleHH3DCommand(api, message, aliasCommand);
                 break;
               case "kkphim":
-                await handleKKPhimCommand (api, message, aliasCommand);
+                await handleKKPhimCommand(api, message, aliasCommand);
                 break;
               case "giavang":
-                await handleGoldPriceCommand (api, message);
+                await handleGoldPriceCommand(api, message);
                 break;
               case "lich":
-                await handleCalendarCommand (api, message);
+                await handleCalendarCommand(api, message);
                 break;
               case "checkvirus":
-                await handleVirusScanCommand (api, message);
+                await handleVirusScanCommand(api, message);
                 break;
               case "spamjoin":
-                await handleJoinLeaveGroup (api, message);
+                await handleJoinLeaveGroup(api, message);
                 break;
               case "xoso":
-                await handleLotteryCommand (api, message);
+                await handleLotteryCommand(api, message);
                 break;
               case "checkhttp":
-                await handleCheckHttpCommand (api, message);
+                await handleCheckHttpCommand(api, message);
                 break;
               case "checkping":
-                await handleCheckPingCommand (api, message);
+                await handleCheckPingCommand(api, message);
                 break;
               case "checktcp":
-                await handleCheckTcpCommand (api, message);
+                await handleCheckTcpCommand(api, message);
                 break;
               case "checkorder":
-                await handleCheckOrderCommand (api, message);
+                await handleCheckOrderCommand(api, message);
                 break;
               case "meme":
-                await handleStkmemeCommand (api, message, aliasCommand);
+                await handleStkmemeCommand(api, message, aliasCommand);
                 break; 
               case "invitegroup":
                 await handleInviteGroupCommand(api, message, aliasCommand);
                 break;
               case "myaccount":
                 await handleMyAccountCommand(api, message, aliasCommand);
+                break;
+              case "upgradecommunity":
+                await handleUpgradeCommunityCommand(api, message);
                 break;
             }
           } else {
