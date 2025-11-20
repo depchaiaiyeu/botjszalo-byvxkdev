@@ -37,36 +37,22 @@ function getRandomUserAgent() {
 
 function parseTimeToMs(timeStr) {
     if (timeStr === '-1') return -1;
-    
     const match = timeStr.match(/^(-?\d+)([hpmd])$/);
     if (!match) return null;
-
     const value = parseInt(match[1]);
     const unit = match[2];
-
     if (value === -1) return -1;
-
-    const multipliers = {
-        'h': 3600000,
-        'p': 60000,
-        'm': 60000,
-        'd': 86400000
-    };
-
+    const multipliers = { 'h': 3600000, 'p': 60000, 'm': 60000, 'd': 86400000 };
     return value * (multipliers[unit] || 0);
 }
 
 function formatRemainingTime(expiresAt) {
     if (expiresAt === -1) return "Vô hạn ♾️";
-    
     const remaining = expiresAt - Date.now();
-    
     if (remaining <= 0) return "⚠️ Hết hạn";
-    
     const days = Math.floor(remaining / 86400000);
     const hours = Math.floor((remaining % 86400000) / 3600000);
     const mins = Math.floor((remaining % 3600000) / 60000);
-    
     return `${days}d ${hours}h ${mins}p`;
 }
 
@@ -75,7 +61,6 @@ async function getPm2ProcessMap() {
         const { stdout } = await execAsync('pm2 jlist');
         const processes = JSON.parse(stdout);
         const processMap = new Map();
-        
         for (const proc of processes) {
             processMap.set(proc.name, {
                 status: proc.pm2_env.status,
@@ -85,50 +70,29 @@ async function getPm2ProcessMap() {
         }
         return processMap;
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi lấy trạng thái PM2:`, error.message);
         return new Map();
     }
 }
 
 function formatPm2Status(status, isRunningInConfig) {
     if (!status) {
-        if (isRunningInConfig) {
-            return "🟡 Không tìm thấy (Lỗi)";
-        }
+        if (isRunningInConfig) return "🟡 Đang khởi động lại...";
         return "⚪ Chưa chạy";
     }
-
     switch (status) {
-        case 'online':
-            return '✅ Đang chạy';
-        case 'stopping':
-            return '⏳ Đang dừng...';
-        case 'stopped':
-            return '🚫 Đã dừng';
-        case 'launching':
-            return '🚀 Đang khởi động...';
-        case 'errored':
-            return '❌ Lỗi (Crash)';
-        default:
-            return `❓ ${status}`;
+        case 'online': return '✅ Đang chạy';
+        case 'stopping': return '⏳ Đang dừng...';
+        case 'stopped': return '🚫 Đã dừng';
+        case 'launching': return '🚀 Đang khởi động...';
+        case 'errored': return '❌ Lỗi (Crash)';
+        default: return `❓ ${status}`;
     }
 }
 
 async function ensureDirectories() {
-    const dirs = [
-        paths.myBotDataDir,
-        paths.myBotDataFolder,
-        paths.myBotJsonDataFolder,
-        paths.tempDir,
-        paths.cacheDir
-    ];
-
+    const dirs = [paths.myBotDataDir, paths.myBotDataFolder, paths.myBotJsonDataFolder, paths.tempDir, paths.cacheDir];
     for (const dir of dirs) {
-        try {
-            await fs.mkdir(dir, { recursive: true });
-        } catch (error) {
-            console.error(`[MyBot] 🚫 Lỗi tạo thư mục ${dir}:`, error);
-        }
+        try { await fs.mkdir(dir, { recursive: true }); } catch (e) {}
     }
 }
 
@@ -140,8 +104,7 @@ async function getBotConfig(botId) {
     const botPath = await getBotDataPath(botId);
     try {
         const data = await fs.readFile(botPath, "utf-8");
-        const config = JSON.parse(data);
-        return config;
+        return JSON.parse(data);
     } catch (error) {
         return null;
     }
@@ -149,94 +112,48 @@ async function getBotConfig(botId) {
 
 async function saveBotConfig(botId, config) {
     const botPath = await getBotDataPath(botId);
-    try {
-        await fs.writeFile(botPath, JSON.stringify(config, null, 2));
-    } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi lưu config ${botId}:`, error);
-        throw error;
-    }
+    await fs.writeFile(botPath, JSON.stringify(config, null, 2));
 }
 
 async function createGroupSettingsFile(botId) {
-    const filePath = path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`);
-    try {
-        await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    try { await fs.writeFile(path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`), JSON.stringify({}, null, 2)); } catch (e) {}
 }
 
 async function createAdminListFile(botId, adminId = null) {
-    const filePath = path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`);
-    try {
-        const defaultAdmins = adminId ? [adminId.toString()] : [];
-        await fs.writeFile(filePath, JSON.stringify(defaultAdmins, null, 2));
-    } catch (error) {
-    }
+    try { await fs.writeFile(path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`), JSON.stringify(adminId ? [adminId.toString()] : [], null, 2)); } catch (e) {}
 }
 
 async function createWebConfigFile(botId) {
-    const filePath = path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`);
-    try {
-        await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    try { await fs.writeFile(path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`), JSON.stringify({}, null, 2)); } catch (e) {}
 }
 
 async function createManagerBotFile(botId) {
-    const filePath = path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`);
-    try {
-        await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    try { await fs.writeFile(path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`), JSON.stringify({}, null, 2)); } catch (e) {}
 }
 
 async function createProphylacticFile(botId) {
-    const filePath = path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`);
-    try {
-        const defaultProphylactic = {
-            prophylacticUploadAttachment: {
-                enable: false,
-                lastBlocked: "",
-                numRequestZalo: 0
-            }
-        };
-        await fs.writeFile(filePath, JSON.stringify(defaultProphylactic, null, 2));
-    } catch (error) {
-    }
+    const defaultProphylactic = { prophylacticUploadAttachment: { enable: false, lastBlocked: "", numRequestZalo: 0 } };
+    try { await fs.writeFile(path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`), JSON.stringify(defaultProphylactic, null, 2)); } catch (e) {}
 }
 
 async function createConfigFile(botId) {
-    const filePath = path.resolve(paths.myBotDataFolder, `config_${botId}.json`);
-    try {
-        await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    try { await fs.writeFile(path.resolve(paths.myBotDataFolder, `config_${botId}.json`), JSON.stringify({}, null, 2)); } catch (e) {}
 }
 
 async function createLogFiles(botId) {
     const logBotDir = path.resolve(paths.logsDir, botId);
-    const resourceBotDir = path.resolve(paths.resourcesDir, botId);
-    const tempBotDir = path.resolve(paths.tempDir, botId);
-    const logMessagePath = path.resolve(logBotDir, "message.txt");
-    const logMessageJsonPath = path.resolve(logBotDir, "message.json");
-    const logManagerPath = path.resolve(logBotDir, "bot-manager.log");
-
     try {
         await fs.mkdir(logBotDir, { recursive: true });
-        await fs.mkdir(resourceBotDir, { recursive: true });
-        await fs.mkdir(tempBotDir, { recursive: true });
-        await fs.writeFile(logMessagePath, "", "utf-8");
-        await fs.writeFile(logMessageJsonPath, "{}", "utf-8");
-        await fs.writeFile(logManagerPath, "", "utf-8");
-    } catch (error) {
-    }
+        await fs.mkdir(path.resolve(paths.resourcesDir, botId), { recursive: true });
+        await fs.mkdir(path.resolve(paths.tempDir, botId), { recursive: true });
+        await fs.writeFile(path.resolve(logBotDir, "message.txt"), "", "utf-8");
+        await fs.writeFile(path.resolve(logBotDir, "message.json"), "{}", "utf-8");
+        await fs.writeFile(path.resolve(logBotDir, "bot-manager.log"), "", "utf-8");
+    } catch (e) {}
 }
 
 async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent = null) {
-    console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
-
     await ensureDirectories();
-
     const botConfig = {
         cookie: cookie,
         imei: imei,
@@ -246,11 +163,7 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
         isRunning: true,
         processId: `mybot-${botId}`
     };
-
-    console.log(`[MyBot] 📦 Config tạo: ${JSON.stringify(botConfig, null, 2)}`);
-
     await saveBotConfig(botId, botConfig);
-
     await createGroupSettingsFile(botId);
     await createAdminListFile(botId, adminId);
     await createWebConfigFile(botId);
@@ -258,26 +171,15 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
     await createProphylacticFile(botId);
     await createConfigFile(botId);
     await createLogFiles(botId);
-
-    console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
 function streamLogs(processName, botId, botName) {
-    console.log(`[MyBot] 📡 Đang tải 30 dòng log đầu tiên của: ${processName}`);
     const logStream = spawn('pm2', ['logs', processName, '--raw']);
     let lineCount = 0;
     const maxLines = 30;
     
-    const killStream = () => {
-        try {
-            logStream.kill();
-            console.log(`[MyBot] 🛑 Đã dừng log stream cho ${processName}`);
-        } catch (e) {}
-    };
-
-    const timeout = setTimeout(() => {
-        killStream();
-    }, 10000);
+    const killStream = () => { try { logStream.kill(); } catch (e) {} };
+    const timeout = setTimeout(killStream, 10000);
 
     logStream.stdout.on('data', (data) => {
         const lines = data.toString().split('\n');
@@ -287,193 +189,110 @@ function streamLogs(processName, botId, botName) {
                 lineCount++;
             }
         }
-        if (lineCount >= maxLines) {
-            clearTimeout(timeout);
-            killStream();
-        }
-    });
-
-    logStream.stderr.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        for (const line of lines) {
-            if (line.trim() && lineCount < maxLines) {
-                process.stderr.write(`[ ERROR • ${botName} ] ${line}\n`);
-                lineCount++;
-            }
-        }
+        if (lineCount >= maxLines) { clearTimeout(timeout); killStream(); }
     });
 }
 
 async function handleMyBotCreate(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
     const mentions = message.data.mentions;
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
 
     if (!mentions || mentions.length === 0) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot cho họ");
+        await sendMessageQuery(api, message, "Vui lòng @mention người dùng để tạo bot");
         return;
     }
 
     const mention = mentions[0];
     const botId = mention.uid;
     const botName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
-
     let cookie, imei;
 
     if (parts.includes("qrlogin")) {
         try {
-            await sendMessageComplete(api, message, "Đang khởi tạo phiên đăng nhập QR, vui lòng đợi...");
-            
+            await sendMessageComplete(api, message, "Đang khởi tạo QR...");
             await ensureDirectories();
             let session = await initSession();
-            if (!session) {
-                throw new Error("Không thể khởi tạo session");
-            }
-
+            if (!session) throw new Error("Lỗi session");
             session = await verifyClient(session);
-            if (!session) {
-                throw new Error("Không thể xác thực client");
-            }
-
+            if (!session) throw new Error("Lỗi verify client");
+            
             const [code, updatedSession] = await generateQRCode(session);
             session = updatedSession;
-
-            if (!code) {
-                throw new Error("Không thể tạo mã QR");
-            }
+            if (!code) throw new Error("Lỗi tạo QR");
 
             const qrImagePath = path.resolve(paths.cacheDir, "qr_code.png");
-            
             await api.sendMessage({
-                msg: `Quét mã QR để đăng nhập..!\n\nMở Zalo trên điện thoại của tài khoản cần tạo Bot và quét mã này.\nSau đó nhấn "Đăng nhập" trên điện thoại.\n\nBot sẽ tự động thiết lập sau khi bạn xác nhận.`,
+                msg: `Quét mã để đăng nhập (Bot ID: ${botId})`,
                 attachments: [qrImagePath],
                 ttl: 86400000
             }, message.threadId, message.type);
 
             const scanResult = await waitingScan(code, session);
-            if (!scanResult) {
-                throw new Error("Hết thời gian chờ quét mã hoặc lỗi kết nối");
-            }
-
+            if (!scanResult) throw new Error("Timeout");
             const [resultData, rawCookies] = await waitingConfirm(code, session);
-            if (!resultData || !rawCookies) {
-                throw new Error("Xác nhận đăng nhập thất bại hoặc hết hạn");
-            }
+            if (!resultData || !rawCookies) throw new Error("Login thất bại");
 
             imei = resultData.imei;
             cookie = rawCookies.cookies; 
-
-            await sendMessageComplete(api, message, "✅ Đăng nhập thành công! Đang khởi tạo bot...");
-
+            await sendMessageComplete(api, message, "✅ Đăng nhập OK! Đang setup...");
         } catch (error) {
-            console.error(`[MyBot] 🚫 Lỗi QR Login:`, error);
-            await sendMessageWarning(api, message, `🚫 Lỗi quy trình QR: ${error.message}`);
+            await sendMessageWarning(api, message, `🚫 Lỗi QR: ${error.message}`);
             return;
         }
-
     } else {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            await sendMessageWarning(api, message, "🚫 Cú pháp sai. Hãy dùng 'qrlogin' hoặc cung cấp JSON cookie thủ công.");
-            return;
-        }
-
+        if (!jsonMatch) return sendMessageWarning(api, message, "🚫 Sai cú pháp JSON");
         const cookieStr = jsonMatch[0];
         const imeiMatch = content.substring(content.lastIndexOf("}") + 1).trim().split(/\s+/);
         imei = imeiMatch[imeiMatch.length - 1];
-
-        if (!imei) {
-            await sendMessageWarning(api, message, "🚫 IMEI không hợp lệ");
-            return;
-        }
-
-        try {
-            cookie = JSON.parse(cookieStr);
-        } catch (err) {
-            await sendMessageWarning(api, message, `🚫 Cookie JSON không hợp lệ: ${err.message}`);
-            return;
-        }
+        if (!imei) return sendMessageWarning(api, message, "🚫 Thiếu IMEI");
+        try { cookie = JSON.parse(cookieStr); } catch (err) { return sendMessageWarning(api, message, "🚫 JSON lỗi"); }
     }
-
-    console.log(`[MyBot] 👤 Bot ID: ${botId}`);
-    console.log(`[MyBot] 👤 Bot Name: ${botName}`);
-    console.log(`[MyBot] 🔑 IMEI: ${imei}`);
 
     try {
         const processName = `mybot-${botId}`;
         const indexPath = path.resolve("src/index.js");
-
-        try {
-            console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
-            await execAsync(`pm2 delete ${processName}`);
-        } catch (err) {
-        }
-
+        try { await execAsync(`pm2 delete ${processName}`); } catch (e) {}
         await initializeBotFiles(botId, imei, cookie, null, null);
-
-        console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
-        const { stdout } = await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
-        console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
-
-        await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot đang khởi động...`);
-
+        await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
+        await sendMessageComplete(api, message, `✅ Đã tạo bot ${botName}`);
         streamLogs(processName, botId, botName);
-
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi tạo bot:`, error.message);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi tạo bot: ${error.message}`);
+        await sendMessageWarning(api, message, `🚫 Lỗi tạo bot: ${error.message}`);
     }
 }
 
 async function listAllBots(api) {
-    console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
     try {
         const files = await fs.readdir(paths.myBotDataDir);
         const bots = [];
-
         for (const file of files) {
             if (file.endsWith(".json") && !["defaultCommand.json", "mybots.json"].includes(file)) {
                 const botId = file.replace(".json", "");
-
-                if (isNaN(botId) || botId.length < 10) {
-                    continue;
-                }
-
+                if (isNaN(botId) || botId.length < 10) continue;
                 const botConfig = await getBotConfig(botId);
-
                 if (botConfig) {
                     let botName = botId;
                     if (api) {
                         try {
                             const userInfo = await getUserInfoData(api, botId);
-                            if (userInfo && userInfo.name) {
-                                botName = userInfo.name;
-                            }
-                        } catch (err) {
-                        }
+                            if (userInfo && userInfo.name) botName = userInfo.name;
+                        } catch (e) {}
                     }
-                    bots.push({
-                        uid: botId,
-                        name: botName,
-                        config: botConfig
-                    });
+                    bots.push({ uid: botId, name: botName, config: botConfig });
                 }
             }
         }
         return bots;
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi liệt kê bot:`, error);
         return [];
     }
 }
 
 function getBotTarget(message, parts, botList) {
-    let botId = null;
-    let botName = "Bot";
-    let mention = null;
+    let botId = null, botName = "Bot", mention = null;
     const mentions = message.data.mentions;
-
     if (mentions && mentions.length > 0) {
         mention = mentions[0];
         botId = mention.uid;
@@ -485,425 +304,196 @@ function getBotTarget(message, parts, botList) {
             botName = botList[index].name;
         }
     }
-
     return { botId, botName, mention };
 }
 
 async function handleMyBotInfo(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
-    
     const { botId, botName } = getBotTarget(message, parts, botList);
 
-    if (!botId) {
-        await sendMessageWarning(api, message, "Không tìm thấy bot. Vui lòng @mention người dùng hoặc cung cấp index hợp lệ.");
-        return;
-    }
+    if (!botId) return sendMessageWarning(api, message, "Không tìm thấy bot");
 
     try {
         const botConfig = await getBotConfig(botId);
-        if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
-            return;
-        }
+        if (!botConfig) return sendMessageWarning(api, message, `Bot ${botName} không tồn tại`);
 
         const pm2Map = await getPm2ProcessMap();
         const processName = `mybot-${botId}`;
         const pm2Info = pm2Map.get(processName);
-        
         const realStatus = pm2Info ? pm2Info.status : 'stopped';
-        const isRunning = (realStatus === 'online' || realStatus === 'launching');
-        if (botConfig.isRunning !== isRunning) {
-            botConfig.isRunning = isRunning;
-            await saveBotConfig(botId, botConfig);
-        }
-
-        const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
-        const expireInfo = formatRemainingTime(botConfig.expiresAt);
-        const status = formatPm2Status(realStatus, botConfig.isRunning);
-
-        const info = `📜 Thông tin Bot >> VXK Bot Team:\n\n`
-                   + `1. ${botName}\n`
-                   + `📊 Trạng thái: ${status}\n`
-                   + `💾 pm2 Name: ${processName}\n`
-                   + `🎯 Thời gian còn lại: ${expireInfo}\n`
-                   + `🌟 Tạo lúc: ${createdTime}`;
+        
+        const info = `📜 Info Bot: ${botName}\n`
+                   + `📊 Status: ${formatPm2Status(realStatus, botConfig.isRunning)}\n`
+                   + `⚙️ Config Run: ${botConfig.isRunning ? "ON" : "OFF"}\n`
+                   + `💾 Process: ${processName}\n`
+                   + `🎯 Hết hạn: ${formatRemainingTime(botConfig.expiresAt)}\n`
+                   + `🌟 Tạo: ${new Date(botConfig.createdAt).toLocaleString("vi-VN")}`;
 
         await sendMessageComplete(api, message, info);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function handleMyBotList(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
-
     try {
         const bots = await listAllBots(api);
         const pm2Map = await getPm2ProcessMap();
+        if (bots.length === 0) return sendMessageQuery(api, message, "Trống");
 
-        if (bots.length === 0) {
-            await sendMessageQuery(api, message, "Chưa có bot nào trong hệ thống");
-            return;
-        }
-
-        let listInfo = "📜 Danh sách Bot >> VXK Bot Team:\n\n";
-
+        let listInfo = "📜 Bot List:\n\n";
         for (let i = 0; i < bots.length; i++) {
             const bot = bots[i];
-            const processName = `mybot-${bot.uid}`;
-            const pm2Info = pm2Map.get(processName);
-            
+            const pm2Info = pm2Map.get(`mybot-${bot.uid}`);
             const realStatus = pm2Info ? pm2Info.status : 'stopped';
-            
-            const isRunning = (realStatus === 'online' || realStatus === 'launching');
-            if (bot.config.isRunning !== isRunning) {
-                bot.config.isRunning = isRunning;
-                await saveBotConfig(bot.uid, bot.config);
-            }
-            
-            const status = formatPm2Status(realStatus, bot.config.isRunning);
-            const expireInfo = formatRemainingTime(bot.config.expiresAt);
-
-            listInfo += `${i + 1}. ${bot.name}\n`
-                      + `📊 Trạng thái: ${status}\n`
-                      + `🎯 Thời gian còn lại: ${expireInfo}\n\n`;
+            listInfo += `${i + 1}. ${bot.name}\n📊 ${formatPm2Status(realStatus, bot.config.isRunning)} | 🎯 ${formatRemainingTime(bot.config.expiresAt)}\n\n`;
         }
-        
-        listInfo += "-> Inbox cho admin để gia hạn thời gian bot của bạn..!";
-
         await sendMessageComplete(api, message, listInfo);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function handleMyBotAddTime(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot addtime`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
-    
-    if (parts.length < 3) {
-        await sendMessageQuery(api, message, "Cú pháp không hợp lệ. Vui lòng cung cấp người dùng (@mention/index) và thời gian (ví dụ: 1d, 5h, -1)");
-        return;
-    }
+    if (parts.length < 3) return sendMessageQuery(api, message, "Sai cú pháp");
     
     const botList = await listAllBots(api);
-    let botId = null;
-    let botName = "Bot";
-    let timeStr = parts[parts.length - 1];
+    const { botId, botName, mention } = getBotTarget(message, parts, botList);
+    if (!botId) return sendMessageWarning(api, message, "Không tìm thấy bot");
 
-    const target = getBotTarget(message, parts, botList);
-    botId = target.botId;
-    botName = target.botName;
-    
-    if (!botId) {
-        await sendMessageWarning(api, message, "🚫 Không tìm thấy bot. Vui lòng @mentions người dùng hoặc cung cấp index hợp lệ.");
-        return;
-    }
-    
-    if (target.mention) {
-        timeStr = parts[parts.length - 1];
-    } else if (botId) {
-        timeStr = parts[parts.length - 1];
-    }
-
+    const timeStr = mention ? parts[parts.length - 1] : parts[parts.length - 1];
     const timeMs = parseTimeToMs(timeStr);
-    
-    if (timeMs === null) {
-        await sendMessageWarning(api, message, "🚫 Định dạng thời gian không hợp lệ.\nSử dụng: 1h (giờ), 5p/5m (phút), 1d (ngày), hoặc -1 (vô hạn)");
-        return;
-    }
+    if (timeMs === null) return sendMessageWarning(api, message, "Format sai");
 
     try {
         const botConfig = await getBotConfig(botId);
-        if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại trong hệ thống.`);
-            return;
-        }
-
-        let newExpiresAt;
+        if (!botConfig) return sendMessageWarning(api, message, "Bot không tồn tại");
 
         if (timeMs === -1) {
-            newExpiresAt = -1;
+            botConfig.expiresAt = -1;
         } else {
-            const baseTime = (botConfig.expiresAt && botConfig.expiresAt > Date.now()) 
-                             ? botConfig.expiresAt 
-                             : Date.now();
-            newExpiresAt = baseTime + timeMs;
+            const baseTime = (botConfig.expiresAt && botConfig.expiresAt > Date.now()) ? botConfig.expiresAt : Date.now();
+            botConfig.expiresAt = baseTime + timeMs;
         }
-
-        botConfig.expiresAt = newExpiresAt;
+        botConfig.isRunning = true; 
         await saveBotConfig(botId, botConfig);
-
-        const expirationInfo = newExpiresAt === -1 
-            ? "vô hạn" 
-            : new Date(newExpiresAt).toLocaleString("vi-VN");
-
-        await sendMessageComplete(api, message, `✅ Gia hạn thời gian cho Bot của ${botName} thành công.\n🆔 ID: ${botId}\n👉 Thời gian hết hạn mới: ${expirationInfo}`);
+        await sendMessageComplete(api, message, `✅ Đã thêm thời gian cho ${botName}\n👉 Hết hạn: ${botConfig.expiresAt === -1 ? "Vô hạn" : new Date(botConfig.expiresAt).toLocaleString("vi-VN")}`);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi gia hạn bot:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi gia hạn bot: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function deleteBotFiles(botId) {
-    const filePaths = [
-        path.resolve(paths.myBotDataDir, `${botId}.json`),
-        path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`),
-        path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`),
-        path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`),
-        path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`),
-        path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`),
-        path.resolve(paths.myBotDataFolder, `config_${botId}.json`),
-    ];
-    
-    const dirs = [
-        path.resolve(paths.logsDir, botId),
-        path.resolve(paths.resourcesDir, botId),
-        path.resolve(paths.tempDir, botId)
-    ];
-
-    for (const filePath of filePaths) {
-        try {
-            await fs.unlink(filePath);
-        } catch (error) {
-        }
-    }
-
-    for (const dirPath of dirs) {
-        try {
-            await fs.rm(dirPath, { recursive: true, force: true });
-        } catch (error) {
-        }
-    }
+    try {
+        await fs.unlink(path.resolve(paths.myBotDataDir, `${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotDataFolder, `list_admin_${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotJsonDataFolder, `prophylactic_${botId}.json`));
+        await fs.unlink(path.resolve(paths.myBotDataFolder, `config_${botId}.json`));
+        await fs.rm(path.resolve(paths.logsDir, botId), { recursive: true, force: true });
+        await fs.rm(path.resolve(paths.resourcesDir, botId), { recursive: true, force: true });
+        await fs.rm(path.resolve(paths.tempDir, botId), { recursive: true, force: true });
+    } catch (e) {}
 }
 
 async function handleMyBotDelete(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot delete/remove`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
+    const { botId, botName } = getBotTarget(message, parts, botList);
 
-    const target = getBotTarget(message, parts, botList);
-    const botId = target.botId;
-    const botName = target.botName;
-
-    if (!botId) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để xóa khỏi hệ thống VXK Bot Team.");
-        return;
-    }
+    if (!botId) return sendMessageQuery(api, message, "Chọn bot để xóa");
 
     try {
-        const processName = `mybot-${botId}`;
-        
-        try {
-            await execAsync(`pm2 delete ${processName}`);
-        } catch (err) {
-        }
-
+        try { await execAsync(`pm2 delete mybot-${botId}`); } catch (e) {}
         await deleteBotFiles(botId);
-
-        await sendMessageComplete(api, message, `✅ Đã xóa bot và toàn bộ dữ liệu của ${botName} khỏi dữ liệu VXK Bot Team.\n🆔 ID: ${botId}`);
+        await sendMessageComplete(api, message, `✅ Đã xóa bot ${botName}`);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi xóa bot:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi xóa bot: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function handleMyBotShutdown(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot shutdown`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
+    const { botId, botName } = getBotTarget(message, parts, botList);
 
-    const target = getBotTarget(message, parts, botList);
-    const botId = target.botId;
-    const botName = target.botName;
-
-    if (!botId) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để tắt bot.");
-        return;
-    }
+    if (!botId) return sendMessageQuery(api, message, "Chọn bot để tắt");
 
     try {
-        const processName = `mybot-${botId}`;
         const botConfig = await getBotConfig(botId);
-        
-        if (!botConfig) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} không tồn tại trong hệ thống.`);
-            return;
-        }
-        
-        await execAsync(`pm2 stop ${processName}`);
-        
+        if (!botConfig) return sendMessageWarning(api, message, "Bot không tồn tại");
+
+        await execAsync(`pm2 stop mybot-${botId}`);
         botConfig.isRunning = false;
         await saveBotConfig(botId, botConfig);
-        
-        await sendMessageComplete(api, message, `✅ Đã tắt bot của ${botName}\n🆔 ID: ${botId}`);
+        await sendMessageComplete(api, message, `✅ Đã tắt bot ${botName}`);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi tắt bot:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi tắt bot: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function handleMyBotActive(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot active`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
+    const { botId, botName } = getBotTarget(message, parts, botList);
 
-    const target = getBotTarget(message, parts, botList);
-    const botId = target.botId;
-    const botName = target.botName;
-
-    if (!botId) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để bật bot.");
-        return;
-    }
+    if (!botId) return sendMessageQuery(api, message, "Chọn bot để bật");
 
     try {
-        const processName = `mybot-${botId}`;
         const botConfig = await getBotConfig(botId);
-        
-        if (!botConfig) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} không tồn tại trong hệ thống.`);
-            return;
-        }
+        if (!botConfig) return sendMessageWarning(api, message, "Bot không tồn tại");
 
         if (botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now()) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Vui lòng inbox admin để gia hạn thêm thời gian.`);
-            if (botConfig.isRunning) {
-                botConfig.isRunning = false;
-                await saveBotConfig(botId, botConfig);
-            }
-            return;
+            botConfig.isRunning = false;
+            await saveBotConfig(botId, botConfig);
+            return sendMessageWarning(api, message, "🚫 Bot đã hết hạn");
         }
-        
-        await execAsync(`pm2 start ${processName}`);
-        
+
+        await execAsync(`pm2 start mybot-${botId}`);
         botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
-        
-        await sendMessageComplete(api, message, `✅ Đã bật bot của ${botName}\n🆔 ID: ${botId}\n👉 Bot của bạn đang hoạt động trở lại...`);
-
-        streamLogs(processName, botId, botName);
-
+        await sendMessageComplete(api, message, `✅ Đã bật lại bot ${botName}`);
+        streamLogs(`mybot-${botId}`, botId, botName);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi bật bot:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi bật bot: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
 }
 
 async function handleMyBotRestart(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot restart`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
+    const { botId, botName } = getBotTarget(message, parts, botList);
 
-    const target = getBotTarget(message, parts, botList);
-    const botId = target.botId;
-    const botName = target.botName;
-
-    if (!botId) {
-        await sendMessageQuery(api, message, "Vui lòng @mention người dùng hoặc cung cấp index để restart bot.");
-        return;
-    }
+    if (!botId) return sendMessageQuery(api, message, "Chọn bot để restart");
 
     try {
-        const processName = `mybot-${botId}`;
         const botConfig = await getBotConfig(botId);
-        
-        if (!botConfig) {
-            await sendMessageWarning(api, message, `Bot của ${botName} không tồn tại`);
-            return;
-        }
+        if (!botConfig) return sendMessageWarning(api, message, "Bot không tồn tại");
 
         if (botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now()) {
-            await sendMessageWarning(api, message, `🚫 Bot của ${botName} đã hết hạn. Nếu là admin, hãy gia hạn cho bot để có thể sử dụng lệnh này.`);
-            if (botConfig.isRunning) {
-                botConfig.isRunning = false;
-                await saveBotConfig(botId, botConfig);
-            }
-            return;
+            botConfig.isRunning = false;
+            await saveBotConfig(botId, botConfig);
+            return sendMessageWarning(api, message, "🚫 Bot hết hạn");
         }
-        
-        await execAsync(`pm2 restart ${processName}`);
-        
+
+        await execAsync(`pm2 restart mybot-${botId}`);
         botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
-        
-        await sendMessageComplete(api, message, `✅ Đã khởi động lại bot của ${botName} (ID: ${botId}).\nĐang theo dõi log...`);
-
-        streamLogs(processName, botId, botName);
-
+        await sendMessageComplete(api, message, `✅ Restarted bot ${botName}`);
+        streamLogs(`mybot-${botId}`, botId, botName);
     } catch (error) {
-        console.error(`[MyBot] 🚫 Lỗi khi restart bot:`, error);
-        await sendMessageWarning(api, message, `🚫 Lỗi khi restart bot: ${error.message}`);
+        await sendMessageWarning(api, message, `Lỗi: ${error.message}`);
     }
-}
-
-function getHelpMessage() {
-    const prefix = getGlobalPrefix();
-    return `《 🤖 HỆ THỐNG QUẢN LÝ BOT - VXK BOT TEAM 🤖 》
-
-➤ 🆕 Tạo Bot:
-『${prefix}mybot create』
-• 📝 Cú pháp: 
-1. ${prefix}mybot create @mention qrlogin (Quét mã QR)
-2. ${prefix}mybot create @mention <cookie_json> <imei> (Thủ công)
-
----
-➤ ➕ Gia hạn/Đặt thời gian:
-『${prefix}mybot addtime』
-• 📝 Cú pháp: ${prefix}mybot addtime @mention/index thời_gian
-• ⏱️ Định dạng: 1h (giờ), 5p/5m (phút), 1d (ngày), -1 (vô hạn)
-• ⚙️ Ví dụ: ${prefix}mybot addtime @mentions/index -1
-
----
-➤ 🗑️ Xóa Bot:
-『${prefix}mybot delete/remove』
-• 📝 Cú pháp: ${prefix}mybot delete @mention/index
-• ⚙️ Chức năng: Xóa bot và toàn bộ data
-
----
-➤ 🟢 Bật Bot:
-『${prefix}mybot active』
-• 📝 Cú pháp: ${prefix}mybot active @mention/index
-• ⚙️ Chức năng: Khởi động bot đã tắt
-
----
-➤ 🔴 Tắt Bot:
-『${prefix}mybot shutdown』
-• 📝 Cú pháp: ${prefix}mybot shutdown @mention/index
-• ⚙️ Chức năng: Dừng bot (không xóa data)
-
----
-➤ 🔄 Khởi động lại Bot:
-『${prefix}mybot restart』
-• 📝 Cú pháp: ${prefix}mybot restart @mention/index
-• ⚙️ Chức năng: Khởi động lại bot
-
----
-➤ 📋 Thông tin Bot:
-『${prefix}mybot info』
-• 📝 Cú pháp: ${prefix}mybot info @mention/index
-
----
-➤ 📊 Danh sách Bot:
-『${prefix}mybot list』
-• 📝 Hiển thị tất cả bot trong hệ thống
-`;
 }
 
 async function autoBotMonitor() {
@@ -922,81 +512,57 @@ async function autoBotMonitor() {
             const processName = `mybot-${botId}`;
             const pm2Info = pm2Map.get(processName);
             const isPm2Online = pm2Info && (pm2Info.status === 'online' || pm2Info.status === 'launching');
-
             const isExpired = botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now();
 
-            if (isExpired && isPm2Online) {
-                console.log(`[MyBot Monitor] ⏳ Bot ${botId} hết hạn. Đang dừng...`);
-                await execAsync(`pm2 stop ${processName}`);
-                botConfig.isRunning = false;
-                await saveBotConfig(botId, botConfig);
+            if (isExpired) {
+                if (botConfig.isRunning || isPm2Online) {
+                    await execAsync(`pm2 stop ${processName}`);
+                    botConfig.isRunning = false;
+                    await saveBotConfig(botId, botConfig);
+                }
                 continue;
             }
 
-            if (!isExpired && botConfig.isRunning && !isPm2Online) {
-                console.log(`[MyBot Monitor] ⚠️ Bot ${botId} bị tắt đột ngột (có thể do lỗi hoặc reset). Đang khởi động lại...`);
-                await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
-                console.log(`[MyBot Monitor] ✅ Đã khởi động lại bot ${botId}`);
+            if (botConfig.isRunning && !isPm2Online) {
+                try {
+                    await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
+                } catch (e) {}
             }
         }
-    } catch (error) {
-        console.error("[MyBot Monitor] Error:", error);
-    }
+    } catch (error) {}
 }
 
-setInterval(autoBotMonitor, 60000);
+setInterval(autoBotMonitor, 20000);
+
+function getHelpMessage() {
+    const prefix = getGlobalPrefix();
+    return `《 🤖 HỆ THỐNG QUẢN LÝ BOT - VXK BOT TEAM 🤖 》\n\n➤ 🆕 Tạo Bot:\n『${prefix}mybot create』\n• 📝 Cú pháp:\n1. ${prefix}mybot create @mention qrlogin\n2. ${prefix}mybot create @mention <cookie_json> <imei>\n\n➤ ➕ Gia hạn:\n『${prefix}mybot addtime』\n• 📝 Cú pháp: ${prefix}mybot addtime @mention/index <time>\n\n➤ 🗑️ Xóa Bot:\n『${prefix}mybot delete』\n\n➤ 🟢 Bật Bot:\n『${prefix}mybot active』\n\n➤ 🔴 Tắt Bot:\n『${prefix}mybot shutdown』\n\n➤ 🔄 Restart:\n『${prefix}mybot restart』\n\n➤ 📋 Info:\n『${prefix}mybot info』\n\n➤ 📊 List:\n『${prefix}mybot list』`;
+}
 
 export async function handleMyBotCommands(api, message) {
     const prefix = getGlobalPrefix();
     const content = removeMention(message);
 
-    if (!content.includes(`${prefix}mybot`)) {
-        return false;
-    }
+    if (!content.includes(`${prefix}mybot`)) return false;
 
     const parts = content.split(/\s+/).filter(p => p.trim());
 
     if (parts.length < 2) {
-        const helpMsg = getHelpMessage();
-        await sendMessageComplete(api, message, helpMsg);
+        await sendMessageComplete(api, message, getHelpMessage());
         return true;
     }
 
     const command = parts[1];
 
     switch (command) {
-        case "create":
-            await handleMyBotCreate(api, message);
-            return true;
-        case "info":
-            await handleMyBotInfo(api, message);
-            return true;
-        case "list":
-            await handleMyBotList(api, message);
-            return true;
-        case "addtime":
-            await handleMyBotAddTime(api, message);
-            return true;
-        case "delete":
-        case "remove":
-            await handleMyBotDelete(api, message);
-            return true;
-        case "active":
-            await handleMyBotActive(api, message);
-            return true;
-        case "shutdown":
-            await handleMyBotShutdown(api, message);
-            return true;
-        case "restart":
-            await handleMyBotRestart(api, message);
-            return true;
-        case "help":
-            const helpMsg = getHelpMessage();
-            await sendMessageComplete(api, message, helpMsg);
-            return true;
-        default:
-            const defaultHelp = getHelpMessage();
-            await sendMessageComplete(api, message, defaultHelp);
-            return true;
+        case "create": await handleMyBotCreate(api, message); return true;
+        case "info": await handleMyBotInfo(api, message); return true;
+        case "list": await handleMyBotList(api, message); return true;
+        case "addtime": await handleMyBotAddTime(api, message); return true;
+        case "delete": case "remove": await handleMyBotDelete(api, message); return true;
+        case "active": await handleMyBotActive(api, message); return true;
+        case "shutdown": await handleMyBotShutdown(api, message); return true;
+        case "restart": await handleMyBotRestart(api, message); return true;
+        default: await sendMessageComplete(api, message, getHelpMessage()); return true;
     }
 }
