@@ -2301,6 +2301,17 @@
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
+    },
+    {
+      "name": "upgradecommunity",
+      "description": "Nâng cấp nhóm thành cộng đồng mà không cần đủ 100 thành viên",
+      "syntax": "{p}upgradecommunity",
+      "permission": "adminBox",
+      "countdown": 5,
+      "icon": "📊",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
     }
   ]
 }
