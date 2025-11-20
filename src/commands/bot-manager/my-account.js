@@ -41,7 +41,7 @@ Cú pháp chung: ${prefix}${aliasCommand} [setting|info|avatar|friend] ...
 - info: xem/cập nhật tên, ngày sinh, giới tính
 - setting: xem/cập nhật cài đặt quyền riêng tư
 - avatar: cập nhật avatar hoặc quản lý avatar cũ
-- friend: quản lý kết bạn (thêm, xóa, chấp nhận, từ chối)
+- friend: quản lý kết bạn (xóa, chấp nhận, thu hồi, chặn, bỏ chặn)
 
 Ví dụ:
 • ${prefix}${aliasCommand} info name Nguyễn Văn A
@@ -49,7 +49,7 @@ Ví dụ:
 • ${prefix}${aliasCommand} info gender Nam
 • ${prefix}${aliasCommand} setting
 • ${prefix}${aliasCommand} avatar
-• ${prefix}${aliasCommand} avatar list`;
+• ${prefix}${aliasCommand} friend block @tag`;
 
     await sendMessageQuery(api, message, helpMessage);
     return;
@@ -367,12 +367,15 @@ ____________________
     const subAction = args[1]?.toLowerCase();
     const mentions = message.data.mentions;
 
-    if (!["add", "remove", "accept", "reject"].includes(subAction)) {
+    const validActions = ["remove", "accept", "reject", "undo", "block", "unblock"];
+    if (!validActions.includes(subAction)) {
       const friendMenu = `👥 Friend:
-- Thêm bạn: ${prefix}${aliasCommand} friend add @tag [lời nhắn]
 - Xóa bạn: ${prefix}${aliasCommand} friend remove @tag
 - Chấp nhận: ${prefix}${aliasCommand} friend accept @tag
-- Từ chối: ${prefix}${aliasCommand} friend reject @tag`;
+- Từ chối: ${prefix}${aliasCommand} friend reject @tag
+- Thu hồi: ${prefix}${aliasCommand} friend undo @tag
+- Chặn: ${prefix}${aliasCommand} friend block @tag
+- Mở chặn: ${prefix}${aliasCommand} friend unblock @tag`;
       await sendMessageQuery(api, message, friendMenu);
       return;
     }
@@ -380,17 +383,6 @@ ____________________
     if (!mentions || mentions.length === 0) {
       await sendMessageQuery(api, message, "Vui lòng tag (@mention) người dùng cần thực hiện thao tác.");
       return;
-    }
-
-    let customMsg = "";
-    if (subAction === "add") {
-      const fullContent = message.data.content;
-      let lastMentionEnd = 0;
-      for (const m of mentions) {
-        if (m.pos + m.len > lastMentionEnd) lastMentionEnd = m.pos + m.len;
-      }
-      customMsg = fullContent.substring(lastMentionEnd).trim();
-      if (!customMsg) customMsg = "Chào bạn, tớ là bot của Vũ Xuân Kiên, hân hạnh được kết bạn nhé!";
     }
 
     let resultDetails = [];
@@ -401,14 +393,18 @@ ____________________
       const targetName = message.data.content.substring(mention.pos, mention.pos + mention.len).replace("@", "");
 
       try {
-        if (subAction === "add") {
-          await api.sendFriendRequest(targetId, customMsg);
-        } else if (subAction === "remove") {
+        if (subAction === "remove") {
           await api.removeFriend(targetId);
         } else if (subAction === "accept") {
           await api.acceptFriendRequest(targetId);
         } else if (subAction === "reject") {
           await api.rejectFriendRequest(targetId);
+        } else if (subAction === "undo") {
+          await api.undoFriendRequest(targetId);
+        } else if (subAction === "block") {
+          await api.blockUser(targetId);
+        } else if (subAction === "unblock") {
+          await api.unblockUser(targetId);
         }
         resultDetails.push(`• ${targetName}: Thành công`);
       } catch (error) {
@@ -419,10 +415,12 @@ ____________________
     }
 
     let titleAction = "";
-    if (subAction === "add") titleAction = "Gửi lời mời kết bạn đến";
-    else if (subAction === "remove") titleAction = "Xóa bạn bè";
+    if (subAction === "remove") titleAction = "Xóa bạn bè";
     else if (subAction === "accept") titleAction = "Chấp nhận lời mời từ";
     else if (subAction === "reject") titleAction = "Từ chối lời mời từ";
+    else if (subAction === "undo") titleAction = "Thu hồi lời mời gửi đến";
+    else if (subAction === "block") titleAction = "Chặn tin nhắn từ";
+    else if (subAction === "unblock") titleAction = "Mở chặn tin nhắn cho";
 
     const finalMessage = `${titleAction}:\n\n${resultDetails.join("\n")}`;
     
