@@ -132,8 +132,8 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
       ctx.restore();
 
       ctx.beginPath();
-      ctx.moveTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + 45);
-      ctx.lineTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + heightAvatar - 45);
+      ctx.moveTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + 35);
+      ctx.lineTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + heightAvatar - 35);
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.stroke();
@@ -154,7 +154,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   let allLines = [];
 
   texts.forEach((text, index) => {
-    let fontSize = 31;
+    let fontSize = 36;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
 
@@ -179,12 +179,12 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     }
   });
 
-  const lineHeight = 40;
+  const lineHeight = 46;
   const totalHeight = (allLines.length - 1) * lineHeight;
   const startY = (height - totalHeight) / 2;
 
   allLines.forEach((lineObj, index) => {
-    const y = startY + (index * lineHeight) + 10;
+    const y = startY + (index * lineHeight) + 12;
     const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
 
     if (typeImage === 3 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
@@ -348,7 +348,7 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
   const toggleKeys = ["signAdminMsg", "enableMsgHistory", "joinAppr"];
 
   if (toggleKeys.includes(settingKey)) {
-    statusText = settingValue === 1 ? "Được bật" : "Đã tắt";
+    statusText = settingValue === 1 ? "Bật" : "Tắt";
   } else {
     statusText = settingValue === 1 ? `Chỉ trưởng / phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
   }
