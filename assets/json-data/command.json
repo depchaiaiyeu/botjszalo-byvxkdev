@@ -1619,20 +1619,6 @@
       "active": true
     },
     {
-      "name": "addfriend",
-      "description": "Kết bạn với người khác",
-      "syntax": "{p}addfriend",
-      "permission": "adminLevelHigh",
-      "countdown": 30,
-      "icon": "👥",
-      "type": 1,
-      "author": "Vũ Xuân Kiên",
-      "active": true,
-      "alias": [
-        "kb"
-      ]
-    },
-    {
       "name": "tuonglai",
       "description": "Bói Tình Yêu Theo Tên - Xem Tình Duyên Hai Người",
       "syntax": "{p}tuonglai",
@@ -2309,6 +2295,17 @@
       "permission": "adminBox",
       "countdown": 5,
       "icon": "📊",
+      "type": 1,
+      "author": "Vũ Xuân Kiên",
+      "active": true
+    },
+    {
+      "name": "dispersegroup",
+      "description": "Giải tán nhóm (yêu cầu bot phải là trưởng nhóm)",
+      "syntax": "{p}dispersegroup",
+      "permission": "adminBox",
+      "countdown": 5,
+      "icon": "⚔",
       "type": 1,
       "author": "Vũ Xuân Kiên",
       "active": true
