@@ -32,7 +32,7 @@ function wrapText(ctx, text, maxWidth) {
       currentLine += " " + word;
     } else {
       currentLine += "...";
-      break; 
+      break;
     }
   }
   lines.push(currentLine);
@@ -47,7 +47,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
 
   let backgroundImage;
   let fluent = 0.8;
-  
+
   if (fileName.includes("goodbye") || fileName.includes("remove_admin")) {
     typeImage = 1;
     fluent = 0.7;
@@ -55,7 +55,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
     typeImage = 2;
     fluent = 0.85;
   } else if (["setting", "add_admin"].some(keyword => fileName.includes(keyword))) {
-    typeImage = 3; 
+    typeImage = 3;
     fluent = 0.7;
   } else {
     typeImage = 0;
@@ -84,8 +84,8 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   }
 
   let xAvatar = 120;
-  let widthAvatar = 160;
-  let heightAvatar = 160;
+  let widthAvatar = 140;
+  let heightAvatar = 140;
   let yAvatar = height / 2 - heightAvatar / 2;
 
   let gradientColors;
@@ -96,7 +96,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   } else if (typeImage === 2) {
     gradientColors = ["#ff0000", "#ff1111", "#ff2200", "#ff0022", "#ff3300"];
   } else if (typeImage === 3) {
-    gradientColors = ["#FFD700", "#FFA500", "#FF8C00", "#FFC72C", "#FFCC33"]; 
+    gradientColors = ["#FFD700", "#FFA500", "#FF8C00", "#FFC72C", "#FFCC33"];
   } else {
     gradientColors = ["#FF1493", "#FF69B4", "#FFD700", "#FFA500", "#FF8C00", "#00FF7F", "#40E0D0"];
   }
@@ -107,7 +107,7 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   if (userAvatarUrl && cs.isValidUrl(userAvatarUrl)) {
     try {
       const avatar = await loadImage(userAvatarUrl);
-      const borderWidth = 10;
+      const borderWidth = 6;
       const gradient = ctx.createLinearGradient(
         xAvatar - widthAvatar / 2 - borderWidth,
         yAvatar - borderWidth,
@@ -132,14 +132,12 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
       ctx.restore();
 
       ctx.beginPath();
-      ctx.moveTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + 30);
-      ctx.lineTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + heightAvatar - 30);
+      ctx.moveTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + 45);
+      ctx.lineTo(xAvatar + widthAvatar / 2 + borderWidth + 30, yAvatar + heightAvatar - 45);
       ctx.strokeStyle = "white";
       ctx.lineWidth = 2;
       ctx.stroke();
-    } catch (error) {
-      console.error("Lỗi load avatar:", error);
-    }
+    } catch (error) {}
   }
 
   let x1 = xAvatar - widthAvatar / 2 + widthAvatar;
@@ -154,20 +152,30 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   ].filter(text => text);
 
   let allLines = [];
-  
+
   texts.forEach((text, index) => {
-    let fontSize = 30;
+    let fontSize = 31;
     let fontWeight = (index === 0 || index === 1) ? "bold" : "normal";
     ctx.font = `${fontWeight} ${fontSize}px BeVietnamPro`;
-    
+
     const textWidth = ctx.measureText(text).width;
     if (textWidth > maxWidth) {
       const lines = wrapText(ctx, text, maxWidth);
       lines.forEach(line => {
-        allLines.push({ text: line, fontSize, fontWeight, colorIndex: index });
+        allLines.push({
+          text: line,
+          fontSize,
+          fontWeight,
+          colorIndex: index
+        });
       });
     } else {
-      allLines.push({ text, fontSize, fontWeight, colorIndex: index });
+      allLines.push({
+        text,
+        fontSize,
+        fontWeight,
+        colorIndex: index
+      });
     }
   });
 
@@ -178,24 +186,24 @@ async function createImage(userInfo, message, fileName, typeImage = -1) {
   allLines.forEach((lineObj, index) => {
     const y = startY + (index * lineHeight) + 10;
     const textGradient = ctx.createLinearGradient(x2 - 150, y - 30, x2 + 150, y);
-    
+
     if (typeImage === 3 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
-        textGradient.addColorStop(0, "#FFD700");
-        textGradient.addColorStop(0.5, "#FFA500");
-        textGradient.addColorStop(1, "#FFC72C");
+      textGradient.addColorStop(0, "#FFD700");
+      textGradient.addColorStop(0.5, "#FFA500");
+      textGradient.addColorStop(1, "#FFC72C");
     } else if (typeImage === 1 && (lineObj.colorIndex === 0 || lineObj.colorIndex === 1)) {
-        textGradient.addColorStop(0, "#FFFFFF");
-        textGradient.addColorStop(1, "#D3D3D3");
+      textGradient.addColorStop(0, "#FFFFFF");
+      textGradient.addColorStop(1, "#D3D3D3");
     } else {
-        shuffledColors.slice(0, 3).forEach((color, colorIndex) => {
-            textGradient.addColorStop(colorIndex / 2, color);
-        });
+      shuffledColors.slice(0, 3).forEach((color, colorIndex) => {
+        textGradient.addColorStop(colorIndex / 2, color);
+      });
     }
 
     ctx.fillStyle = textGradient;
     ctx.textAlign = "center";
     ctx.font = `${lineObj.fontWeight} ${lineObj.fontSize}px BeVietnamPro`;
-    
+
     ctx.fillText(lineObj.text, x2, y);
   });
 
@@ -214,8 +222,7 @@ export async function createWelcomeImage(userInfo, groupName, groupType, userAct
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   const authorText = userActionName === userName ? "Tham gia trực tiếp hoặc được mời" : `Duyệt bởi ${userActionName}`;
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: groupName,
       userName: `Chào mừng ${isAdmin ? "Sếp " : ""}${userName}`,
       subtitle: `Đã tham gia ${groupTypeText}`,
@@ -229,8 +236,7 @@ export async function createGoodbyeImage(userInfo, groupName, groupType, isAdmin
   const userName = userInfo.name || "";
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: "Member Left The Group",
       userName: `${isAdmin ? "Sếp " : ""}${userName}`,
       subtitle: `Vừa rời khỏi ${groupTypeText}`,
@@ -246,8 +252,7 @@ export async function createKickImage(userInfo, groupName, groupType, gender, us
   let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} oắt con ${userName}`;
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: `Kicked Out Member`,
       userName: userNameText,
       subtitle: `Đã bị ${userActionName} sút khỏi ${groupTypeText}`,
@@ -263,8 +268,7 @@ export async function createBlockImage(userInfo, groupName, groupType, gender, u
   let userNameText = isAdmin ? `Sếp ${userName}` : `${genderText} oắt con ${userName}`;
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: `Blocked Out Member`,
       userName: userNameText,
       subtitle: `Đã bị ${userActionName} chặn khỏi ${groupTypeText}`,
@@ -279,8 +283,7 @@ export async function createBlockSpamImage(userInfo, groupName, groupType, gende
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: `Blocked Out Spam Member`,
       userName: `${genderText} oắt con ${userName}`,
       subtitle: `Do spam đã bị chặn khỏi ${groupTypeText}`,
@@ -295,8 +298,7 @@ export async function createBlockSpamLinkImage(userInfo, groupName, groupType, g
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: `Blocked Out Spam Link Member`,
       userName: `${genderText} oắt con ${userName}`,
       subtitle: `Do spam link đã bị chặn khỏi ${groupTypeText}`,
@@ -311,8 +313,7 @@ export async function createBlockAntiBotImage(userInfo, groupName, groupType, ge
   const genderText = gender === 0 ? "Thằng" : gender === 1 ? "Con" : "Thằng";
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   return createImage(
-    userInfo,
-    {
+    userInfo, {
       title: `Blocked Out Anti Bot Member`,
       userName: `${genderText} oắt con ${userNames}`,
       subtitle: `Do sử dụng bot đã bị chặn khỏi ${groupTypeText}`,
@@ -341,26 +342,24 @@ function getSettingName(key) {
 export async function createUpdateSettingImage(actorInfo, actorName, groupName, groupType, creatorId, sourceId, settingKey, settingValue) {
   const vnGroupType = groupType === 2 ? "Cộng Đồng" : "Nhóm";
   const settingName = settingKey ? getSettingName(settingKey) : "Cài Đặt Chung";
-  
+
   let statusText = "";
-  
+
   const toggleKeys = ["signAdminMsg", "enableMsgHistory", "joinAppr"];
-  const permissionKeys = ["blockName", "addMemberOnly", "setTopicOnly", "lockCreatePost", "lockCreatePoll", "lockSendMsg", "lockViewMember", "pinMsg"];
 
   if (toggleKeys.includes(settingKey)) {
-      statusText = settingValue === 1 ? "Bật" : "Tắt";
+    statusText = settingValue === 1 ? "Được bật" : "Đã tắt";
   } else {
-      statusText = settingValue === 1 ? `Chỉ trưởng / phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
+    statusText = settingValue === 1 ? `Chỉ trưởng / phó ${vnGroupType.toLowerCase()}` : "Tất cả mọi người";
   }
 
   if (!settingKey) statusText = "Đã cập nhật";
 
   const isCreator = creatorId === sourceId;
   const actorRole = isCreator ? `Trưởng ${vnGroupType}` : `Phó ${vnGroupType}`;
-  
+
   return createImage(
-    actorInfo,
-    {
+    actorInfo, {
       title: groupName,
       userName: settingName,
       subtitle: `Đã cập nhật thành: ${statusText}`,
@@ -372,17 +371,16 @@ export async function createUpdateSettingImage(actorInfo, actorName, groupName, 
 
 export async function createAdminChangeImage(targetUserInfo, actorName, targetName, groupName, isAdd, groupType) {
   const groupTypeText = groupType === 2 ? "Cộng Đồng" : "Nhóm";
-  
+
   const titleText = groupName;
   const userNameText = isAdd ? `Chúc mừng ${targetName}` : `Rất Tiếc, ${targetName}`;
-  const subtitleText = isAdd 
-    ? `Đã Được Phong Làm Phó ${groupTypeText}`
-    : `Đã Bị Cắt Chức Phó ${groupTypeText}`;
+  const subtitleText = isAdd ?
+    `Đã Được Phong Làm Phó ${groupTypeText}` :
+    `Đã Bị Cắt Chức Phó ${groupTypeText}`;
   const authorText = `Thực hiện bởi Trưởng ${groupTypeText} ${actorName}`;
 
   return createImage(
-    targetUserInfo,
-    {
+    targetUserInfo, {
       title: titleText,
       userName: userNameText,
       subtitle: subtitleText,
