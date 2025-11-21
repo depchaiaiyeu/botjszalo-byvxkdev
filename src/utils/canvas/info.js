@@ -606,7 +606,49 @@ export async function createUserCardGame(playerInfo) {
 
 export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const width = 1000;
-  const height = 1300;
+  const leftPanelX = 20;
+  const leftPanelWidth = 590;
+  const rightPanelX = leftPanelX + leftPanelWidth + 20;
+  const rightPanelWidth = width - rightPanelX - 20;
+  let currentY = 90;
+
+  const basicInfoHeight = 200;
+  currentY += basicInfoHeight + 15;
+
+  let descBoxHeight = 180;
+  const descFontPx = 16;
+  const descLineHeight = descFontPx + 10;
+  if (groupInfo.desc) {
+    const descLines = groupInfo.desc.split('\n');
+    let totalLines = 0;
+    for (let line of descLines) {
+      const wrapped = handleNameLong(line, 55);
+      totalLines += wrapped.totalLines > 0 ? wrapped.totalLines : 1;
+    }
+    descBoxHeight = Math.max(180, totalLines * descLineHeight + 105);
+  }
+  currentY += descBoxHeight + 15;
+
+  const settingsCount = 9;
+  const settingsLineHeight = 42;
+  const settingsBoxHeight = settingsCount * settingsLineHeight + 55;
+  currentY += settingsBoxHeight;
+
+  const totalLeftHeight = currentY;
+
+  let rightPanelHeight = 75;
+  const botConfigLineHeight = 32;
+  const botConfigTitleHeight = 38;
+
+  if (botConfig.onConfigs.length > 0) {
+    rightPanelHeight += botConfigTitleHeight + botConfig.onConfigs.length * botConfigLineHeight + 20;
+  }
+  if (botConfig.offConfigs.length > 0) {
+    rightPanelHeight += botConfigTitleHeight + botConfig.offConfigs.length * botConfigLineHeight;
+  }
+  rightPanelHeight = Math.max(rightPanelHeight, totalLeftHeight - 90);
+
+  const height = Math.max(totalLeftHeight, 90 + rightPanelHeight) + 30;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -629,17 +671,14 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
-  ctx.font = "bold 38px BeVietnamPro";
+  ctx.font = "bold 37px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   
   const cleanName = groupInfo.name.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
   ctx.fillText(cleanName, width / 2, 55);
 
-  const leftPanelX = 20;
-  const leftPanelWidth = 590;
-  let currentY = 90;
+  currentY = 90;
 
-  const basicInfoHeight = 200;
   ctx.fillStyle = "rgba(15, 20, 30, 0.9)";
   ctx.beginPath();
   ctx.roundRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight, 15);
@@ -672,49 +711,38 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   let infoTextY = avatarY + 25;
   
   ctx.textAlign = "left";
-  ctx.font = "bold 20px BeVietnamPro";
+  ctx.font = "bold 19px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
   
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 20, infoTextY);
 
   infoTextY += 40;
   ctx.textAlign = "left";
-  ctx.font = "bold 20px BeVietnamPro";
+  ctx.font = "bold 19px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
   
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 20, infoTextY);
 
   infoTextY += 40;
   ctx.textAlign = "left";
-  ctx.font = "bold 20px BeVietnamPro";
+  ctx.font = "bold 19px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
   
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 20, infoTextY);
 
   currentY += basicInfoHeight + 15;
-
-  let descBoxHeight = 180;
-  if (groupInfo.desc) {
-    const descLines = groupInfo.desc.split('\n');
-    let totalLines = 0;
-    for (let line of descLines) {
-      const wrapped = handleNameLong(line, 50);
-      totalLines += wrapped.totalLines;
-    }
-    descBoxHeight = Math.max(180, totalLines * 28 + 100);
-  }
 
   ctx.fillStyle = "rgba(15, 20, 30, 0.9)";
   ctx.beginPath();
@@ -723,20 +751,24 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
 
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 26px BeVietnamPro";
+  ctx.font = "bold 25px BeVietnamPro";
   ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 40);
 
-  ctx.font = "17px Arial";
+  ctx.font = `${descFontPx}px Arial`;
   ctx.fillStyle = "#E0E0E0";
   let descTextY = currentY + 75;
 
   if (groupInfo.desc) {
     const descLines = groupInfo.desc.split('\n');
     for (let line of descLines) {
-      const wrapped = handleNameLong(line, 50);
-      for (let l of wrapped.lines) {
-        ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
-        descTextY += 28;
+      const wrapped = handleNameLong(line, 55);
+      if (wrapped.lines.length > 0) {
+          for (let l of wrapped.lines) {
+            ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
+            descTextY += descLineHeight;
+          }
+      } else {
+          descTextY += descLineHeight;
       }
     }
   } else {
@@ -745,7 +777,6 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
 
   currentY += descBoxHeight + 15;
 
-  const settingsBoxHeight = 420;
   ctx.fillStyle = "rgba(15, 20, 30, 0.9)";
   ctx.beginPath();
   ctx.roundRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight, 15);
@@ -756,113 +787,73 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
 
-  const groupSettingsList = [
-    {
-      label: `Quyền sửa thông tin ${groupTypeName}`,
-      value: s.blockName === 1 ? "Chỉ Admin" : "Tất Cả",
-      color: "#FFFFFF"
-    },
-    {
-      label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`,
-      value: s.signAdminMsg === 1 ? "Bật" : "Tắt",
-      color: s.signAdminMsg === 1 ? "#81C784" : "#E57373"
-    },
-    {
-      label: "Chỉ thêm members (Khi tắt link)",
-      value: s.addMemberOnly === 1 ? "Bật" : "Tắt",
-      color: s.addMemberOnly === 1 ? "#81C784" : "#E57373"
-    },
-    {
-      label: "Thành viên mới xem được tin gửi gần đây",
-      value: s.enableMsgHistory === 1 ? "Bật" : "Tắt",
-      color: s.enableMsgHistory === 1 ? "#81C784" : "#E57373"
-    },
-    {
-      label: "Quyền tạo ghi chú, nhắc hẹn",
-      value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất Cả",
-      color: "#FFFFFF"
-    },
-    {
-      label: "Quyền tạo bình chọn",
-      value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất Cả",
-      color: "#FFFFFF"
-    },
-    {
-      label: "Chế độ phê duyệt thành viên",
-      value: s.joinAppr === 1 ? "Bật" : "Tắt",
-      color: s.joinAppr === 1 ? "#81C784" : "#E57373"
-    },
-    {
-      label: "Quyền gửi tin nhắn",
-      value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất Cả",
-      color: "#FFFFFF"
-    },
-    {
-      label: "Quyền xem danh sách thành viên",
-      value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất Cả",
-      color: "#FFFFFF"
-    },
+  const groupSettingsListFinal = [
+    { label: `Quyền sửa thông tin ${groupTypeName}`, value: s.blockName === 1 ? "Chỉ Admin" : "Tất Cả" },
+    { label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`, value: s.signAdminMsg === 1 ? "Bật" : "Tắt" },
+    { label: "Chỉ thêm members (Khi tắt link)", value: s.addMemberOnly === 1 ? "Bật" : "Tắt" },
+    { label: "Thành viên mới xem được tin gửi gần đây", value: s.enableMsgHistory === 1 ? "Bật" : "Tắt" },
+    { label: "Quyền tạo ghi chú, nhắc hẹn", value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất Cả" },
+    { label: "Quyền tạo bình chọn", value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất Cả" },
+    { label: "Chế độ phê duyệt thành viên", value: s.joinAppr === 1 ? "Bật" : "Tắt" },
+    { label: "Quyền gửi tin nhắn", value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất Cả" },
+    { label: "Quyền xem danh sách thành viên", value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất Cả" },
   ];
 
-  for (let item of groupSettingsList) {
+  for (let item of groupSettingsListFinal) {
     ctx.textAlign = "left";
-    ctx.font = "18px BeVietnamPro";
+    ctx.font = "17px BeVietnamPro";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(item.label, leftPanelX + 20, settingTextY);
 
     ctx.textAlign = "right";
-    ctx.fillStyle = item.color;
-    ctx.font = "18px BeVietnamPro";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "17px BeVietnamPro";
     ctx.fillText(item.value, leftPanelX + leftPanelWidth - 20, settingTextY);
 
-    settingTextY += 42;
+    settingTextY += settingsLineHeight;
   }
 
-  const rightPanelX = leftPanelX + leftPanelWidth + 20;
-  const rightPanelWidth = width - rightPanelX - 20;
   const rightPanelY = 90;
-  
-  const totalLeftHeight = (currentY + settingsBoxHeight) - rightPanelY;
   
   ctx.fillStyle = "rgba(15, 20, 30, 0.9)";
   ctx.beginPath();
-  ctx.roundRect(rightPanelX, rightPanelY, rightPanelWidth, totalLeftHeight, 15);
+  ctx.roundRect(rightPanelX, rightPanelY, rightPanelWidth, rightPanelHeight, 15);
   ctx.fill();
 
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 26px BeVietnamPro";
+  ctx.font = "bold 25px BeVietnamPro";
   ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 38);
 
   let botConfigY = rightPanelY + 75;
   ctx.textAlign = "left";
 
   if (botConfig.onConfigs.length > 0) {
-    ctx.font = "bold 22px BeVietnamPro";
+    ctx.font = "bold 21px BeVietnamPro";
     ctx.fillStyle = "#66BB6A";
     ctx.fillText("Cấu hình đang bật", rightPanelX + 15, botConfigY);
-    botConfigY += 38;
+    botConfigY += botConfigTitleHeight;
 
-    ctx.font = "17px Arial";
+    ctx.font = "16px Arial";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.onConfigs) {
       ctx.fillText("• " + config, rightPanelX + 15, botConfigY);
-      botConfigY += 32;
+      botConfigY += botConfigLineHeight;
     }
     botConfigY += 20;
   }
 
   if (botConfig.offConfigs.length > 0) {
-    ctx.font = "bold 22px BeVietnamPro";
+    ctx.font = "bold 21px BeVietnamPro";
     ctx.fillStyle = "#EF5350";
     ctx.fillText("Cấu hình đang tắt", rightPanelX + 15, botConfigY);
-    botConfigY += 38;
+    botConfigY += botConfigTitleHeight;
 
-    ctx.font = "17px Arial";
+    ctx.font = "16px Arial";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.offConfigs) {
       ctx.fillText("• " + config, rightPanelX + 15, botConfigY);
-      botConfigY += 32;
+      botConfigY += botConfigLineHeight;
     }
   }
 
@@ -904,7 +895,8 @@ export async function createAdminListImage(highLevelAdmins, groupAdmins, outputP
   let itemNumber = 1;
 
   const allAdmins = [
-    ...highLevelAdmins.map(admin => ({ ...admin, type: 'high' })),
+    ...highLevelAdmins.map
+    (admin => ({ ...admin, type: 'high' })),
     ...groupAdmins.map(admin => ({ ...admin, type: 'group' }))
   ];
 
