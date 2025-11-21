@@ -16,7 +16,11 @@ function drawBox(ctx, x, y, w, h, title, width) {
   ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 16);
+  if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, h, 16);
+  } else {
+      ctx.rect(x, y, w, h);
+  }
   ctx.fill();
   ctx.stroke();
 
@@ -26,15 +30,6 @@ function drawBox(ctx, x, y, w, h, title, width) {
     ctx.textAlign = "center";
     ctx.fillText(title, x + w / 2, y + 45);
   }
-}
-
-function drawVerticalDivider(ctx, x, y, h) {
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x, y + 60);
-  ctx.lineTo(x, y + h - 60);
-  ctx.stroke();
 }
 
 function measureTextWidth(ctx, text, font) {
@@ -65,15 +60,6 @@ async function getWindowsVersion() {
     return `${osInfo.distro} ${osInfo.release}`;
   } catch {
     return os.release();
-  }
-}
-
-async function getCpuTemp() {
-  try {
-    const temps = await si.cpuTemperature();
-    return temps.main ? `${temps.main.toFixed(1)}°C` : "N/A";
-  } catch {
-    return "N/A";
   }
 }
 
@@ -139,8 +125,8 @@ async function getLoadAverage() {
   }
 }
 
-export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, offConfigs) {
-  let width = 1400;
+export async function createBotInfoImage(botInfo, uptime, botStats) {
+  const width = 1200;
   let height = 0;
 
   const loadAverage = await getLoadAverage();
@@ -174,25 +160,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   const tempCanvas = createCanvas(1, 1);
   const tempCtx = tempCanvas.getContext("2d");
 
-  let maxLeftWidth = 0;
+  let maxTextWidth = 0;
   [systemFields, resourceFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
-      maxLeftWidth = Math.max(maxLeftWidth, textWidth);
+      maxTextWidth = Math.max(maxTextWidth, textWidth);
     });
   });
 
-  const leftColumnWidth = Math.max(500, maxLeftWidth + 120);
-
-  let maxConfigWidth = 0;
-  let configItemsForMeasure = onConfigs.length > 0 && offConfigs.length > 0 ? [...onConfigs, ...offConfigs] : onConfigs.length > 0 ? onConfigs : offConfigs;
-  configItemsForMeasure.forEach(line => {
-    const textWidth = measureTextWidth(tempCtx, `${line}: ✅`, "bold 22px BeVietnamPro");
-    maxConfigWidth = Math.max(maxConfigWidth, textWidth);
-  });
-
-  const rightColumnWidth = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(650, maxConfigWidth * 2 + 180) : Math.max(450, maxConfigWidth + 120);
-  width = leftColumnWidth + rightColumnWidth + 120;
+  const contentColumnWidth = Math.max(600, maxTextWidth + 120);
+  const columnX = (width - contentColumnWidth) / 2;
 
   const headerH = 220;
   const headerY = 30;
@@ -218,14 +195,8 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   });
   const resBoxHeight = calculatedResBoxHeight;
 
-  const maxConfigItems = onConfigs.length > 0 && offConfigs.length > 0 ? Math.max(onConfigs.length, offConfigs.length) : onConfigs.length > 0 ? onConfigs.length : offConfigs.length;
-  const configLineHeight = 40;
-  const configPadding = 180;
-  const cfgBoxHeight = maxConfigItems * configLineHeight + configPadding;
-
-  const leftColumnHeight = sysBoxHeight + resBoxHeight + 60;
-  const rightColumnHeight = cfgBoxHeight + 60;
-  height = Math.max(headerY + headerH + 30 + leftColumnHeight, headerY + headerH + 30 + rightColumnHeight) + 60;
+  const contentHeight = sysBoxHeight + resBoxHeight + 60; // Khoảng cách giữa 2 box
+  height = headerY + headerH + 30 + contentHeight + 60; // Tổng chiều cao + padding dưới
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -264,40 +235,38 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
   }
 
   ctx.textAlign = "left";
-  ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
+  ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
   ctx.font = "bold 48px BeVietnamPro";
   ctx.fillText(botInfo.name, 300, headerY + 100);
   ctx.font = "bold 28px BeVietnamPro";
-  ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
-  ctx.fillText("Thời gian hoạt động: " + uptime, 300, headerY + 140);
-
-  const leftColumnX = 60;
+  ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
+  ctx.fillText("Uptime: " + uptime, 300, headerY + 140);
 
   const sysBoxY = headerY + headerH + 30;
-  drawBox(ctx, leftColumnX, sysBoxY, leftColumnWidth, sysBoxHeight, "System Info", width);
+  drawBox(ctx, columnX, sysBoxY, contentColumnWidth, sysBoxHeight, "System Info", width);
   let ySys = sysBoxY + 100;
   systemFields.forEach(f => {
     ctx.textAlign = "left";
-    ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
+    ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillText(f.label, leftColumnX + 40, ySys);
+    ctx.fillText(f.label, columnX + 40, ySys);
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, ySys);
+    ctx.fillText(f.value, columnX + contentColumnWidth - 40, ySys);
     ySys += uniformLineHeight;
   });
 
   const resBoxY = sysBoxY + sysBoxHeight + 30;
-  drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage", width);
+  drawBox(ctx, columnX, resBoxY, contentColumnWidth, resBoxHeight, "Resource Usage", width);
   let yRes = resBoxY + 100;
   resourceFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
-    ctx.fillText(f.label, leftColumnX + 40, yRes);
+    ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
+    ctx.fillText(f.label, columnX + 40, yRes);
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
+    ctx.fillText(f.value, columnX + contentColumnWidth - 40, yRes);
 
     let percent = null;
     if (f.label.includes("CPU") && f.value.includes("%")) {
@@ -314,9 +283,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
     if (hasBar) {
       yRes += barSpacing;
-      const barX = leftColumnX + 40;
+      const barX = columnX + 40;
       const barY = yRes - 15;
-      const barW = leftColumnWidth - 80;
+      const barW = contentColumnWidth - 80;
       const barH = 16;
       
       ctx.fillStyle = "rgba(255,255,255,0.2)";
@@ -333,52 +302,6 @@ export async function createBotInfoImage(botInfo, uptime, botStats, onConfigs, o
 
     yRes += uniformLineHeight;
   });
-
-  const rightColumnX = leftColumnX + leftColumnWidth + 30;
-  const configY = sysBoxY;
-  if (onConfigs.length > 0 || offConfigs.length > 0) {
-    drawBox(ctx, rightColumnX, configY, rightColumnWidth, cfgBoxHeight, "Group Configs", width);
-
-    const leftColX = rightColumnX + 40;
-    const rightColX = rightColumnX + rightColumnWidth / 2 + 40;
-    if (onConfigs.length > 0 && offConfigs.length > 0) {
-      const dividerX = rightColumnX + rightColumnWidth / 2;
-      drawVerticalDivider(ctx, dividerX, configY, cfgBoxHeight);
-    }
-
-    const configTitleY = configY + 90;
-    const configItemStartY = configTitleY + 50;
-
-    if (offConfigs.length > 0) {
-      let yOff = configItemStartY;
-      ctx.fillStyle = "#FF6B6B";
-      ctx.font = onConfigs.length === 0 ? "bold 30px BeVietnamPro" : "bold 26px BeVietnamPro";
-      ctx.textAlign = "left";
-      ctx.fillText("Đang tắt:", leftColX, configTitleY);
-      ctx.font = onConfigs.length === 0 ? "bold 26px BeVietnamPro" : "bold 22px BeVietnamPro";
-      offConfigs.forEach(line => {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${line}`, leftColX, yOff);
-        yOff += configLineHeight;
-      });
-    }
-
-    if (onConfigs.length > 0) {
-      let yOn = configItemStartY;
-      ctx.fillStyle = "#4ECB71";
-      ctx.font = "bold 26px BeVietnamPro";
-      ctx.textAlign = "left";
-      const titleX = offConfigs.length === 0 ? rightColumnX + (rightColumnWidth / 2) - (measureTextWidth(ctx, "Đang bật:", "bold 26px BeVietnamPro") / 2) : rightColX;
-      const itemX = offConfigs.length === 0 ? rightColumnX + 40 : rightColX;
-      ctx.fillText("Đang bật:", titleX, configTitleY);
-      ctx.font = "bold 22px BeVietnamPro";
-      onConfigs.forEach(line => {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`${line}`, itemX, yOn);
-        yOn += configLineHeight;
-      });
-    }
-  }
 
   const filePath = path.resolve(`./assets/temp/bot_info_${Date.now()}.png`);
   const out = fs.createWriteStream(filePath);
