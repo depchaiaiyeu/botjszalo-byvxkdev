@@ -1,78 +1,117 @@
+import { getSimsimiReply } from "../service-hahuyhoang/chat-bot/simsimi/simsimi-api.js";
 import { getBotId } from "../index.js";
-import { sendMessageStateQuote, sendMessageFromSQL } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { sendMessageStateQuote } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
+import { MessageMention } from "zlbotdqt";
 import { ReactionMap } from "../api-zalo/models/Reaction.js";
 
-const threadCooldowns = new Map();
+const lastAutoReplyMap = new Map();
 const AUTO_REPLY_COOLDOWN = 5 * 60 * 1000;
 const MESSAGE_TTL = AUTO_REPLY_COOLDOWN;
 
 export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings) {
-    if (isSelf || !message.data?.mentions?.length) return false;
+  if (isSelf || !message.data?.mentions?.length) return false;
 
-    const threadId = message.threadId;
-    const mentions = message.data.mentions;
-    const botUid = getBotId();
-    const botMentioned = mentions.some(m => m.uid === botUid);
+  const threadId = message.threadId;
+  const mentions = message.data.mentions;
+  const senderName = message.data.dName;
+  const senderId = message.data.uidFrom;
+  const botUid = getBotId();
 
-    if (!botMentioned) return false;
-    if (!groupSettings[threadId]?.autoReply) return false;
+  const botMentioned = mentions.some(m => m.uid === botUid);
+  if (!botMentioned) return false;
 
-    if (threadCooldowns.has(threadId)) {
-        const releaseTime = threadCooldowns.get(threadId);
-        if (Date.now() < releaseTime) return false;
-    }
+  if (!groupSettings[threadId]?.autoReply) return false;
 
-    const keys = Object.keys(ReactionMap).filter(k => k !== "UNDO");
-    for (let i = 0; i < 100; i++) {
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
-        try {
-            await api.addReaction(randomKey, message);
-        } catch {}
-    }
+  const mention = mentions.find(m => m.uid === botUid);
+  const userMessage = mention && message.data?.content
+    ? String(message.data.content ?? "").slice(mention.len).trim()
+    : "";
 
-    await new Promise(resolve => setTimeout(resolve, 10000));
+  const now = Date.now();
+  if (!lastAutoReplyMap.has(threadId)) lastAutoReplyMap.set(threadId, new Map());
+  const groupMap = lastAutoReplyMap.get(threadId);
+  const lastSent = groupMap.get(senderId) || 0;
 
-    const now = new Date();
-    const timeString = now.toLocaleTimeString("vi-VN", { hour12: false });
-    const msgContent = `Xin chào! Hiện tại là ${timeString}. Đây là tin nhắn trả lời tự động\nHiện tại tôi chưa thể trả lời, vui lòng để lại lời nhắn sau, cảm ơn bạn!...`;
-
+  const keys = Object.keys(ReactionMap).filter(k => k !== "UNDO");
+  for (let i = 0; i < 100; i++) {
+    const randomKey = keys[Math.floor(Math.random() * keys.length)];
     try {
-        await sendMessageFromSQL(api, message, { message: msgContent }, false, MESSAGE_TTL);
-        threadCooldowns.set(threadId, Date.now() + AUTO_REPLY_COOLDOWN);
+      await api.addReaction(randomKey, message);
     } catch {}
+  }
 
+  if (!userMessage) {
+    if (now - lastSent >= AUTO_REPLY_COOLDOWN) {
+      groupMap.set(senderId, now);
+      // await api.sendMessage(
+      //   {
+      //     msg:
+      //       `Xin chào ${senderName}, mình là bot của anh Kiên.\n` +
+      //       `Hiện tại anh Kiên đang offline, nếu bạn cần giúp đỡ có thể để lại tin nhắn, anh ấy sẽ đọc lại sau!`,
+      //     ttl: MESSAGE_TTL
+      //   },
+      //   threadId,
+      //   message.type
+      // );
+    }
     return true;
+  }
+
+  try {
+    const simsimiReply = await getSimsimiReply(userMessage, 0.9);
+    const simsimiMessage = `@${senderName} ${simsimiReply}`;
+    const offset = simsimiMessage.indexOf(`@${senderName}`);
+    // await api.sendMessage(
+    //   {
+    //     msg: simsimiMessage,
+    //     quote: message,
+    //     ttl: MESSAGE_TTL,
+    //     mentions: [MessageMention(senderId, senderName.length + 1, offset)]
+    //   },
+    //   threadId,
+    //   message.type
+    // );
+  } catch {
+    const fallbackMessage = `@${senderName} xin lỗi, mình chưa hiểu bạn nói gì. Bạn có thể nói rõ hơn được không ạ?`;
+    const offset = fallbackMessage.indexOf(`@${senderName}`);
+    // await api.sendMessage(
+    //   {
+    //     msg: fallbackMessage,
+    //     quote: message,
+    //     ttl: MESSAGE_TTL,
+    //     mentions: [MessageMention(senderId, senderName.length + 1, offset)]
+    //   },
+    //   threadId,
+    //   message.type
+    // );
+  }
+
+  return true;
 }
 
 export async function handleAutoReplyCommand(api, message, groupSettings) {
-    const content = message.data?.content || "";
-    const threadId = message.threadId;
-    const args = content.split(" ");
-    const command = args[1]?.toLowerCase();
+  const content = message.data?.content || "";
+  const threadId = message.threadId;
+  const args = content.split(" ");
+  const command = args[1]?.toLowerCase();
 
-    if (!groupSettings[threadId]) groupSettings[threadId] = {};
+  if (!groupSettings[threadId]) groupSettings[threadId] = {};
 
-    if (command === "on") {
-        groupSettings[threadId].autoReply = true;
-    } else if (command === "off") {
-        groupSettings[threadId].autoReply = false;
-        threadCooldowns.delete(threadId);
-    } else {
-        groupSettings[threadId].autoReply = !groupSettings[threadId].autoReply;
-        if (!groupSettings[threadId].autoReply) {
-            threadCooldowns.delete(threadId);
-        }
-    }
+  if (command === "on") {
+    groupSettings[threadId].autoReply = true;
+  } else if (command === "off") {
+    groupSettings[threadId].autoReply = false;
+  } else {
+    groupSettings[threadId].autoReply = !groupSettings[threadId].autoReply;
+  }
 
-    const newStatus = groupSettings[threadId].autoReply ? "bật" : "tắt";
-
-    await sendMessageStateQuote(
-        api,
-        message,
-        `Chức năng tự động trả lời tin nhắn đã được ${newStatus}!`,
-        groupSettings[threadId].autoReply,
-        MESSAGE_TTL
-    );
-
-    return true;
+  const newStatus = groupSettings[threadId].autoReply ? "bật" : "tắt";
+  await sendMessageStateQuote(
+    api,
+    message,
+    `Chức năng tự động trả lời tin nhắn với Simsimi đã được ${newStatus}!`,
+    groupSettings[threadId].autoReply,
+    MESSAGE_TTL
+  );
+  return true;
 }
