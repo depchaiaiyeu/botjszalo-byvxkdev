@@ -603,6 +603,7 @@ export async function createUserCardGame(playerInfo) {
     out.on("error", reject);
   });
 }
+
 export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const width = 1000;
   const leftPanelX = 20;
@@ -674,8 +675,8 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.font = "bold 38px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
 
-  const cleanName = groupInfo.name.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
-  ctx.fillText(cleanName, width / 2, 55);
+  const displayName = groupInfo.name.trim();
+  ctx.fillText(displayName, width / 2, 55);
 
   currentY = 90;
 
@@ -901,6 +902,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     out.on("error", reject);
   });
 }
+
 export async function createAdminListImage(highLevelAdmins, groupAdmins, outputPath) {
   const width = 800;
   const headerHeight = 180;
