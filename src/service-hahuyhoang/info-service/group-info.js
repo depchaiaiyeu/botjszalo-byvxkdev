@@ -10,7 +10,7 @@ export async function groupInfoCommand(api, message) {
     const groupInfo = await getGroupInfoData(api, threadId);
     const owner = await getUserInfoData(api, groupInfo.creatorId);
     const imagePath = await createGroupInfoImage(groupInfo, owner);
-    await api.sendMessage({ msg: "", attachments: [imagePath], quote: message }, threadId, MessageType.GroupMessage);
+    await api.sendMessage({ attachments: [imagePath], quote: message }, threadId, MessageType.GroupMessage);
     clearImagePath(imagePath);
   } catch (error) {
     console.error("Lỗi khi lấy thông tin nhóm:", error);
