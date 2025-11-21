@@ -661,13 +661,13 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     try {
       const bgImage = await loadImage(bgSrc);
       ctx.save();
-      ctx.filter = 'blur(50px)';
+      ctx.filter = 'blur(40px)';
       ctx.drawImage(bgImage, -50, -50, width + 100, height + 100);
       ctx.restore();
     } catch (err) {}
   }
 
-  ctx.fillStyle = "rgba(0, 0, 0, 1)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
