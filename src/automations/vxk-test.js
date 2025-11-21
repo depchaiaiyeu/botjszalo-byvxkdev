@@ -3,7 +3,7 @@ import { sendMessageStateQuote, sendMessageFromSQL } from "../service-hahuyhoang
 import { ReactionMap } from "../api-zalo/models/Reaction.js";
 
 const pendingReplies = new Map();
-const lastAutoReplyMap = new Map();
+const threadCooldowns = new Map();
 const AUTO_REPLY_COOLDOWN = 5 * 60 * 1000;
 
 export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings) {
@@ -27,12 +27,7 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
 
   if (!groupSettings[threadId]?.autoReply) return false;
 
-  const senderId = uidFrom;
-  if (!lastAutoReplyMap.has(threadId)) {
-    lastAutoReplyMap.set(threadId, new Map());
-  }
-  const groupMap = lastAutoReplyMap.get(threadId);
-  const lastSent = groupMap.get(senderId) || 0;
+  const lastSent = threadCooldowns.get(threadId) || 0;
   const now = Date.now();
 
   if (now - lastSent < AUTO_REPLY_COOLDOWN) {
@@ -53,6 +48,10 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
 
   const timeoutId = setTimeout(async () => {
     pendingReplies.delete(threadId);
+    
+    const currentLastSent = threadCooldowns.get(threadId) || 0;
+    if (Date.now() - currentLastSent < AUTO_REPLY_COOLDOWN) return;
+
     try {
       const currentTime = new Date();
       const timeString = currentTime.toLocaleTimeString("vi-VN", {
@@ -64,7 +63,7 @@ export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdmin
         message: autoReplyContent
       }, false, 300000);
 
-      groupMap.set(senderId, Date.now());
+      threadCooldowns.set(threadId, Date.now());
     } catch (err) {}
   }, 10000);
 
