@@ -603,118 +603,184 @@ export async function createUserCardGame(playerInfo) {
     out.on("error", reject);
   });
 }
+import { createCanvas, loadImage, registerFont } from "canvas";
+import fs from "fs";
+import path from "path";
+import * as cv from "./index.js";
+
+export function handleNameLong(text, maxLen = 30) {
+  if (!text) return { lines: [], totalLines: 0 };
+  const words = text.split(" ");
+  let lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    if (currentLine.length + words[i].length + 1 < maxLen) {
+      currentLine += " " + words[i];
+    } else {
+      lines.push(currentLine);
+      currentLine = words[i];
+    }
+  }
+  lines.push(currentLine);
+  return { lines, totalLines: lines.length };
+}
 
 export async function createGroupInfoImage(groupInfo, owner, botConfig) {
-  const { lines: nameLines, totalLines: nameTotalLines } = handleNameLong(groupInfo.name);
+  const width = 1200;
   
-  const width = 1200; 
-  let height = 1400; 
+  let contentHeight = 800;
+  
+  let descLinesCount = 0;
+  if (groupInfo.desc) {
+      const descLines = groupInfo.desc.split('\n');
+      for (let line of descLines) {
+          const wrapped = handleNameLong(line, 55);
+          descLinesCount += wrapped.totalLines;
+      }
+  }
+  contentHeight += descLinesCount * 35;
+
+  const configLinesCount = Math.max(botConfig.onConfigs.length, botConfig.offConfigs.length);
+  contentHeight += configLinesCount * 40 + 150;
+
+  const height = Math.max(1400, contentHeight);
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
-  backgroundGradient.addColorStop(0, "#0A0A0A"); 
-  backgroundGradient.addColorStop(1, "#121212"); 
-  ctx.fillStyle = backgroundGradient;
+  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+  bgGradient.addColorStop(0, "#0A0E14"); 
+  bgGradient.addColorStop(1, "#151B26"); 
+  ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.font = "bold 48px BeVietnamPro";
   ctx.textAlign = "center";
-  ctx.fillStyle = "#FFFFFF"; 
-  ctx.fillText(groupInfo.name, width / 2, 60);
+  ctx.font = "bold 60px BeVietnamPro";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width); 
+  ctx.fillText(groupInfo.name, width / 2, 80);
 
-  const leftPanelX = 40;
-  const leftPanelWidth = 600;
-  const leftPanelY = 100;
+  const leftPanelX = 50;
+  const leftPanelWidth = 650;
+  let currentY = 150;
 
-  ctx.fillStyle = "#1E1E1E";
-  ctx.fillRect(leftPanelX, leftPanelY, leftPanelWidth, 180);
+  const basicInfoHeight = 200;
+  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight, 15);
+    ctx.fill();
+  } else {
+    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight);
+  }
 
-  let xAvatar = leftPanelX + 80;
-  let yAvatar = leftPanelY + 90;
-  let radiusAvatar = 60;
+  const avatarSize = 140;
+  const avatarX = leftPanelX + 40;
+  const avatarY = currentY + 30;
 
   if (owner && owner.avatar) {
     try {
       const avatar = await loadImage(owner.avatar);
       ctx.save();
       ctx.beginPath();
-      ctx.arc(xAvatar, yAvatar, radiusAvatar, 0, Math.PI * 2, true);
+      ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
-      ctx.drawImage(avatar, xAvatar - radiusAvatar, yAvatar - radiusAvatar, radiusAvatar * 2, radiusAvatar * 2);
+      ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
       ctx.restore();
+      
+      ctx.beginPath();
+      ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = cv.getRandomGradient(ctx, width); 
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
     } catch (err) {
-        console.error("Lỗi load avatar owner:", err);
+        console.error(err);
     }
   }
 
+  const infoTextX = avatarX + avatarSize + 40;
+  let infoTextY = avatarY + 40;
   ctx.textAlign = "left";
-  ctx.font = "bold 24px BeVietnamPro";
+  ctx.font = "bold 26px BeVietnamPro";
+
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
+  ctx.textAlign = "right";
+  ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 30, infoTextY);
   
-  let infoX = xAvatar + radiusAvatar + 30;
-  let infoY = leftPanelY + 50;
-
-  ctx.fillStyle = "#81C784"; 
-  ctx.fillText("📄 Trưởng Cộng đồng:", infoX, infoY);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.textAlign = "right";
-  ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 20, infoY);
-
-  infoY += 40;
+  infoTextY += 50;
   ctx.textAlign = "left";
-  ctx.fillStyle = "#FFF176"; 
-  ctx.fillText("📄 Số thành viên:", infoX, infoY);
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 20, infoY);
+  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 30, infoTextY);
 
-  infoY += 40;
+  infoTextY += 50;
   ctx.textAlign = "left";
-  ctx.fillStyle = "#FFD54F"; 
-  ctx.fillText("📅 Ngày tạo:", infoX, infoY);
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 20, infoY);
+  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 30, infoTextY);
 
+  currentY += basicInfoHeight + 30;
 
-  let descY = leftPanelY + 200;
-  let descHeight = 450; 
-  ctx.fillStyle = "#1E1E1E";
-  ctx.fillRect(leftPanelX, descY, leftPanelWidth, descHeight);
+  let descBoxHeight = 150;
+  if (groupInfo.desc) {
+      const dummyLines = handleNameLong(groupInfo.desc, 55).totalLines;
+      descBoxHeight = Math.max(150, dummyLines * 35 + 100);
+  }
+
+  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, descBoxHeight, 15);
+    ctx.fill();
+  } else {
+    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, descBoxHeight);
+  }
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#81C784"; 
-  ctx.font = "bold 32px BeVietnamPro";
-  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, descY + 40);
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.font = "bold 34px BeVietnamPro";
+  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 60);
 
   ctx.font = "24px BeVietnamPro";
   ctx.fillStyle = "#E0E0E0";
-  let currentDescY = descY + 80;
-  
+  let descTextY = currentY + 120;
+
   if (groupInfo.desc) {
-      const descLines = groupInfo.desc.split('\n');
-      for (let line of descLines) {
-          const wrappedLine = handleNameLong(line, 50);
-          for (let l of wrappedLine.lines) {
-              ctx.fillText(l, leftPanelX + leftPanelWidth / 2, currentDescY);
-              currentDescY += 30;
-          }
+    const descLines = groupInfo.desc.split('\n');
+    for (let line of descLines) {
+      const wrapped = handleNameLong(line, 55); 
+      for (let l of wrapped.lines) {
+        ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
+        descTextY += 35;
       }
+    }
   } else {
-      ctx.fillText("Chưa có mô tả.", leftPanelX + leftPanelWidth / 2, currentDescY);
+    ctx.fillText("(Chưa có mô tả)", leftPanelX + leftPanelWidth / 2, descTextY);
+  }
+  
+  currentY += descBoxHeight + 30;
+
+  const settingsBoxHeight = 500;
+  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight, 15);
+    ctx.fill();
+  } else {
+    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight);
   }
 
-  let settingY = descY + descHeight + 20;
-  let settingHeight = 500; 
-  ctx.fillStyle = "#1E1E1E"; 
-  ctx.fillRect(leftPanelX, settingY, leftPanelWidth, settingHeight);
-
-  let currentSettingY = settingY + 40;
+  let settingTextY = currentY + 50;
   ctx.textAlign = "left";
-  ctx.font = "bold 22px BeVietnamPro";
+  ctx.font = "bold 24px BeVietnamPro";
 
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
@@ -768,57 +834,56 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ];
 
   for (let item of groupSettingsList) {
-      ctx.fillStyle = "#81D4FA"; 
-      ctx.fillText(item.label, leftPanelX + 20, currentSettingY);
-      
-      ctx.textAlign = "right";
-      ctx.fillStyle = item.color;
-      ctx.fillText(item.value, leftPanelX + leftPanelWidth - 20, currentSettingY);
-      
-      ctx.textAlign = "left";
-      currentSettingY += 40;
+    ctx.fillStyle = cv.getRandomGradient(ctx, width); 
+    ctx.fillText(item.label, leftPanelX + 30, settingTextY);
+    
+    ctx.textAlign = "right";
+    ctx.fillStyle = item.color;
+    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 30, settingTextY);
+    
+    ctx.textAlign = "left"; 
+    settingTextY += 45; 
   }
 
-  const rightPanelX = leftPanelX + leftPanelWidth + 20;
-  const rightPanelWidth = width - rightPanelX - 40;
-  const rightPanelY = 100;
-  const rightPanelHeight = height - 140;
-
-  ctx.fillStyle = "#1E1E1E"; 
+  const rightPanelX = leftPanelX + leftPanelWidth + 50;
+  const rightPanelWidth = width - rightPanelX - 50;
+  const rightPanelY = 150;
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#81D4FA"; 
-  ctx.font = "bold 36px BeVietnamPro";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.font = "bold 40px BeVietnamPro";
   ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 40);
 
-  let botConfigY = rightPanelY + 80;
-
+  let botConfigY = rightPanelY + 100;
   ctx.textAlign = "left";
-  ctx.font = "bold 28px BeVietnamPro";
-  ctx.fillStyle = "#66BB6A"; 
-  ctx.fillText("Cấu hình đang bật", rightPanelX, botConfigY);
-  botConfigY += 40;
 
-  ctx.font = "24px BeVietnamPro";
-  ctx.fillStyle = "#FFFFFF";
+  if (botConfig.onConfigs.length > 0) {
+    ctx.font = "bold 30px BeVietnamPro";
+    ctx.fillStyle = "#66BB6A"; 
+    ctx.fillText("Cấu hình đang bật", rightPanelX, botConfigY);
+    botConfigY += 50;
 
-  for (let config of botConfig.onConfigs) {
+    ctx.font = "24px BeVietnamPro";
+    ctx.fillStyle = "#FFFFFF";
+    for (let config of botConfig.onConfigs) {
       ctx.fillText(config, rightPanelX, botConfigY);
-      botConfigY += 35;
+      botConfigY += 40;
+    }
+    botConfigY += 30; 
   }
 
-  botConfigY += 30;
-  ctx.font = "bold 28px BeVietnamPro";
-  ctx.fillStyle = "#EF5350"; 
-  ctx.fillText("Cấu hình đang tắt", rightPanelX, botConfigY);
-  botConfigY += 40;
+  if (botConfig.offConfigs.length > 0) {
+    ctx.font = "bold 30px BeVietnamPro";
+    ctx.fillStyle = "#EF5350";
+    ctx.fillText("Cấu hình đang tắt", rightPanelX, botConfigY);
+    botConfigY += 50;
 
-  ctx.font = "24px BeVietnamPro";
-  ctx.fillStyle = "#FFFFFF";
-
-  for (let config of botConfig.offConfigs) {
+    ctx.font = "24px BeVietnamPro";
+    ctx.fillStyle = "#FFFFFF";
+    for (let config of botConfig.offConfigs) {
       ctx.fillText(config, rightPanelX, botConfigY);
-      botConfigY += 35;
+      botConfigY += 40;
+    }
   }
 
   const filePath = path.resolve(`./assets/temp/group_info_${Date.now()}.png`);
@@ -830,7 +895,6 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     out.on("error", reject);
   });
 }
-
 function drawDefaultAvatar(ctx, x, y, size) {
   ctx.fillStyle = "#555555";
   ctx.beginPath();
