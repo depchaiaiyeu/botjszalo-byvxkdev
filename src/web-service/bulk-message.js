@@ -31,6 +31,7 @@ export async function sendBulkMessage(api, socket, data) {
               msg: bulkMessageContent,
               attachments: bulkImageUrls,
               ttl: interval,
+              mentions: [{ pos: 0, uid: -1, len: content.bulkMessageContent }],
             },
             friendId,
             MessageType.DirectMessage
@@ -49,6 +50,7 @@ export async function sendBulkMessage(api, socket, data) {
               msg: bulkMessageContent,
               attachments: bulkImageUrls,
               ttl: interval,
+              mentions: [{ pos: 0, uid: -1, len: bulkMessageContent.length }],
             },
             groupId,
             MessageType.GroupMessage
