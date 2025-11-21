@@ -1,10 +1,7 @@
 import { MessageType } from "zlbotdqt";
-import { createGroupInfoImage } from "../../utils/canvas/createGroupInfoImage.js"; 
-import { clearImagePath } from "../../utils/canvas/index.js";
+import { createGroupInfoImage, clearImagePath } from "../../utils/canvas/index.js";
 import { sendMessageWarning } from "../chat-zalo/chat-style/chat-style.js";
-import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js"; 
-import { readFileSync } from "fs";
-import { join } from "path";
+import { getUserInfoData } from "../../service-hahuyhoang/info-service/user-info.js";
 
 export async function groupInfoCommand(api, message, groupSettings) {
   const threadId = message.threadId;
