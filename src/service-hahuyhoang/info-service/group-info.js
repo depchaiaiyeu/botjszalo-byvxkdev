@@ -13,6 +13,7 @@ export async function groupInfoCommand(api, message) {
     await api.sendMessage({ msg: "", attachments: [imagePath], quote: message }, threadId, MessageType.GroupMessage);
     clearImagePath(imagePath);
   } catch (error) {
+    console.error("Lỗi khi lấy thông tin nhóm:", error);
     await sendMessageWarning(api, message, "Đã xảy ra lỗi khi lấy thông tin nhóm. Vui lòng thử lại sau!");
   }
 }
