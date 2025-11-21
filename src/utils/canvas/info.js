@@ -653,21 +653,21 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#050505";
+  ctx.fillStyle = "#101010";
   ctx.fillRect(0, 0, width, height);
 
-  if (groupInfo.avatar && cv.isValidUrl(groupInfo.avatar)) {
+  const bgSrc = groupInfo.fullAvt || groupInfo.avt || groupInfo.avatar;
+  if (bgSrc && cv.isValidUrl(bgSrc)) {
     try {
-      const bgImage = await loadImage(groupInfo.avatar);
-      ctx.filter = 'blur(50px)';
-      ctx.globalAlpha = 0.25;
-      ctx.drawImage(bgImage, -100, -100, width + 200, height + 200);
-      ctx.filter = 'none';
-      ctx.globalAlpha = 1;
+      const bgImage = await loadImage(bgSrc);
+      ctx.save();
+      ctx.filter = 'blur(40px)';
+      ctx.drawImage(bgImage, -50, -50, width + 100, height + 100);
+      ctx.restore();
     } catch (err) {}
   }
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
