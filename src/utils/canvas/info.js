@@ -629,8 +629,8 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   currentY += descBoxHeight + 20;
 
   const settingsCount = 9;
-  const settingsLineHeight = 50;
-  const settingsBoxHeight = settingsCount * settingsLineHeight + 65; 
+  const settingsLineHeight = 40;
+  const settingsBoxHeight = settingsCount * settingsLineHeight + 60;
   currentY += settingsBoxHeight;
 
   const totalLeftHeight = currentY;
@@ -673,7 +673,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.textBaseline = "middle";
   ctx.font = "bold 38px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  
+
   const cleanName = groupInfo.name.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
   ctx.fillText(cleanName, width / 2, 55);
 
@@ -720,16 +720,16 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   }
 
   const infoTextX = avatarX + avatarSize + 25;
-  const startInfoY = currentY + basicInfoHeight / 2 - 40; 
+  const startInfoY = currentY + basicInfoHeight / 2 - 40;
   let infoTextY = startInfoY;
-  
+
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
 
   ctx.font = "bold 20px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
-  
+
   ctx.font = "18px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
@@ -740,7 +740,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.font = "bold 20px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
-  
+
   ctx.font = "18px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
@@ -751,7 +751,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.font = "bold 20px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
-  
+
   ctx.font = "18px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
@@ -776,12 +776,12 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     for (let line of descLines) {
       const wrapped = handleNameLong(line, 55);
       if (wrapped.lines.length > 0) {
-          for (let l of wrapped.lines) {
-            ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
-            descTextY += descLineHeight;
-          }
-      } else {
+        for (let l of wrapped.lines) {
+          ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
           descTextY += descLineHeight;
+        }
+      } else {
+        descTextY += descLineHeight;
       }
     }
   } else {
@@ -792,42 +792,66 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
 
   drawGlowingBox(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight);
 
-  let settingYBase = currentY + 35 + (settingsLineHeight / 2); 
-  
+  let settingYBase = currentY + 30 + (settingsLineHeight / 2);
+
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
 
-  const groupSettingsListFinal = [
-    { label: `Quyền sửa thông tin ${groupTypeName}`, value: s.blockName === 1 ? "Chỉ Admin" : "Tất Cả" },
-    { label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`, value: s.signAdminMsg === 1 ? "Bật" : "Tắt" },
-    { label: "Chỉ thêm members (Khi tắt link)", value: s.addMemberOnly === 1 ? "Bật" : "Tắt" },
-    { label: "Thành viên mới xem được tin gửi gần đây", value: s.enableMsgHistory === 1 ? "Bật" : "Tắt" },
-    { label: "Quyền tạo ghi chú, nhắc hẹn", value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất Cả" },
-    { label: "Quyền tạo bình chọn", value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất Cả" },
-    { label: "Chế độ phê duyệt thành viên", value: s.joinAppr === 1 ? "Bật" : "Tắt" },
-    { label: "Quyền gửi tin nhắn", value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất Cả" },
-    { label: "Quyền xem danh sách thành viên", value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất Cả" },
+  const groupSettingsListFinal = [{
+      label: `Quyền sửa thông tin ${groupTypeName}`,
+      value: s.blockName === 1 ? "Chỉ Admin" : "Tất Cả"
+    },
+    {
+      label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`,
+      value: s.signAdminMsg === 1 ? "Bật" : "Tắt"
+    },
+    {
+      label: "Chỉ thêm members (Khi tắt link)",
+      value: s.addMemberOnly === 1 ? "Bật" : "Tắt"
+    },
+    {
+      label: "Thành viên mới xem được tin gửi gần đây",
+      value: s.enableMsgHistory === 1 ? "Bật" : "Tắt"
+    },
+    {
+      label: "Quyền tạo ghi chú, nhắc hẹn",
+      value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất Cả"
+    },
+    {
+      label: "Quyền tạo bình chọn",
+      value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất Cả"
+    },
+    {
+      label: "Chế độ phê duyệt thành viên",
+      value: s.joinAppr === 1 ? "Bật" : "Tắt"
+    },
+    {
+      label: "Quyền gửi tin nhắn",
+      value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất Cả"
+    },
+    {
+      label: "Quyền xem danh sách thành viên",
+      value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất Cả"
+    },
   ];
 
   ctx.textBaseline = "middle";
   for (let item of groupSettingsListFinal) {
     ctx.textAlign = "left";
-    ctx.font = "19px BeVietnamPro"; 
+    ctx.font = "21px BeVietnamPro";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    // Đã tăng khoảng cách đệm từ 25 lên 45
-    ctx.fillText(item.label, leftPanelX + 45, settingYBase);
+    ctx.fillText(item.label, leftPanelX + 25, settingYBase);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "19px BeVietnamPro";
-    // Đã tăng khoảng cách đệm từ 25 lên 45
-    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 45, settingYBase);
+    ctx.font = "21px BeVietnamPro";
+    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 25, settingYBase);
 
     settingYBase += settingsLineHeight;
   }
 
   const rightPanelY = 90;
-  
+
   drawGlowingBox(rightPanelX, rightPanelY, rightPanelWidth, rightPanelHeight);
 
   ctx.textAlign = "center";
