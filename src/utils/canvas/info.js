@@ -664,7 +664,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     } catch (err) {}
   }
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.93)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.84)";
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
