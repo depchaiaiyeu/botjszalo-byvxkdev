@@ -16,11 +16,7 @@ function drawBox(ctx, x, y, w, h, title, width) {
   ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  if (ctx.roundRect) {
-      ctx.roundRect(x, y, w, h, 16);
-  } else {
-      ctx.rect(x, y, w, h);
-  }
+  ctx.roundRect(x, y, w, h, 16);
   ctx.fill();
   ctx.stroke();
 
@@ -60,6 +56,15 @@ async function getWindowsVersion() {
     return `${osInfo.distro} ${osInfo.release}`;
   } catch {
     return os.release();
+  }
+}
+
+async function getCpuTemp() {
+  try {
+    const temps = await si.cpuTemperature();
+    return temps.main ? `${temps.main.toFixed(1)}°C` : "N/A";
+  } catch {
+    return "N/A";
   }
 }
 
@@ -126,7 +131,7 @@ async function getLoadAverage() {
 }
 
 export async function createBotInfoImage(botInfo, uptime, botStats) {
-  const width = 1200;
+  let width = 1400;
   let height = 0;
 
   const loadAverage = await getLoadAverage();
@@ -160,16 +165,16 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   const tempCanvas = createCanvas(1, 1);
   const tempCtx = tempCanvas.getContext("2d");
 
-  let maxTextWidth = 0;
+  let maxLeftWidth = 0;
   [systemFields, resourceFields].forEach(fields => {
     fields.forEach(f => {
       const textWidth = measureTextWidth(tempCtx, `${f.label} ${f.value}`, "bold 28px BeVietnamPro");
-      maxTextWidth = Math.max(maxTextWidth, textWidth);
+      maxLeftWidth = Math.max(maxLeftWidth, textWidth);
     });
   });
 
-  const contentColumnWidth = Math.max(600, maxTextWidth + 120);
-  const columnX = (width - contentColumnWidth) / 2;
+  const leftColumnWidth = Math.max(500, maxLeftWidth + 120);
+  width = leftColumnWidth + 120;
 
   const headerH = 220;
   const headerY = 30;
@@ -195,8 +200,8 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   });
   const resBoxHeight = calculatedResBoxHeight;
 
-  const contentHeight = sysBoxHeight + resBoxHeight + 60; // Khoảng cách giữa 2 box
-  height = headerY + headerH + 30 + contentHeight + 60; // Tổng chiều cao + padding dưới
+  const leftColumnHeight = sysBoxHeight + resBoxHeight + 60;
+  height = headerY + headerH + 30 + leftColumnHeight + 60;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -235,38 +240,40 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
   }
 
   ctx.textAlign = "left";
-  ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
+  ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
   ctx.font = "bold 48px BeVietnamPro";
   ctx.fillText(botInfo.name, 300, headerY + 100);
   ctx.font = "bold 28px BeVietnamPro";
-  ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
+  ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
   ctx.fillText("Uptime: " + uptime, 300, headerY + 140);
 
+  const leftColumnX = 60;
+
   const sysBoxY = headerY + headerH + 30;
-  drawBox(ctx, columnX, sysBoxY, contentColumnWidth, sysBoxHeight, "System Info", width);
+  drawBox(ctx, leftColumnX, sysBoxY, leftColumnWidth, sysBoxHeight, "System Info", width);
   let ySys = sysBoxY + 100;
   systemFields.forEach(f => {
     ctx.textAlign = "left";
-    ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
+    ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillText(f.label, columnX + 40, ySys);
+    ctx.fillText(f.label, leftColumnX + 40, ySys);
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(f.value, columnX + contentColumnWidth - 40, ySys);
+    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, ySys);
     ySys += uniformLineHeight;
   });
 
   const resBoxY = sysBoxY + sysBoxHeight + 30;
-  drawBox(ctx, columnX, resBoxY, contentColumnWidth, resBoxHeight, "Resource Usage", width);
+  drawBox(ctx, leftColumnX, resBoxY, leftColumnWidth, resBoxHeight, "Resource Usage", width);
   let yRes = resBoxY + 100;
   resourceFields.forEach(f => {
     ctx.textAlign = "left";
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = cv.getRandomGradient(ctx, contentColumnWidth);
-    ctx.fillText(f.label, columnX + 40, yRes);
+    ctx.fillStyle = cv.getRandomGradient(ctx, leftColumnWidth);
+    ctx.fillText(f.label, leftColumnX + 40, yRes);
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(f.value, columnX + contentColumnWidth - 40, yRes);
+    ctx.fillText(f.value, leftColumnX + leftColumnWidth - 40, yRes);
 
     let percent = null;
     if (f.label.includes("CPU") && f.value.includes("%")) {
@@ -283,9 +290,9 @@ export async function createBotInfoImage(botInfo, uptime, botStats) {
 
     if (hasBar) {
       yRes += barSpacing;
-      const barX = columnX + 40;
+      const barX = leftColumnX + 40;
       const barY = yRes - 15;
-      const barW = contentColumnWidth - 80;
+      const barW = leftColumnWidth - 80;
       const barH = 16;
       
       ctx.fillStyle = "rgba(255,255,255,0.2)";
