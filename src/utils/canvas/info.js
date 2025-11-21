@@ -605,56 +605,54 @@ export async function createUserCardGame(playerInfo) {
 }
 
 export async function createGroupInfoImage(groupInfo, owner, botConfig) {
-  const width = 1200;
-  
-  let contentHeight = 800;
-  
-  let descLinesCount = 0;
-  if (groupInfo.desc) {
-      const descLines = groupInfo.desc.split('\n');
-      for (let line of descLines) {
-          const wrapped = handleNameLong(line, 55);
-          descLinesCount += wrapped.totalLines;
-      }
-  }
-  contentHeight += descLinesCount * 35;
-
-  const configLinesCount = Math.max(botConfig.onConfigs.length, botConfig.offConfigs.length);
-  contentHeight += configLinesCount * 40 + 150;
-
-  const height = Math.max(1400, contentHeight);
+  const width = 1000;
+  const height = 1400;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-  bgGradient.addColorStop(0, "#0A0E14"); 
-  bgGradient.addColorStop(1, "#151B26"); 
-  ctx.fillStyle = bgGradient;
+  if (groupInfo.avatar && cv.isValidUrl(groupInfo.avatar)) {
+    try {
+      const bgImage = await loadImage(groupInfo.avatar);
+      ctx.filter = 'blur(20px)';
+      ctx.drawImage(bgImage, -50, -50, width + 100, height + 100);
+      ctx.filter = 'none';
+    } catch (err) {
+      const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+      bgGradient.addColorStop(0, "#0A0E14");
+      bgGradient.addColorStop(1, "#151B26");
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+  } else {
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+    bgGradient.addColorStop(0, "#0A0E14");
+    bgGradient.addColorStop(1, "#151B26");
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
-  ctx.font = "bold 60px BeVietnamPro";
-  ctx.fillStyle = cv.getRandomGradient(ctx, width); 
-  ctx.fillText(groupInfo.name, width / 2, 80);
+  ctx.font = "bold 48px BeVietnamPro";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
+  ctx.fillText("⚜ " + groupInfo.name + " ⚜", width / 2, 60);
 
-  const leftPanelX = 50;
-  const leftPanelWidth = 650;
-  let currentY = 150;
+  const leftPanelX = 40;
+  const leftPanelWidth = 570;
+  let currentY = 100;
 
   const basicInfoHeight = 200;
-  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight, 15);
-    ctx.fill();
-  } else {
-    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight);
-  }
+  ctx.fillStyle = "rgba(20, 25, 35, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(leftPanelX, currentY, leftPanelWidth, basicInfoHeight, 15);
+  ctx.fill();
 
-  const avatarSize = 140;
-  const avatarX = leftPanelX + 40;
-  const avatarY = currentY + 30;
+  const avatarSize = 120;
+  const avatarX = leftPanelX + 30;
+  const avatarY = currentY + 40;
 
   if (owner && owner.avatar) {
     try {
@@ -666,201 +664,207 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
       ctx.clip();
       ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
       ctx.restore();
-      
+
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-      ctx.strokeStyle = cv.getRandomGradient(ctx, width); 
+      ctx.strokeStyle = cv.getRandomGradient(ctx, width);
       ctx.lineWidth = 4;
       ctx.stroke();
-
-    } catch (err) {
-        console.error(err);
-    }
+    } catch (err) {}
   }
 
-  const infoTextX = avatarX + avatarSize + 40;
-  let infoTextY = avatarY + 40;
+  const infoTextX = avatarX + avatarSize + 30;
+  let infoTextY = avatarY + 30;
   ctx.textAlign = "left";
-  ctx.font = "bold 26px BeVietnamPro";
+  ctx.font = "bold 22px BeVietnamPro";
 
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
+  ctx.font = "20px Arial";
   ctx.textAlign = "right";
-  ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 30, infoTextY);
-  
-  infoTextY += 50;
+  ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 25, infoTextY);
+
+  infoTextY += 45;
   ctx.textAlign = "left";
+  ctx.font = "bold 22px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
+  ctx.font = "20px Arial";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 30, infoTextY);
+  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 25, infoTextY);
 
-  infoTextY += 50;
+  infoTextY += 45;
   ctx.textAlign = "left";
+  ctx.font = "bold 22px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
   ctx.fillStyle = "#FFFFFF";
+  ctx.font = "20px Arial";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 30, infoTextY);
+  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 25, infoTextY);
 
-  currentY += basicInfoHeight + 30;
+  currentY += basicInfoHeight + 20;
 
-  let descBoxHeight = 150;
+  let descBoxHeight = 200;
   if (groupInfo.desc) {
-      const dummyLines = handleNameLong(groupInfo.desc, 55).totalLines;
-      descBoxHeight = Math.max(150, dummyLines * 35 + 100);
+    const descLines = groupInfo.desc.split('\n');
+    let totalLines = 0;
+    for (let line of descLines) {
+      const wrapped = handleNameLong(line, 45);
+      totalLines += wrapped.totalLines;
+    }
+    descBoxHeight = Math.max(200, totalLines * 32 + 120);
   }
 
-  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, descBoxHeight, 15);
-    ctx.fill();
-  } else {
-    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, descBoxHeight);
-  }
+  ctx.fillStyle = "rgba(20, 25, 35, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(leftPanelX, currentY, leftPanelWidth, descBoxHeight, 15);
+  ctx.fill();
 
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 34px BeVietnamPro";
-  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 60);
+  ctx.font = "bold 30px BeVietnamPro";
+  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 50);
 
-  ctx.font = "24px BeVietnamPro";
+  ctx.font = "20px BeVietnamPro";
   ctx.fillStyle = "#E0E0E0";
-  let descTextY = currentY + 120;
+  let descTextY = currentY + 95;
 
   if (groupInfo.desc) {
     const descLines = groupInfo.desc.split('\n');
     for (let line of descLines) {
-      const wrapped = handleNameLong(line, 55); 
+      const wrapped = handleNameLong(line, 45);
       for (let l of wrapped.lines) {
         ctx.fillText(l, leftPanelX + leftPanelWidth / 2, descTextY);
-        descTextY += 35;
+        descTextY += 32;
       }
     }
   } else {
     ctx.fillText("(Chưa có mô tả)", leftPanelX + leftPanelWidth / 2, descTextY);
   }
-  
-  currentY += descBoxHeight + 30;
 
-  const settingsBoxHeight = 500;
-  ctx.fillStyle = "rgba(30, 35, 45, 0.8)";
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight, 15);
-    ctx.fill();
-  } else {
-    ctx.fillRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight);
-  }
+  currentY += descBoxHeight + 20;
 
-  let settingTextY = currentY + 50;
+  const settingsBoxHeight = 460;
+  ctx.fillStyle = "rgba(20, 25, 35, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight, 15);
+  ctx.fill();
+
+  let settingTextY = currentY + 40;
   ctx.textAlign = "left";
-  ctx.font = "bold 24px BeVietnamPro";
+  ctx.font = "bold 20px BeVietnamPro";
 
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
 
   const groupSettingsList = [
-      { 
-        label: `Quyền sửa thông tin ${groupTypeName}`, 
-        value: s.blockName === 1 ? "Chỉ Admin" : "Tất cả", 
-        color: "#FFFFFF" 
-      },
-      { 
-        label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`, 
-        value: s.signAdminMsg === 1 ? "Bật" : "Tắt", 
-        color: s.signAdminMsg === 1 ? "#81C784" : "#E57373" 
-      },
-      { 
-        label: "Chỉ thêm members (Khi tắt link)", 
-        value: s.addMemberOnly === 1 ? "Bật" : "Tắt", 
-        color: s.addMemberOnly === 1 ? "#81C784" : "#E57373" 
-      },
-      { 
-        label: "Thành viên mới xem được tin gửi gần đây", 
-        value: s.enableMsgHistory === 1 ? "Bật" : "Tắt", 
-        color: s.enableMsgHistory === 1 ? "#81C784" : "#E57373" 
-      },
-      { 
-        label: "Quyền tạo ghi chú, nhắc hẹn", 
-        value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất cả", 
-        color: "#FFFFFF" 
-      },
-      { 
-        label: "Quyền tạo bình chọn", 
-        value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất cả", 
-        color: "#FFFFFF" 
-      },
-      { 
-        label: "Chế độ phê duyệt thành viên", 
-        value: s.joinAppr === 1 ? "Bật" : "Tắt", 
-        color: s.joinAppr === 1 ? "#81C784" : "#E57373" 
-      },
-      { 
-        label: "Quyền gửi tin nhắn", 
-        value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất cả", 
-        color: "#FFFFFF" 
-      },
-      { 
-        label: "Quyền xem danh sách thành viên", 
-        value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất cả", 
-        color: "#FFFFFF" 
-      },
+    {
+      label: `Quyền sửa thông tin ${groupTypeName}`,
+      value: s.blockName === 1 ? "Chỉ Admin" : "Tất Cả",
+      color: "#FFFFFF"
+    },
+    {
+      label: `Nổi bật tin nhắn từ trưởng/phó ${groupTypeName}`,
+      value: s.signAdminMsg === 1 ? "Bật" : "Tắt",
+      color: s.signAdminMsg === 1 ? "#81C784" : "#E57373"
+    },
+    {
+      label: "Chỉ thêm members (Khi tắt link)",
+      value: s.addMemberOnly === 1 ? "Bật" : "Tắt",
+      color: s.addMemberOnly === 1 ? "#81C784" : "#E57373"
+    },
+    {
+      label: "Thành viên mới xem được tin gửi gần đây",
+      value: s.enableMsgHistory === 1 ? "Bật" : "Tắt",
+      color: s.enableMsgHistory === 1 ? "#81C784" : "#E57373"
+    },
+    {
+      label: "Quyền tạo ghi chú, nhắc hẹn",
+      value: s.lockCreatePost === 1 ? "Chỉ Admin" : "Tất Cả",
+      color: "#FFFFFF"
+    },
+    {
+      label: "Quyền tạo bình chọn",
+      value: s.lockCreatePoll === 1 ? "Chỉ Admin" : "Tất Cả",
+      color: "#FFFFFF"
+    },
+    {
+      label: "Chế độ phê duyệt thành viên",
+      value: s.joinAppr === 1 ? "Bật" : "Tắt",
+      color: s.joinAppr === 1 ? "#81C784" : "#E57373"
+    },
+    {
+      label: "Quyền gửi tin nhắn",
+      value: s.lockSendMsg === 1 ? "Chỉ Admin" : "Tất Cả",
+      color: "#FFFFFF"
+    },
+    {
+      label: "Quyền xem danh sách thành viên",
+      value: s.lockViewMember === 1 ? "Chỉ Admin" : "Tất Cả",
+      color: "#FFFFFF"
+    },
   ];
 
   for (let item of groupSettingsList) {
-    ctx.fillStyle = cv.getRandomGradient(ctx, width); 
-    ctx.fillText(item.label, leftPanelX + 30, settingTextY);
-    
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
+    ctx.fillText(item.label, leftPanelX + 25, settingTextY);
+
     ctx.textAlign = "right";
     ctx.fillStyle = item.color;
-    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 30, settingTextY);
-    
-    ctx.textAlign = "left"; 
-    settingTextY += 45; 
+    ctx.font = "20px Arial";
+    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 25, settingTextY);
+
+    ctx.textAlign = "left";
+    ctx.font = "bold 20px BeVietnamPro";
+    settingTextY += 45;
   }
 
-  const rightPanelX = leftPanelX + leftPanelWidth + 50;
-  const rightPanelWidth = width - rightPanelX - 50;
-  const rightPanelY = 150;
+  const rightPanelX = leftPanelX + leftPanelWidth + 20;
+  const rightPanelWidth = width - rightPanelX - 40;
+  const rightPanelY = 100;
+
+  ctx.fillStyle = "rgba(20, 25, 35, 0.85)";
+  ctx.beginPath();
+  ctx.roundRect(rightPanelX, rightPanelY, rightPanelWidth, height - rightPanelY - 40, 15);
+  ctx.fill();
 
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 40px BeVietnamPro";
-  ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 40);
+  ctx.font = "bold 32px BeVietnamPro";
+  ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 45);
 
-  let botConfigY = rightPanelY + 100;
+  let botConfigY = rightPanelY + 90;
   ctx.textAlign = "left";
 
   if (botConfig.onConfigs.length > 0) {
-    ctx.font = "bold 30px BeVietnamPro";
-    ctx.fillStyle = "#66BB6A"; 
-    ctx.fillText("Cấu hình đang bật", rightPanelX, botConfigY);
-    botConfigY += 50;
+    ctx.font = "bold 26px BeVietnamPro";
+    ctx.fillStyle = "#66BB6A";
+    ctx.fillText("Cấu hình đang bật", rightPanelX + 20, botConfigY);
+    botConfigY += 45;
 
-    ctx.font = "24px BeVietnamPro";
+    ctx.font = "20px BeVietnamPro";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.onConfigs) {
-      ctx.fillText(config, rightPanelX, botConfigY);
-      botConfigY += 40;
+      ctx.fillText("● " + config, rightPanelX + 20, botConfigY);
+      botConfigY += 38;
     }
-    botConfigY += 30; 
+    botConfigY += 30;
   }
 
   if (botConfig.offConfigs.length > 0) {
-    ctx.font = "bold 30px BeVietnamPro";
+    ctx.font = "bold 26px BeVietnamPro";
     ctx.fillStyle = "#EF5350";
-    ctx.fillText("Cấu hình đang tắt", rightPanelX, botConfigY);
-    botConfigY += 50;
+    ctx.fillText("Cấu hình đang tắt", rightPanelX + 20, botConfigY);
+    botConfigY += 45;
 
-    ctx.font = "24px BeVietnamPro";
+    ctx.font = "20px BeVietnamPro";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.offConfigs) {
-      ctx.fillText(config, rightPanelX, botConfigY);
-      botConfigY += 40;
+      ctx.fillText("● " + config, rightPanelX + 20, botConfigY);
+      botConfigY += 38;
     }
   }
 
@@ -872,17 +876,6 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     out.on("finish", () => resolve(filePath));
     out.on("error", reject);
   });
-}
-function drawDefaultAvatar(ctx, x, y, size) {
-  ctx.fillStyle = "#555555";
-  ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 32px BeVietnamPro";
-  ctx.textAlign = "center";
-  ctx.fillText("?", x + size / 2, y + size / 2 + 12);
 }
 
 export async function createAdminListImage(highLevelAdmins, groupAdmins, outputPath) {
