@@ -814,12 +814,14 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     ctx.textAlign = "left";
     ctx.font = "19px BeVietnamPro"; 
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.fillText(item.label, leftPanelX + 25, settingYBase);
+    // Đã tăng khoảng cách đệm từ 25 lên 45
+    ctx.fillText(item.label, leftPanelX + 45, settingYBase);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "19px BeVietnamPro";
-    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 25, settingYBase);
+    // Đã tăng khoảng cách đệm từ 25 lên 45
+    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 45, settingYBase);
 
     settingYBase += settingsLineHeight;
   }
