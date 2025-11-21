@@ -2,99 +2,77 @@ import { getBotId } from "../index.js";
 import { sendMessageStateQuote, sendMessageFromSQL } from "../service-hahuyhoang/chat-zalo/chat-style/chat-style.js";
 import { ReactionMap } from "../api-zalo/models/Reaction.js";
 
-const pendingReplies = new Map();
 const threadCooldowns = new Map();
 const AUTO_REPLY_COOLDOWN = 5 * 60 * 1000;
+const MESSAGE_TTL = AUTO_REPLY_COOLDOWN;
 
 export async function superCheckBox(api, message, isSelf, botIsAdminBox, isAdminBox, groupSettings) {
-  const threadId = message.threadId;
-  const botUid = getBotId();
-  const uidFrom = message.data.uidFrom;
+    if (isSelf || !message.data?.mentions?.length) return false;
 
-  if (uidFrom === botUid || isSelf || message.data?.quote?.ownerId === botUid || message.data?.quote?.senderId === botUid) {
-    if (pendingReplies.has(threadId)) {
-      clearTimeout(pendingReplies.get(threadId));
-      pendingReplies.delete(threadId);
+    const threadId = message.threadId;
+    const mentions = message.data.mentions;
+    const botUid = getBotId();
+    const botMentioned = mentions.some(m => m.uid === botUid);
+
+    if (!botMentioned) return false;
+    if (!groupSettings[threadId]?.autoReply) return false;
+
+    if (threadCooldowns.has(threadId)) {
+        const releaseTime = threadCooldowns.get(threadId);
+        if (Date.now() < releaseTime) return false;
     }
-    if (isSelf) return false;
-  }
 
-  if (!message.data?.mentions?.length) return false;
+    const keys = Object.keys(ReactionMap).filter(k => k !== "UNDO");
+    for (let i = 0; i < 100; i++) {
+        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+        try {
+            await api.addReaction(randomKey, message);
+        } catch {}
+    }
 
-  const mentions = message.data.mentions;
-  const botMentioned = mentions.some(m => m.uid === botUid);
-  if (!botMentioned) return false;
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
-  if (!groupSettings[threadId]?.autoReply) return false;
+    const now = new Date();
+    const timeString = now.toLocaleTimeString("vi-VN", { hour12: false });
+    const msgContent = `Xin chào! Hiện tại là ${timeString}. Đây là tin nhắn trả lời tự động\nHiện tại tôi chưa thể trả lời, vui lòng để lại lời nhắn sau, cảm ơn bạn!...`;
 
-  const lastSent = threadCooldowns.get(threadId) || 0;
-  const now = Date.now();
-
-  if (now - lastSent < AUTO_REPLY_COOLDOWN) {
-    return true;
-  }
-
-  if (pendingReplies.has(threadId)) {
-    clearTimeout(pendingReplies.get(threadId));
-  }
-
-  const keys = Object.keys(ReactionMap).filter(k => k !== "UNDO");
-  for (let i = 0; i < 12; i++) {
-    const randomKey = keys[Math.floor(Math.random() * keys.length)];
     try {
-      await api.addReaction(randomKey, message);
+        await sendMessageFromSQL(api, message, { message: msgContent }, false, MESSAGE_TTL);
+        threadCooldowns.set(threadId, Date.now() + AUTO_REPLY_COOLDOWN);
     } catch {}
-  }
 
-  const timeoutId = setTimeout(async () => {
-    pendingReplies.delete(threadId);
-    
-    const currentLastSent = threadCooldowns.get(threadId) || 0;
-    if (Date.now() - currentLastSent < AUTO_REPLY_COOLDOWN) return;
-
-    try {
-      const currentTime = new Date();
-      const timeString = currentTime.toLocaleTimeString("vi-VN", {
-        hour12: false
-      });
-      const autoReplyContent = `Xin chào!\nHiện tại là ${timeString}.\nĐây là tin nhắn trả lời tự động\nHiện tại tôi chưa thể trả lời, vui lòng để lại lời nhắn sau, cảm ơn bạn!...`;
-
-      await sendMessageFromSQL(api, message, {
-        message: autoReplyContent
-      }, false, 300000);
-
-      threadCooldowns.set(threadId, Date.now());
-    } catch (err) {}
-  }, 10000);
-
-  pendingReplies.set(threadId, timeoutId);
-
-  return true;
+    return true;
 }
 
 export async function handleAutoReplyCommand(api, message, groupSettings) {
-  const content = message.data?.content || "";
-  const threadId = message.threadId;
-  const args = content.split(" ");
-  const command = args[1]?.toLowerCase();
+    const content = message.data?.content || "";
+    const threadId = message.threadId;
+    const args = content.split(" ");
+    const command = args[1]?.toLowerCase();
 
-  if (!groupSettings[threadId]) groupSettings[threadId] = {};
+    if (!groupSettings[threadId]) groupSettings[threadId] = {};
 
-  if (command === "on") {
-    groupSettings[threadId].autoReply = true;
-  } else if (command === "off") {
-    groupSettings[threadId].autoReply = false;
-  } else {
-    groupSettings[threadId].autoReply = !groupSettings[threadId].autoReply;
-  }
+    if (command === "on") {
+        groupSettings[threadId].autoReply = true;
+    } else if (command === "off") {
+        groupSettings[threadId].autoReply = false;
+        threadCooldowns.delete(threadId);
+    } else {
+        groupSettings[threadId].autoReply = !groupSettings[threadId].autoReply;
+        if (!groupSettings[threadId].autoReply) {
+            threadCooldowns.delete(threadId);
+        }
+    }
 
-  const newStatus = groupSettings[threadId].autoReply ? "bật" : "tắt";
-  await sendMessageStateQuote(
-    api,
-    message,
-    `Chức năng tự động trả lời tin nhắn đã được ${newStatus}!`,
-    groupSettings[threadId].autoReply,
-    300000
-  );
-  return true;
+    const newStatus = groupSettings[threadId].autoReply ? "bật" : "tắt";
+
+    await sendMessageStateQuote(
+        api,
+        message,
+        `Chức năng tự động trả lời tin nhắn đã được ${newStatus}!`,
+        groupSettings[threadId].autoReply,
+        MESSAGE_TTL
+    );
+
+    return true;
 }
