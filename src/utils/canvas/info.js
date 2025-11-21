@@ -629,9 +629,11 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.fillRect(0, 0, width, height);
 
   ctx.textAlign = "center";
-  ctx.font = "bold 48px BeVietnamPro";
+  ctx.font = "bold 38px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.fillText(`${groupInfo.name}`, width / 2, 55);
+  
+  const cleanName = groupInfo.name.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
+  ctx.fillText(cleanName, width / 2, 55);
 
   const leftPanelX = 20;
   const leftPanelWidth = 590;
@@ -668,30 +670,36 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
 
   const infoTextX = avatarX + avatarSize + 25;
   let infoTextY = avatarY + 25;
+  
   ctx.textAlign = "left";
   ctx.font = "bold 20px BeVietnamPro";
-
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
+  
   ctx.font = "18px BeVietnamPro";
+  ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 20, infoTextY);
 
   infoTextY += 40;
   ctx.textAlign = "left";
   ctx.font = "bold 20px BeVietnamPro";
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
+  
   ctx.font = "18px BeVietnamPro";
+  ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 20, infoTextY);
 
   infoTextY += 40;
   ctx.textAlign = "left";
   ctx.font = "bold 20px BeVietnamPro";
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
+  
   ctx.font = "18px BeVietnamPro";
+  ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
   ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 20, infoTextY);
 
@@ -744,9 +752,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.fill();
 
   let settingTextY = currentY + 35;
-  ctx.textAlign = "left";
-  ctx.font = "18px BeVietnamPro";
-
+  
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
 
@@ -799,31 +805,33 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ];
 
   for (let item of groupSettingsList) {
-    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "left";
+    ctx.font = "18px BeVietnamPro";
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(item.label, leftPanelX + 20, settingTextY);
 
     ctx.textAlign = "right";
     ctx.fillStyle = item.color;
-    ctx.font = "18px Arial";
+    ctx.font = "18px BeVietnamPro";
     ctx.fillText(item.value, leftPanelX + leftPanelWidth - 20, settingTextY);
 
-    ctx.textAlign = "left";
-    ctx.font = "18px BeVietnamPro";
     settingTextY += 42;
   }
 
   const rightPanelX = leftPanelX + leftPanelWidth + 20;
   const rightPanelWidth = width - rightPanelX - 20;
   const rightPanelY = 90;
-
+  
+  const totalLeftHeight = (currentY + settingsBoxHeight) - rightPanelY;
+  
   ctx.fillStyle = "rgba(15, 20, 30, 0.9)";
   ctx.beginPath();
-  ctx.roundRect(rightPanelX, rightPanelY, rightPanelWidth, height - rightPanelY - 20, 15);
+  ctx.roundRect(rightPanelX, rightPanelY, rightPanelWidth, totalLeftHeight, 15);
   ctx.fill();
 
   ctx.textAlign = "center";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 28px BeVietnamPro";
+  ctx.font = "bold 26px BeVietnamPro";
   ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 38);
 
   let botConfigY = rightPanelY + 75;
@@ -838,7 +846,7 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     ctx.font = "17px Arial";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.onConfigs) {
-      ctx.fillText("● " + config, rightPanelX + 15, botConfigY);
+      ctx.fillText("• " + config, rightPanelX + 15, botConfigY);
       botConfigY += 32;
     }
     botConfigY += 20;
