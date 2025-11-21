@@ -603,28 +603,6 @@ export async function createUserCardGame(playerInfo) {
     out.on("error", reject);
   });
 }
-import { createCanvas, loadImage, registerFont } from "canvas";
-import fs from "fs";
-import path from "path";
-import * as cv from "./index.js";
-
-export function handleNameLong(text, maxLen = 30) {
-  if (!text) return { lines: [], totalLines: 0 };
-  const words = text.split(" ");
-  let lines = [];
-  let currentLine = words[0];
-
-  for (let i = 1; i < words.length; i++) {
-    if (currentLine.length + words[i].length + 1 < maxLen) {
-      currentLine += " " + words[i];
-    } else {
-      lines.push(currentLine);
-      currentLine = words[i];
-    }
-  }
-  lines.push(currentLine);
-  return { lines, totalLines: lines.length };
-}
 
 export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const width = 1200;
