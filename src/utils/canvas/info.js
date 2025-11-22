@@ -612,12 +612,12 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   const rightPanelWidth = width - rightPanelX - 20;
   let currentY = 90;
 
-  const basicInfoHeight = 200;
-  currentY += basicInfoHeight + 20;
+  const basicInfoHeight = 160;
+  currentY += basicInfoHeight + 15;
 
-  let descBoxHeight = 180;
-  const descFontPx = 16;
-  const descLineHeight = descFontPx + 12;
+  let descBoxHeight = 140;
+  const descFontPx = 15;
+  const descLineHeight = descFontPx + 8;
   if (groupInfo.desc) {
     const descLines = groupInfo.desc.split('\n');
     let totalLines = 0;
@@ -625,30 +625,30 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
       const wrapped = handleNameLong(line, 55);
       totalLines += wrapped.totalLines > 0 ? wrapped.totalLines : 1;
     }
-    descBoxHeight = Math.max(180, totalLines * descLineHeight + 110);
+    descBoxHeight = Math.max(140, totalLines * descLineHeight + 90);
   }
-  currentY += descBoxHeight + 20;
+  currentY += descBoxHeight + 15;
 
   const settingsCount = 9;
-  const settingsLineHeight = 40;
-  const settingsBoxHeight = settingsCount * settingsLineHeight + 60;
+  const settingsLineHeight = 32;
+  const settingsBoxHeight = settingsCount * settingsLineHeight + 50;
   currentY += settingsBoxHeight;
 
   const totalLeftHeight = currentY;
 
-  let rightPanelHeight = 80;
-  const botConfigLineHeight = 35;
-  const botConfigTitleHeight = 45;
+  let rightPanelHeight = 70;
+  const botConfigLineHeight = 28;
+  const botConfigTitleHeight = 38;
 
   if (botConfig.onConfigs.length > 0) {
-    rightPanelHeight += botConfigTitleHeight + botConfig.onConfigs.length * botConfigLineHeight + 20;
+    rightPanelHeight += botConfigTitleHeight + botConfig.onConfigs.length * botConfigLineHeight + 15;
   }
   if (botConfig.offConfigs.length > 0) {
     rightPanelHeight += botConfigTitleHeight + botConfig.offConfigs.length * botConfigLineHeight;
   }
   rightPanelHeight = Math.max(rightPanelHeight, totalLeftHeight - 90);
 
-  const height = Math.max(totalLeftHeight, 90 + rightPanelHeight) + 40;
+  const height = Math.max(totalLeftHeight, 90 + rightPanelHeight) + 30;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
@@ -694,8 +694,8 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
 
   drawGlowingBox(leftPanelX, currentY, leftPanelWidth, basicInfoHeight);
 
-  const avatarSize = 110;
-  const avatarX = leftPanelX + 30;
+  const avatarSize = 80;
+  const avatarX = leftPanelX + 25;
   const avatarY = currentY + (basicInfoHeight - avatarSize) / 2;
 
   if (owner && owner.avatar) {
@@ -712,62 +712,75 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
       ctx.strokeStyle = cv.getRandomGradient(ctx, width);
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
       ctx.stroke();
     } catch (err) {}
   }
 
-  const infoTextX = avatarX + avatarSize + 25;
-  const startInfoY = currentY + basicInfoHeight / 2 - 40;
+  const infoTextX = avatarX + avatarSize + 20;
+  const startInfoY = currentY + basicInfoHeight / 2 - 32;
   let infoTextY = startInfoY;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
 
-  ctx.font = "bold 20px BeVietnamPro";
+  const truncateText = (text, maxWidth) => {
+    const measured = ctx.measureText(text);
+    if (measured.width <= maxWidth) return text;
+    
+    let truncated = text;
+    while (ctx.measureText(truncated + '...').width > maxWidth && truncated.length > 0) {
+      truncated = truncated.slice(0, -1);
+    }
+    return truncated + '...';
+  };
+
+  ctx.font = "bold 18px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Trưởng Cộng đồng:", infoTextX, infoTextY);
 
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
-  ctx.fillText(owner.name, leftPanelX + leftPanelWidth - 25, infoTextY);
+  const maxOwnerNameWidth = leftPanelWidth - (infoTextX - leftPanelX) - 180;
+  const truncatedOwnerName = truncateText(owner.name, maxOwnerNameWidth);
+  ctx.fillText(truncatedOwnerName, leftPanelX + leftPanelWidth - 20, infoTextY);
 
-  infoTextY += 40;
+  infoTextY += 32;
   ctx.textAlign = "left";
-  ctx.font = "bold 20px BeVietnamPro";
+  ctx.font = "bold 18px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📄 Số thành viên:", infoTextX, infoTextY);
 
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 25, infoTextY);
+  ctx.fillText(groupInfo.memberCount, leftPanelX + leftPanelWidth - 20, infoTextY);
 
-  infoTextY += 40;
+  infoTextY += 32;
   ctx.textAlign = "left";
-  ctx.font = "bold 20px BeVietnamPro";
+  ctx.font = "bold 18px BeVietnamPro";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("📅 Ngày tạo:", infoTextX, infoTextY);
 
-  ctx.font = "18px BeVietnamPro";
+  ctx.font = "17px BeVietnamPro";
   ctx.fillStyle = "#FFFFFF";
   ctx.textAlign = "right";
-  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 25, infoTextY);
+  ctx.fillText(groupInfo.createdTime, leftPanelX + leftPanelWidth - 20, infoTextY);
 
-  currentY += basicInfoHeight + 20;
+  currentY += basicInfoHeight + 15;
 
   drawGlowingBox(leftPanelX, currentY, leftPanelWidth, descBoxHeight);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 26px BeVietnamPro";
-  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 45);
+  ctx.font = "bold 24px BeVietnamPro";
+  ctx.fillText("Mô tả Cộng đồng", leftPanelX + leftPanelWidth / 2, currentY + 38);
 
   ctx.font = `${descFontPx}px Arial`;
   ctx.fillStyle = "#E0E0E0";
-  let descTextY = currentY + 85;
+  let descTextY = currentY + 70;
 
   if (groupInfo.desc) {
     const descLines = groupInfo.desc.split('\n');
@@ -786,11 +799,11 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
     ctx.fillText("(Chưa có mô tả)", leftPanelX + leftPanelWidth / 2, descTextY);
   }
 
-  currentY += descBoxHeight + 20;
+  currentY += descBoxHeight + 15;
 
   drawGlowingBox(leftPanelX, currentY, leftPanelWidth, settingsBoxHeight);
 
-  let settingYBase = currentY + 30 + (settingsLineHeight / 2);
+  let settingYBase = currentY + 25 + (settingsLineHeight / 2);
 
   const s = groupInfo.setting || {};
   const groupTypeName = groupInfo.groupType === 2 ? "Cộng đồng" : "Nhóm";
@@ -834,16 +847,16 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ];
 
   ctx.textBaseline = "middle";
+  ctx.font = "18px BeVietnamPro";
+  
   for (let item of groupSettingsListFinal) {
     ctx.textAlign = "left";
-    ctx.font = "21px BeVietnamPro";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.fillText(item.label, leftPanelX + 25, settingYBase);
+    ctx.fillText(item.label, leftPanelX + 20, settingYBase);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "21px BeVietnamPro";
-    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 25, settingYBase);
+    ctx.fillText(item.value, leftPanelX + leftPanelWidth - 20, settingYBase);
 
     settingYBase += settingsLineHeight;
   }
@@ -855,37 +868,37 @@ export async function createGroupInfoImage(groupInfo, owner, botConfig) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = cv.getRandomGradient(ctx, width);
-  ctx.font = "bold 26px BeVietnamPro";
-  ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 45);
+  ctx.font = "bold 24px BeVietnamPro";
+  ctx.fillText("Cấu Hình Bot", rightPanelX + rightPanelWidth / 2, rightPanelY + 38);
 
-  let botConfigY = rightPanelY + 90;
+  let botConfigY = rightPanelY + 75;
   ctx.textAlign = "left";
 
   if (botConfig.onConfigs.length > 0) {
-    ctx.font = "bold 22px BeVietnamPro";
+    ctx.font = "bold 20px BeVietnamPro";
     ctx.fillStyle = "#66BB6A";
-    ctx.fillText("Cấu hình đang bật", rightPanelX + 20, botConfigY);
+    ctx.fillText("Cấu hình đang bật", rightPanelX + 18, botConfigY);
     botConfigY += botConfigTitleHeight;
 
-    ctx.font = "16px Arial";
+    ctx.font = "15px Arial";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.onConfigs) {
-      ctx.fillText("• " + config, rightPanelX + 20, botConfigY);
+      ctx.fillText("• " + config, rightPanelX + 18, botConfigY);
       botConfigY += botConfigLineHeight;
     }
-    botConfigY += 25;
+    botConfigY += 20;
   }
 
   if (botConfig.offConfigs.length > 0) {
-    ctx.font = "bold 22px BeVietnamPro";
+    ctx.font = "bold 20px BeVietnamPro";
     ctx.fillStyle = "#EF5350";
-    ctx.fillText("Cấu hình đang tắt", rightPanelX + 20, botConfigY);
+    ctx.fillText("Cấu hình đang tắt", rightPanelX + 18, botConfigY);
     botConfigY += botConfigTitleHeight;
 
-    ctx.font = "16px Arial";
+    ctx.font = "15px Arial";
     ctx.fillStyle = "#FFFFFF";
     for (let config of botConfig.offConfigs) {
-      ctx.fillText("• " + config, rightPanelX + 20, botConfigY);
+      ctx.fillText("• " + config, rightPanelX + 18, botConfigY);
       botConfigY += botConfigLineHeight;
     }
   }
