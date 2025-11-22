@@ -50,15 +50,14 @@ export async function createBotInfoImage(data) {
   const ctx = canvas.getContext("2d");
 
   const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-  bgGradient.addColorStop(0, "#0d1829");
-  bgGradient.addColorStop(0.5, "#0a1420");
-  bgGradient.addColorStop(1, "#070f1a");
+  bgGradient.addColorStop(0, "#0f1a2e");
+  bgGradient.addColorStop(0.5, "#0c1624");
+  bgGradient.addColorStop(1, "#09111d");
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, width, height);
 
   const boxPadding = 40;
   const boxWidth = width - (boxPadding * 2);
-  const labelColor = "#A8E6A3";
   const valueColor = "#FFFFFF";
 
   const headerY = 40;
@@ -66,10 +65,10 @@ export async function createBotInfoImage(data) {
   
   ctx.save();
   drawRoundedBox(ctx, boxPadding, headerY, boxWidth, headerHeight, 30);
-  ctx.fillStyle = "rgba(20, 30, 48, 0.7)";
+  ctx.fillStyle = "rgba(15, 25, 45, 0.6)";
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(100, 200, 150, 0.15)";
+  ctx.strokeStyle = "rgba(79, 209, 197, 0.2)";
   ctx.stroke();
   ctx.restore();
 
@@ -93,8 +92,8 @@ export async function createBotInfoImage(data) {
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
       ctx.lineWidth = 4;
-      ctx.strokeStyle = "rgba(100, 200, 150, 0.8)";
-      ctx.shadowColor = "rgba(100, 200, 150, 0.5)";
+      ctx.strokeStyle = "rgba(79, 209, 197, 0.8)";
+      ctx.shadowColor = "rgba(79, 209, 197, 0.5)";
       ctx.shadowBlur = 20;
       ctx.stroke();
       ctx.clip();
@@ -103,7 +102,7 @@ export async function createBotInfoImage(data) {
     } catch (e) {}
   }
 
-  const headerInfoX = 420;
+  const headerInfoX = 320;
   let headerInfoY = headerY + 180;
   const headerLineH = 50;
 
@@ -117,12 +116,12 @@ export async function createBotInfoImage(data) {
   ctx.textAlign = "left";
   headerFields.forEach(field => {
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = labelColor;
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(`${field.icon}`, headerInfoX, headerInfoY);
     
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = labelColor;
-    ctx.fillText(field.label, headerInfoX + 60, headerInfoY);
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
+    ctx.fillText(field.label, headerInfoX + 50, headerInfoY);
     
     ctx.textAlign = "right";
     ctx.fillStyle = valueColor;
@@ -137,9 +136,9 @@ export async function createBotInfoImage(data) {
 
   ctx.save();
   drawRoundedBox(ctx, boxPadding, perfY, boxWidth, perfHeight, 30);
-  ctx.fillStyle = "rgba(20, 30, 48, 0.7)";
+  ctx.fillStyle = "rgba(15, 25, 45, 0.6)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(100, 200, 150, 0.15)";
+  ctx.strokeStyle = "rgba(79, 209, 197, 0.2)";
   ctx.stroke();
   ctx.restore();
 
@@ -162,12 +161,12 @@ export async function createBotInfoImage(data) {
 
   ctx.textAlign = "left";
   perfFields.forEach(f => {
-    ctx.font = "bold 30px BeVietnamPro";
-    ctx.fillStyle = labelColor;
+    ctx.font = "bold 32px BeVietnamPro";
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(f.label, leftLabelX, infoY);
     
     ctx.textAlign = "right";
-    ctx.font = "bold 30px BeVietnamPro";
+    ctx.font = "bold 32px BeVietnamPro";
     ctx.fillStyle = valueColor;
     ctx.fillText(f.value, width - boxPadding - 40, infoY);
     
@@ -176,8 +175,8 @@ export async function createBotInfoImage(data) {
   });
 
   infoY += 15;
-  ctx.font = "bold 30px BeVietnamPro";
-  ctx.fillStyle = labelColor;
+  ctx.font = "bold 32px BeVietnamPro";
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("RAM Usage:", leftLabelX, infoY);
   
   ctx.textAlign = "right";
@@ -188,7 +187,7 @@ export async function createBotInfoImage(data) {
 
   infoY += 90;
   ctx.textAlign = "left";
-  ctx.fillStyle = labelColor;
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("Disk Usage:", leftLabelX, infoY);
   
   ctx.textAlign = "right";
@@ -202,9 +201,9 @@ export async function createBotInfoImage(data) {
 
   ctx.save();
   drawRoundedBox(ctx, boxPadding, netY, boxWidth, netHeight, 30);
-  ctx.fillStyle = "rgba(20, 30, 48, 0.7)";
+  ctx.fillStyle = "rgba(15, 25, 45, 0.6)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(100, 200, 150, 0.15)";
+  ctx.strokeStyle = "rgba(79, 209, 197, 0.2)";
   ctx.stroke();
   ctx.restore();
 
@@ -224,12 +223,12 @@ export async function createBotInfoImage(data) {
 
   ctx.textAlign = "left";
   netFields.forEach(f => {
-    ctx.font = "bold 30px BeVietnamPro";
-    ctx.fillStyle = labelColor;
+    ctx.font = "bold 32px BeVietnamPro";
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(f.label, leftLabelX, netInfoY);
     
     ctx.textAlign = "right";
-    ctx.font = "bold 30px BeVietnamPro";
+    ctx.font = "bold 32px BeVietnamPro";
     ctx.fillStyle = valueColor;
     ctx.fillText(f.value, width - boxPadding - 40, netInfoY);
     
