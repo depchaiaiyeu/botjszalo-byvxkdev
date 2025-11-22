@@ -5,7 +5,7 @@ import * as cv from "../utils/canvas/index.js";
 import { readGroupSettings } from "../utils/io-json.js";
 import { getBotId, isAdmin } from "../index.js";
 
-const blockedMembers = new Map();
+const recentMemberActions = new Map();
 const groupSettingsCache = new Map();
 
 async function sendGroupMessage(api, threadId, imagePath, messageText) {
@@ -20,7 +20,7 @@ async function sendGroupMessage(api, threadId, imagePath, messageText) {
       MessageType.GroupMessage
     );
   } catch (error) {
-    console.error("Lỗi khi gửi tin nhắn tới group:", error);
+    console.error(error);
   }
 }
 
@@ -34,7 +34,6 @@ function detectChangedSetting(oldSettings, newSettings) {
 }
 
 export async function groupEvents(api, event) {
-  console.log(event);
   const type = event.type;
   const { updateMembers } = event.data;
   const groupName = event.data.groupName;
@@ -56,6 +55,7 @@ export async function groupEvents(api, event) {
     if (updateMembers.length === 1) {
       const user = updateMembers[0];
       const userId = user.id;
+      const actionKey = `${threadId}_${userId}`;
       
       if (type === GroupEventType.JOIN && threadSettings.blackList && threadSettings.blackList[userId]) {
         const userInfo = await getUserInfoData(api, userId);
@@ -89,7 +89,7 @@ export async function groupEvents(api, event) {
             imagePath = await cv.createJoinRequestImage(userInfo, groupName, groupType, userActionName, isAdminBot);
           }
           break;
-      
+        
         case GroupEventType.JOIN:
           if (threadSettings.welcomeGroup) {
             imagePath = await cv.createWelcomeImage(userInfo, groupName, groupType, userActionName, isAdminBot);
@@ -103,18 +103,24 @@ export async function groupEvents(api, event) {
           break;
 
         case GroupEventType.REMOVE_MEMBER:
-          if (threadSettings.byeGroup && !blockedMembers.has(userId)) {
+          if (threadSettings.byeGroup) {
+            if (recentMemberActions.has(actionKey)) break;
+            
+            recentMemberActions.set(actionKey, Date.now());
+            setTimeout(() => recentMemberActions.delete(actionKey), 5000);
+
             imagePath = await cv.createKickImage(userInfo, groupName, groupType, userInfo.genderId, userActionName, isAdminBot);
           }
           break;
 
         case GroupEventType.BLOCK_MEMBER:
           if (threadSettings.byeGroup) {
-            blockedMembers.set(userId, Date.now());
+            if (recentMemberActions.has(actionKey)) break;
+
+            recentMemberActions.set(actionKey, Date.now());
+            setTimeout(() => recentMemberActions.delete(actionKey), 5000);
+
             imagePath = await cv.createBlockImage(userInfo, groupName, groupType, userInfo.genderId, userActionName, isAdminBot);
-            setTimeout(() => {
-              blockedMembers.delete(userId);
-            }, 1000);
           }
           break;
 
