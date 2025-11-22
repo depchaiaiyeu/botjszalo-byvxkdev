@@ -50,10 +50,7 @@ export async function handleKick(api, message, groupInfo) {
         UserDataMentions.push(userInfo);
       }
     } catch (error) {
-      console.error(
-        ` Không lấy được thông tin cho người dùng ${mention.uid}:`,
-        error
-      );
+      console.error(error);
     }
   }
 
@@ -73,31 +70,42 @@ export async function handleKick(api, message, groupInfo) {
       return;
     }
 
+    const imagePaths = [];
+    const successNames = [];
+
     for (const userInfo of UserDataMentions) {
-      let imagePath = null;
       try {
-        imagePath = await cv.createKickImage(
+        const imagePath = await cv.createKickImage(
           userInfo,
           groupName,
           groupInfo.type,
           userInfo.genderId,
           senderName
         );
-
-        const kickMessage = {
-          msg: "",
-          attachments: imagePath ? [imagePath] : [],
-        };
-
-        await api.sendMessage(kickMessage, threadId, MessageType.GroupMessage);
+        if (imagePath) imagePaths.push(imagePath);
+        successNames.push(userInfo.name);
       } catch (error) {
-        console.error("Lỗi khi tạo và gửi ảnh kết quả:", error);
-      } finally {
-        await cv.clearImagePath(imagePath);
+        console.error(error);
       }
     }
+
+    const msg = `Đã Kick thành công người dùng:\n >> ${successNames.join(", ")}`;
+
+    await api.sendMessage(
+      {
+        msg: msg,
+        attachments: imagePaths,
+      },
+      threadId,
+      MessageType.GroupMessage
+    );
+
+    for (const path of imagePaths) {
+      await cv.clearImagePath(path);
+    }
+
   } catch (error) {
-    console.error("Chắc Chắn Là Đã Có Lỗi Gì Đó :D", error);
+    console.error(error);
     await sendMessageWarning(
       api,
       message,
@@ -141,10 +149,7 @@ export async function handleBlock(api, message, groupInfo) {
         UserDataMentions.push(userInfo);
       }
     } catch (error) {
-      console.error(
-        `Không lấy thông tin cho người dùng ${mention.uid}:`,
-        error
-      );
+      console.error(error);
     }
   }
 
@@ -164,31 +169,42 @@ export async function handleBlock(api, message, groupInfo) {
       return;
     }
 
+    const imagePaths = [];
+    const successNames = [];
+
     for (const userInfo of UserDataMentions) {
-      let imagePath = null;
       try {
-        imagePath = await cv.createBlockImage(
+        const imagePath = await cv.createBlockImage(
           userInfo,
           groupName,
           groupInfo.type,
           userInfo.genderId,
           senderName
         );
-
-        const blockMessage = {
-          msg: "",
-          attachments: imagePath ? [imagePath] : [],
-        };
-
-        await api.sendMessage(blockMessage, threadId, message.type);
+        if (imagePath) imagePaths.push(imagePath);
+        successNames.push(userInfo.name);
       } catch (error) {
-        console.error("Lỗi khi tạo và gửi ảnh kết quả:", error);
-      } finally {
-        await cv.clearImagePath(imagePath);
+        console.error(error);
       }
     }
+
+    const msg = `Đã Block thành công người dùng:\n >> ${successNames.join(", ")}`;
+
+    await api.sendMessage(
+      {
+        msg: msg,
+        attachments: imagePaths,
+      },
+      threadId,
+      message.type
+    );
+
+    for (const path of imagePaths) {
+      await cv.clearImagePath(path);
+    }
+
   } catch (error) {
-    console.error("Chắc Chắn Là Đã Có Lỗi Gì Đó :D", error);
+    console.error(error);
     await sendMessageWarning(
       api,
       message,
