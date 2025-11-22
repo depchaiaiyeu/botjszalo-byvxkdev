@@ -43,14 +43,6 @@ function drawProgressBar(ctx, x, y, width, height, percentage, color) {
   }
 }
 
-function formatUptimeOS(seconds) {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${days} ngày, ${hours} giờ, ${minutes} phút, ${secs} giây`;
-}
-
 export async function createBotInfoImage(data) {
   const width = 1200;
   const height = 1500;
@@ -99,7 +91,7 @@ export async function createBotInfoImage(data) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 8;
       ctx.strokeStyle = "rgba(79, 209, 197, 0.8)";
       ctx.shadowColor = "rgba(79, 209, 197, 0.5)";
       ctx.shadowBlur = 20;
@@ -114,11 +106,9 @@ export async function createBotInfoImage(data) {
   let headerInfoY = headerY + 180;
   const headerLineH = 50;
 
-  const uptimeBotFormatted = formatUptimeOS(process.uptime());
-
   const headerFields = [
     { icon: "🔢", label: "Tên Đại Diện của Bot:", value: data.nameServer },
-    { icon: "🕒", label: "Thời gian hoạt động:", value: uptimeBotFormatted },
+    { icon: "🕒", label: "Thời gian hoạt động:", value: data.uptimeBot },
     { icon: "💾", label: "Bộ nhớ bot sử dụng:", value: data.memoryBot },
     { icon: "🤖", label: "Phiên bản vận hành:", value: data.botVersion }
   ];
