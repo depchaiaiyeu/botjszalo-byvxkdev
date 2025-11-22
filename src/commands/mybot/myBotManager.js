@@ -161,8 +161,7 @@ async function createGroupSettingsFile(botId) {
     const filePath = path.resolve(paths.myBotDataFolder, `group_settings_${botId}.json`);
     try {
         await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createAdminListFile(botId, adminId = null) {
@@ -170,24 +169,21 @@ async function createAdminListFile(botId, adminId = null) {
     try {
         const defaultAdmins = adminId ? [adminId.toString()] : [];
         await fs.writeFile(filePath, JSON.stringify(defaultAdmins, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createWebConfigFile(botId) {
     const filePath = path.resolve(paths.myBotJsonDataFolder, `web-config_${botId}.json`);
     try {
         await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createManagerBotFile(botId) {
     const filePath = path.resolve(paths.myBotJsonDataFolder, `manager-bot_${botId}.json`);
     try {
         await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createProphylacticFile(botId) {
@@ -201,16 +197,14 @@ async function createProphylacticFile(botId) {
             }
         };
         await fs.writeFile(filePath, JSON.stringify(defaultProphylactic, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createConfigFile(botId) {
     const filePath = path.resolve(paths.myBotDataFolder, `config_${botId}.json`);
     try {
         await fs.writeFile(filePath, JSON.stringify({}, null, 2));
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function createLogFiles(botId) {
@@ -228,13 +222,10 @@ async function createLogFiles(botId) {
         await fs.writeFile(logMessagePath, "", "utf-8");
         await fs.writeFile(logMessageJsonPath, "{}", "utf-8");
         await fs.writeFile(logManagerPath, "", "utf-8");
-    } catch (error) {
-    }
+    } catch (error) {}
 }
 
 async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent = null) {
-    console.log(`[MyBot] 🔧 Bắt đầu khởi tạo bot: ${botId}`);
-
     await ensureDirectories();
 
     const botConfig = {
@@ -247,10 +238,7 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
         processId: `mybot-${botId}`
     };
 
-    console.log(`[MyBot] 📦 Config tạo: ${JSON.stringify(botConfig, null, 2)}`);
-
     await saveBotConfig(botId, botConfig);
-
     await createGroupSettingsFile(botId);
     await createAdminListFile(botId, adminId);
     await createWebConfigFile(botId);
@@ -258,54 +246,31 @@ async function initializeBotFiles(botId, imei, cookie, adminId = null, userAgent
     await createProphylacticFile(botId);
     await createConfigFile(botId);
     await createLogFiles(botId);
-
-    console.log(`[MyBot] ✅ Khởi tạo bot ${botId} hoàn tất`);
 }
 
 function streamLogs(processName, botId, botName) {
-    console.log(`[MyBot] 📡 Đang tải 30 dòng log đầu tiên của: ${processName}`);
     const logStream = spawn('pm2', ['logs', processName, '--raw']);
-    let lineCount = 0;
-    const maxLines = 30;
-    
-    const killStream = () => {
-        try {
-            logStream.kill();
-            console.log(`[MyBot] 🛑 Đã dừng log stream cho ${processName}`);
-        } catch (e) {}
-    };
-
-    const timeout = setTimeout(() => {
-        killStream();
-    }, 10000);
 
     logStream.stdout.on('data', (data) => {
         const lines = data.toString().split('\n');
         for (const line of lines) {
-            if (line.trim() && lineCount < maxLines) {
+            if (line.trim()) {
                 process.stdout.write(`[ Logs • ${botName} ] ${line}\n`);
-                lineCount++;
             }
-        }
-        if (lineCount >= maxLines) {
-            clearTimeout(timeout);
-            killStream();
         }
     });
 
     logStream.stderr.on('data', (data) => {
         const lines = data.toString().split('\n');
         for (const line of lines) {
-            if (line.trim() && lineCount < maxLines) {
+            if (line.trim()) {
                 process.stderr.write(`[ ERROR • ${botName} ] ${line}\n`);
-                lineCount++;
             }
         }
     });
 }
 
 async function handleMyBotCreate(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot create`);
     const mentions = message.data.mentions;
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
@@ -396,25 +361,17 @@ async function handleMyBotCreate(api, message) {
         }
     }
 
-    console.log(`[MyBot] 👤 Bot ID: ${botId}`);
-    console.log(`[MyBot] 👤 Bot Name: ${botName}`);
-    console.log(`[MyBot] 🔑 IMEI: ${imei}`);
-
     try {
         const processName = `mybot-${botId}`;
         const indexPath = path.resolve("src/index.js");
 
         try {
-            console.log(`[MyBot] 🗑️ Xóa process cũ: ${processName}`);
             await execAsync(`pm2 delete ${processName}`);
-        } catch (err) {
-        }
+        } catch (err) {}
 
         await initializeBotFiles(botId, imei, cookie, null, null);
 
-        console.log(`[MyBot] 🚀 Khởi chạy PM2: pm2 start ${indexPath} --name "${processName}" -- ${botId}`);
         const { stdout } = await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
-        console.log(`[MyBot] ✅ PM2 stdout: ${stdout}`);
 
         await sendMessageComplete(api, message, `✅ Đã tạo bot cho ${botName} thành công.\n🆔 ID: ${botId}\n🚀 Bot đang khởi động...`);
 
@@ -427,7 +384,6 @@ async function handleMyBotCreate(api, message) {
 }
 
 async function listAllBots(api) {
-    console.log(`[MyBot] 📋 Liệt kê tất cả bot`);
     try {
         const files = await fs.readdir(paths.myBotDataDir);
         const bots = [];
@@ -450,8 +406,7 @@ async function listAllBots(api) {
                             if (userInfo && userInfo.name) {
                                 botName = userInfo.name;
                             }
-                        } catch (err) {
-                        }
+                        } catch (err) {}
                     }
                     bots.push({
                         uid: botId,
@@ -490,8 +445,6 @@ function getBotTarget(message, parts, botList) {
 }
 
 async function handleMyBotInfo(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot info`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
@@ -515,8 +468,12 @@ async function handleMyBotInfo(api, message) {
         const pm2Info = pm2Map.get(processName);
         
         const realStatus = pm2Info ? pm2Info.status : 'stopped';
-        // FIX: Không đồng bộ ngược status về config nữa để tránh tắt bot vĩnh viễn
-        
+        const isRunning = (realStatus === 'online' || realStatus === 'launching');
+        if (botConfig.isRunning !== isRunning) {
+            botConfig.isRunning = isRunning;
+            await saveBotConfig(botId, botConfig);
+        }
+
         const createdTime = new Date(botConfig.createdAt).toLocaleString("vi-VN");
         const expireInfo = formatRemainingTime(botConfig.expiresAt);
         const status = formatPm2Status(realStatus, botConfig.isRunning);
@@ -536,8 +493,6 @@ async function handleMyBotInfo(api, message) {
 }
 
 async function handleMyBotList(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot list`);
-
     try {
         const bots = await listAllBots(api);
         const pm2Map = await getPm2ProcessMap();
@@ -555,7 +510,12 @@ async function handleMyBotList(api, message) {
             const pm2Info = pm2Map.get(processName);
             
             const realStatus = pm2Info ? pm2Info.status : 'stopped';
-            // FIX: Không đồng bộ ngược status về config nữa
+            
+            const isRunning = (realStatus === 'online' || realStatus === 'launching');
+            if (bot.config.isRunning !== isRunning) {
+                bot.config.isRunning = isRunning;
+                await saveBotConfig(bot.uid, bot.config);
+            }
             
             const status = formatPm2Status(realStatus, bot.config.isRunning);
             const expireInfo = formatRemainingTime(bot.config.expiresAt);
@@ -575,8 +535,6 @@ async function handleMyBotList(api, message) {
 }
 
 async function handleMyBotAddTime(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot addtime`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     
@@ -631,8 +589,6 @@ async function handleMyBotAddTime(api, message) {
         }
 
         botConfig.expiresAt = newExpiresAt;
-        // Đảm bảo khi add time thì cũng đảm bảo nó đang ở chế độ "muốn chạy"
-        botConfig.isRunning = true;
         await saveBotConfig(botId, botConfig);
 
         const expirationInfo = newExpiresAt === -1 
@@ -666,21 +622,17 @@ async function deleteBotFiles(botId) {
     for (const filePath of filePaths) {
         try {
             await fs.unlink(filePath);
-        } catch (error) {
-        }
+        } catch (error) {}
     }
 
     for (const dirPath of dirs) {
         try {
             await fs.rm(dirPath, { recursive: true, force: true });
-        } catch (error) {
-        }
+        } catch (error) {}
     }
 }
 
 async function handleMyBotDelete(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot delete/remove`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
@@ -699,8 +651,7 @@ async function handleMyBotDelete(api, message) {
         
         try {
             await execAsync(`pm2 delete ${processName}`);
-        } catch (err) {
-        }
+        } catch (err) {}
 
         await deleteBotFiles(botId);
 
@@ -712,8 +663,6 @@ async function handleMyBotDelete(api, message) {
 }
 
 async function handleMyBotShutdown(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot shutdown`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
@@ -749,8 +698,6 @@ async function handleMyBotShutdown(api, message) {
 }
 
 async function handleMyBotActive(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot active`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
@@ -798,8 +745,6 @@ async function handleMyBotActive(api, message) {
 }
 
 async function handleMyBotRestart(api, message) {
-    console.log(`[MyBot] 📨 Nhận lệnh: mybot restart`);
-
     const content = removeMention(message);
     const parts = content.split(/\s+/).filter(p => p.trim());
     const botList = await listAllBots(api);
@@ -898,49 +843,6 @@ function getHelpMessage() {
 • 📝 Hiển thị tất cả bot trong hệ thống
 `;
 }
-
-// HÀM MONITOR MỚI THÊM VÀO ĐỂ FIX LỖI TỰ NGẮT
-async function autoBotMonitor() {
-    try {
-        const files = await fs.readdir(paths.myBotDataDir);
-        const pm2Map = await getPm2ProcessMap();
-        const indexPath = path.resolve("src/index.js");
-
-        for (const file of files) {
-            if (!file.endsWith(".json") || ["defaultCommand.json", "mybots.json"].includes(file)) continue;
-
-            const botId = file.replace(".json", "");
-            const botConfig = await getBotConfig(botId);
-            if (!botConfig) continue;
-
-            const processName = `mybot-${botId}`;
-            const pm2Info = pm2Map.get(processName);
-            const isPm2Online = pm2Info && (pm2Info.status === 'online' || pm2Info.status === 'launching');
-
-            const isExpired = botConfig.expiresAt !== -1 && botConfig.expiresAt < Date.now();
-
-            if (isExpired && isPm2Online) {
-                console.log(`[MyBot Monitor] ⏳ Bot ${botId} hết hạn. Đang dừng...`);
-                await execAsync(`pm2 stop ${processName}`);
-                botConfig.isRunning = false;
-                await saveBotConfig(botId, botConfig);
-                continue;
-            }
-
-            // NẾU CONFIG LÀ CHẠY, CÒN HẠN, MÀ PM2 OFF -> BẬT LẠI
-            if (!isExpired && botConfig.isRunning && !isPm2Online) {
-                console.log(`[MyBot Monitor] ⚠️ Bot ${botId} bị tắt đột ngột. Đang khởi động lại...`);
-                await execAsync(`pm2 start ${indexPath} --name "${processName}" --exp-backoff-restart-delay=100 -- ${botId}`);
-                console.log(`[MyBot Monitor] ✅ Đã khởi động lại bot ${botId}`);
-            }
-        }
-    } catch (error) {
-        console.error("[MyBot Monitor] Error:", error);
-    }
-}
-
-// Chạy mỗi 60s
-setInterval(autoBotMonitor, 60000);
 
 export async function handleMyBotCommands(api, message) {
     const prefix = getGlobalPrefix();
