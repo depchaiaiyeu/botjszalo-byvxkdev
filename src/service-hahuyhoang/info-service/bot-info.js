@@ -27,12 +27,8 @@ export async function getBotDetails(api, message) {
       si.processes()
     ]);
 
-    const uptimeSeconds = os.uptime();
-    const days = Math.floor(uptimeSeconds / 86400);
-    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-    const seconds = Math.floor(uptimeSeconds % 60);
-    const uptimeString = `${days} ngày, ${hours} giờ, ${minutes} phút, ${seconds} giây`;
+    const uptimeBotSeconds = process.uptime();
+    const uptimeBotString = formatUptimeOS(uptimeBotSeconds);
 
     const memUsed = process.memoryUsage().rss; 
     const totalMem = os.totalmem();
@@ -53,11 +49,11 @@ export async function getBotDetails(api, message) {
 
     const data = {
       botName: botInfo.name,
-      nameServer: nameServer || "Server Bot",
+      nameServer: nameServer || "VXK Bot Team",
       avatar: botInfo.avatar,
-      uptimeBot: uptimeString,
+      uptimeBot: uptimeBotString,
       memoryBot: `${(memUsed / 1024 / 1024).toFixed(2)} MB on ${(totalMem / 1024 / 1024).toFixed(2)} MB (Mem)`,
-      botVersion: `${botVersion} - Official Release`,
+      botVersion: `${botVersion}`,
       
       osInfo: osString,
       uptimeOS: formatUptimeOS(os.uptime()), 
