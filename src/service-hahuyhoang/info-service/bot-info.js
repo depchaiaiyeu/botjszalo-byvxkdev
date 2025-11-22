@@ -4,93 +4,104 @@ import disk from "diskusage";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { getBotId } from "../../index.js";
+import { getNameServer } from "../../database/index.js";
 import { getUserInfoData } from "./user-info.js";
 import { createBotInfoImage, clearImagePath } from "../../utils/canvas/index.js";
 
 export async function getBotDetails(api, message) {
   const threadId = message.threadId;
-  const uptime = getUptime();
-  const memoryUsage = getMemoryUsage();
-  const botVersion = getBotVersion();
   const botId = getBotId();
-
-  const botInfo = await getUserInfoData(api, botId);
-
-  const path = os.platform() === 'win32' ? 'C:' : '/';
-  const [cpuData, diskData] = await Promise.all([
-    si.currentLoad(),
-    disk.check(path)
-  ]);
-
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const usedRam = ((totalMem - freeMem) / 1024 / 1024 / 1024).toFixed(1);
-  const totalRam = (totalMem / 1024 / 1024 / 1024).toFixed(1);
-  const freeRam = (freeMem / 1024 / 1024 / 1024).toFixed(1);
-
-  const diskUsage = diskData ? `${((diskData.total - diskData.available) / 1024 / 1024 / 1024).toFixed(1)}GB `
-    + `/`
-    + ` ${(diskData.total / 1024 / 1024 / 1024).toFixed(1)}GB`
-    + ` (Free ${(diskData.available / 1024 / 1024 / 1024).toFixed(1)}GB)` : "N/A";
-
-  const botStats = {
-    version: botVersion,
-    os: getOsInfo(),
-    memoryUsage,
-    cpu: `${os.cpus().length} Cores - Utilization ${cpuData.currentLoad.toFixed(1)}% `,
-    ram: `${usedRam} GB / ${totalRam} GB (Free ${freeRam} GB)`,
-    cpuModel: os.cpus()[0].model,
-    disk: diskUsage,
-  };
-
-  let imagePath = null;
+  
   try {
-    imagePath = await createBotInfoImage(botInfo, uptime, botStats);
-    await api.sendMessage({ msg: "", attachments: [imagePath] }, threadId, message.type, 5000000);
-  } catch (error) {
-    console.error("Lỗi khi tạo hình ảnh thông tin bot:", error);
-  } finally {
+    const botInfo = await getUserInfoData(api, botId);
+    const botVersion = getBotVersion();
+    const nameServer = await getNameServer();
+    
+    const rootPath = os.platform() === 'win32' ? 'C:' : '/';
+    const [cpuData, diskData, memData, netStats, netInterfaces, processes] = await Promise.all([
+      si.currentLoad(),
+      disk.check(rootPath),
+      si.mem(),
+      si.networkStats(),
+      si.networkInterfaces(),
+      si.processes()
+    ]);
+
+    const uptimeSeconds = os.uptime();
+    const days = Math.floor(uptimeSeconds / 86400);
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const seconds = Math.floor(uptimeSeconds % 60);
+    const uptimeString = `${days} ngày, ${hours} giờ, ${minutes} phút, ${seconds} giây`;
+
+    const memUsed = process.memoryUsage().rss; 
+    const totalMem = os.totalmem();
+    const usedMemSystem = totalMem - os.freemem();
+    
+    const diskTotal = diskData.total;
+    const diskFree = diskData.available;
+    const diskUsed = diskTotal - diskFree;
+    const diskPercent = (diskUsed / diskTotal) * 100;
+
+    const defaultNet = netInterfaces.find(i => !i.internal && i.mac) || netInterfaces[0];
+    const mainNetStats = netStats.find(i => i.iface === defaultNet.iface) || netStats[0];
+
+    const osInfo = await si.osInfo();
+    const osString = `(${os.type()}) ${osInfo.distro} ${osInfo.release}`;
+
+    const ramPercent = (usedMemSystem / totalMem) * 100;
+
+    const data = {
+      botName: botInfo.name,
+      nameServer: nameServer || "Server Bot",
+      avatar: botInfo.avatar,
+      uptimeBot: uptimeString,
+      memoryBot: `${(memUsed / 1024 / 1024).toFixed(2)} MB on ${(totalMem / 1024 / 1024).toFixed(2)} MB (Mem)`,
+      botVersion: `${botVersion} - Official Release`,
+      
+      osInfo: osString,
+      uptimeOS: formatUptimeOS(os.uptime()), 
+      cpuModel: os.cpus()[0].model,
+      cpuUsage: `${os.cpus().length} Cores - Utilization ${cpuData.currentLoad.toFixed(1)}%`,
+      processes: `${processes.all} Processes | ${processes.running} Running | ${processes.blocked} Blocked`,
+      
+      ramText: `${(usedMemSystem / 1024 / 1024 / 1024).toFixed(1)} GB / ${(totalMem / 1024 / 1024 / 1024).toFixed(1)} GB (Free ${(os.freemem() / 1024 / 1024 / 1024).toFixed(1)} GB)`,
+      ramPercent: ramPercent,
+      
+      diskText: `${(diskUsed / 1024 / 1024 / 1024).toFixed(1)} GB / ${(diskTotal / 1024 / 1024 / 1024).toFixed(1)} GB (Free ${(diskFree / 1024 / 1024 / 1024).toFixed(1)} GB)`,
+      diskPercent: diskPercent,
+
+      netInterface: defaultNet.iface,
+      netDriver: defaultNet.name || "Virtual Adapter",
+      netProtocol: defaultNet.virtual ? "Giao Thức Mạng Ảo" : "IPv4/IPv6 Standard",
+      netType: `${defaultNet.type} | ${defaultNet.operstate === 'up' ? 'Kết Nối' : 'Ngắt'}`,
+      netTraffic: `${(mainNetStats.tx_bytes / 1024 / 1024 / 1024).toFixed(1)} GB (Sent) / ${(mainNetStats.rx_bytes / 1024 / 1024 / 1024).toFixed(1)} GB (Received)`
+    };
+
+    const imagePath = await createBotInfoImage(data);
+    await api.sendMessage({ msg: "", attachments: [imagePath] }, threadId, message.type, 50000);
+    
     if (imagePath) await clearImagePath(imagePath);
+
+  } catch (error) {
+    console.error("Lỗi getBotDetails:", error);
+    await api.sendMessage("❌ Lỗi khi lấy thông tin bot.", threadId);
   }
 }
 
-function getOsInfo() {
-  let typeOs = "Unknown";
-  switch (os.type()) {
-    case "Linux":
-      typeOs = "Linux";
-      break;
-    case "Darwin":
-      typeOs = "macOS";
-      break;
-    case "Windows_NT":
-      typeOs = "Windows";
-      break;
-  }
-  return `${typeOs} ${os.release()}`;
-}
-
-function getUptime() {
-  const uptimeInSeconds = process.uptime();
-  const days = Math.floor(uptimeInSeconds / 86400);
-  const hours = Math.floor((uptimeInSeconds % 86400) / 3600);
-  const minutes = Math.floor((uptimeInSeconds % 3600) / 60);
-  const seconds = Math.floor(uptimeInSeconds % 60);
-
-  return `${days} ngày, ${hours} giờ, ${minutes} phút, ${seconds} giây`;
-}
-
-function getMemoryUsage() {
-  const usedMem = process.memoryUsage().heapUsed;
-  return `${Math.round((usedMem / 1024 / 1024) * 100) / 100} MB`;
+function formatUptimeOS(seconds) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${days} ngày, ${hours} giờ, ${minutes} phút, ${secs} giây`;
 }
 
 function getBotVersion() {
   try {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
-    return packageJson.version || "Không xác định";
-  } catch (error) {
-    console.error("Lỗi khi đọc phiên bản bot:", error);
-    return "Không xác định";
+    return packageJson.version || "1.0.0";
+  } catch {
+    return "Unknown";
   }
 }
