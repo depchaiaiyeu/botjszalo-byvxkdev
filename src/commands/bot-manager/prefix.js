@@ -6,7 +6,7 @@ import { sendMessageFromSQL, sendMessageFailed, sendMessageQuery } from "../../s
 const commandConfigPath = path.join(process.cwd(), "assets", "json-data", "command.json")
 
 export async function handlePrefixCommand(api, message, threadId, isAdmin) {
-  const content = message.data.content.trim()
+  const content = message.data.content
   const currentPrefix = getGlobalPrefix()
   if (!content.startsWith(`${currentPrefix}prefix`) && !content.startsWith("prefix")) return false
   const args = content.slice(content.startsWith(currentPrefix) ? currentPrefix.length + 6 : 6).trim()
