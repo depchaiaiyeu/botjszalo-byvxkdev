@@ -43,6 +43,14 @@ function drawProgressBar(ctx, x, y, width, height, percentage, color) {
   }
 }
 
+function formatUptimeOS(seconds) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${days} ngày, ${hours} giờ, ${minutes} phút, ${secs} giây`;
+}
+
 export async function createBotInfoImage(data) {
   const width = 1200;
   const height = 1500;
@@ -83,15 +91,15 @@ export async function createBotInfoImage(data) {
 
   if (data.avatar) {
     try {
-      const avatarSize = 180;
-      const avatarX = boxPadding + 60;
-      const avatarY = headerY + 140;
+      const avatarSize = 160;
+      const avatarX = boxPadding + 40;
+      const avatarY = headerY + 150;
       const avatar = await loadImage(data.avatar);
       
       ctx.save();
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 6;
       ctx.strokeStyle = "rgba(79, 209, 197, 0.8)";
       ctx.shadowColor = "rgba(79, 209, 197, 0.5)";
       ctx.shadowBlur = 20;
@@ -102,30 +110,33 @@ export async function createBotInfoImage(data) {
     } catch (e) {}
   }
 
-  const headerInfoX = 320;
+  const headerInfoX = 280;
   let headerInfoY = headerY + 180;
   const headerLineH = 50;
 
+  const uptimeBotFormatted = formatUptimeOS(process.uptime());
+
   const headerFields = [
     { icon: "🔢", label: "Tên Đại Diện của Bot:", value: data.nameServer },
-    { icon: "🕒", label: "Thời gian hoạt động:", value: data.uptimeBot },
+    { icon: "🕒", label: "Thời gian hoạt động:", value: uptimeBotFormatted },
     { icon: "💾", label: "Bộ nhớ bot sử dụng:", value: data.memoryBot },
     { icon: "🤖", label: "Phiên bản vận hành:", value: data.botVersion }
   ];
 
   ctx.textAlign = "left";
   headerFields.forEach(field => {
-    ctx.font = "bold 28px BeVietnamPro";
+    ctx.font = "bold 26px BeVietnamPro";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(`${field.icon}`, headerInfoX, headerInfoY);
     
-    ctx.font = "bold 28px BeVietnamPro";
+    ctx.font = "bold 26px BeVietnamPro";
     ctx.fillStyle = cv.getRandomGradient(ctx, width);
-    ctx.fillText(field.label, headerInfoX + 50, headerInfoY);
+    ctx.fillText(field.label, headerInfoX + 45, headerInfoY);
     
     ctx.textAlign = "right";
+    ctx.font = "bold 26px BeVietnamPro";
     ctx.fillStyle = valueColor;
-    ctx.fillText(field.value, width - boxPadding - 40, headerInfoY);
+    ctx.fillText(field.value, width - boxPadding - 30, headerInfoY);
     ctx.textAlign = "left";
     
     headerInfoY += headerLineH;
