@@ -28,7 +28,7 @@ function drawProgressBar(ctx, x, y, width, height, percentage, color) {
   ctx.fill();
 
   if (percentage > 0) {
-    const fillWidth = Math.min(width, Math.max(height, (percentage / 100) * width));
+    const fillWidth = Math.max(height, (percentage / 100) * width);
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 15;
@@ -43,35 +43,33 @@ function drawProgressBar(ctx, x, y, width, height, percentage, color) {
   }
 }
 
-export async function createBotInfoImage(data) {
+export async function createBotInfoImage(botInfo, data) {
   const width = 1200;
-  const height = 1500;
+  const height = 1550; 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
   const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-  bgGradient.addColorStop(0, "#0B1021"); 
-  bgGradient.addColorStop(1, "#060810"); 
+  bgGradient.addColorStop(0, "#051937"); 
+  bgGradient.addColorStop(0.5, "#001f3f"); 
+  bgGradient.addColorStop(1, "#001220"); 
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, width, height);
 
   const boxPadding = 40;
   const boxWidth = width - (boxPadding * 2);
-  const labelColor = "#A0AEC0"; 
+  
   const valueColor = "#FFFFFF"; 
-  const accentColor1 = "#4FD1C5";
-  const accentColor2 = "#63B3ED"; 
-  const accentColor3 = "#F6AD55"; 
 
   const headerY = 40;
   const headerHeight = 380;
   
   ctx.save();
   drawRoundedBox(ctx, boxPadding, headerY, boxWidth, headerHeight, 30);
-  ctx.fillStyle = "rgba(20, 27, 45, 0.6)"; 
+  ctx.fillStyle = "rgba(16, 28, 48, 0.7)"; 
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(99, 179, 237, 0.1)"; 
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
   ctx.stroke();
   ctx.restore();
 
@@ -82,12 +80,12 @@ export async function createBotInfoImage(data) {
   
   ctx.font = "bold 32px BeVietnamPro";
   ctx.fillStyle = "#E2E8F0";
-  ctx.fillText(data.botName, width / 2, headerY + 120); 
+  ctx.fillText(data.botName, width / 2, headerY + 120);
 
   if (data.avatar) {
     try {
       const avatarSize = 180;
-      const avatarX = boxPadding + 60;
+      const avatarX = boxPadding + 50;
       const avatarY = headerY + 140;
       const avatar = await loadImage(data.avatar);
       
@@ -95,9 +93,7 @@ export async function createBotInfoImage(data) {
       ctx.beginPath();
       ctx.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI*2);
       ctx.lineWidth = 4;
-      ctx.strokeStyle = "rgba(99, 179, 237, 0.8)";
-      ctx.shadowColor = "rgba(99, 179, 237, 0.5)";
-      ctx.shadowBlur = 20;
+      ctx.strokeStyle = cv.getRandomGradient(ctx, width); 
       ctx.stroke();
       ctx.clip();
       ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
@@ -105,7 +101,7 @@ export async function createBotInfoImage(data) {
     } catch (e) {}
   }
 
-  const headerInfoX = 420;
+  const headerInfoX = 320; 
   let headerInfoY = headerY + 180;
   const headerLineH = 50;
 
@@ -119,14 +115,11 @@ export async function createBotInfoImage(data) {
   ctx.textAlign = "left";
   headerFields.forEach(field => {
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = accentColor1;
-    ctx.fillText(`${field.icon}`, headerInfoX, headerInfoY);
-    
-    ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = labelColor;
-    ctx.fillText(field.label, headerInfoX + 60, headerInfoY);
+    ctx.fillStyle = cv.getRandomGradient(ctx, width); 
+    ctx.fillText(`${field.icon}  ${field.label}`, headerInfoX, headerInfoY);
     
     ctx.textAlign = "right";
+    ctx.font = "bold 28px BeVietnamPro"; 
     ctx.fillStyle = valueColor;
     ctx.fillText(field.value, width - boxPadding - 40, headerInfoY);
     ctx.textAlign = "left";
@@ -135,13 +128,13 @@ export async function createBotInfoImage(data) {
   });
 
   const perfY = headerY + headerHeight + 30;
-  const perfHeight = 620;
+  const perfHeight = 640; 
 
   ctx.save();
   drawRoundedBox(ctx, boxPadding, perfY, boxWidth, perfHeight, 30);
-  ctx.fillStyle = "rgba(20, 27, 45, 0.6)";
+  ctx.fillStyle = "rgba(16, 28, 48, 0.7)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(104, 211, 145, 0.1)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
   ctx.stroke();
   ctx.restore();
 
@@ -165,7 +158,7 @@ export async function createBotInfoImage(data) {
   ctx.textAlign = "left";
   perfFields.forEach(f => {
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = "#81E6D9"; 
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(f.label, leftLabelX, infoY);
     
     ctx.textAlign = "right";
@@ -179,24 +172,26 @@ export async function createBotInfoImage(data) {
 
   infoY += 15;
   ctx.font = "bold 28px BeVietnamPro";
-  ctx.fillStyle = "#63B3ED"; 
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("RAM Usage:", leftLabelX, infoY);
   
   ctx.textAlign = "right";
   ctx.fillStyle = valueColor;
   ctx.fillText(data.ramText, width - boxPadding - 40, infoY);
   
+  // Thanh RAM dùng màu xanh dương
   drawProgressBar(ctx, leftLabelX, infoY + 20, boxWidth - 80, 20, data.ramPercent, "#63B3ED");
 
   infoY += 90;
   ctx.textAlign = "left";
-  ctx.fillStyle = "#68D391"; 
+  ctx.fillStyle = cv.getRandomGradient(ctx, width);
   ctx.fillText("Disk Usage:", leftLabelX, infoY);
   
   ctx.textAlign = "right";
   ctx.fillStyle = valueColor;
   ctx.fillText(data.diskText, width - boxPadding - 40, infoY);
   
+  // Thanh Disk dùng màu xanh lá
   drawProgressBar(ctx, leftLabelX, infoY + 20, boxWidth - 80, 20, data.diskPercent, "#68D391");
 
   const netY = perfY + perfHeight + 30;
@@ -204,9 +199,9 @@ export async function createBotInfoImage(data) {
 
   ctx.save();
   drawRoundedBox(ctx, boxPadding, netY, boxWidth, netHeight, 30);
-  ctx.fillStyle = "rgba(20, 27, 45, 0.6)";
+  ctx.fillStyle = "rgba(16, 28, 48, 0.7)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(159, 122, 234, 0.1)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
   ctx.stroke();
   ctx.restore();
 
@@ -227,7 +222,7 @@ export async function createBotInfoImage(data) {
   ctx.textAlign = "left";
   netFields.forEach(f => {
     ctx.font = "bold 28px BeVietnamPro";
-    ctx.fillStyle = "#B794F4"; 
+    ctx.fillStyle = cv.getRandomGradient(ctx, width);
     ctx.fillText(f.label, leftLabelX, netInfoY);
     
     ctx.textAlign = "right";
